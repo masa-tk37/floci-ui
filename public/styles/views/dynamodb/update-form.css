@@ -1,0 +1,27 @@
+.ddb-update-page__form {
+  max-width: 720px;
+}
+
+.ddb-update-page__form .query-form + .query-form {
+  margin-top: 1rem;
+}
+
+.ddb-update-page__capacity-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.ddb-update-page__capacity-grid > .form-row {
+  margin-bottom: 0;
+}
+
+.ddb-update-page__form-row--compact {
+  margin-bottom: 0;
+}
+
+@media (max-width: 700px) {
+  .ddb-update-page__capacity-grid {
+    grid-template-columns: 1fr;
+  }
+}

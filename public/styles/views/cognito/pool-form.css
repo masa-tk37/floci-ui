@@ -1,0 +1,41 @@
+.cognito-form-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.cognito-form-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem 1.25rem;
+}
+
+.cognito-form-page__checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.9rem;
+}
+
+.cognito-form-page__checkbox {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+}
+
+.cognito-form-page__checkbox input {
+  margin-top: 0.2rem;
+}
+
+.cognito-form-page__checkbox strong {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.cognito-form-page__mfa {
+  margin-top: 1rem;
+  max-width: 320px;
+}

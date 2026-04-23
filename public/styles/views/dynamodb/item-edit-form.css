@@ -1,0 +1,47 @@
+.ddb-item-edit-page__form {
+  max-width: 860px;
+}
+
+.ddb-item-edit-page__form .query-form + .query-form {
+  margin-top: 1rem;
+}
+
+.ddb-item-edit-page__section-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ddb-item-edit-page__key-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.ddb-item-edit-page__key-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+}
+
+.ddb-item-edit-page__key-label {
+  color: var(--color-text-muted);
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.ddb-item-edit-page__note {
+  margin-bottom: 0;
+  margin-top: 0.9rem;
+}
+
+.ddb-item-edit-page__editor-row {
+  margin-bottom: 0;
+}
+
+.ddb-item-edit-page__editor {
+  min-height: 420px;
+}

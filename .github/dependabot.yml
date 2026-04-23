@@ -1,0 +1,25 @@
+version: 2
+
+updates:
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      aws-sdk:
+        patterns:
+          - "@aws-sdk/*"
+      elysia:
+        patterns:
+          - "elysia"
+          - "@elysiajs/*"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

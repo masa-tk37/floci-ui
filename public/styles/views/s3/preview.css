@@ -1,0 +1,101 @@
+.s3-preview-page__panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-whisper);
+}
+
+.s3-preview-page__panel + .s3-preview-page__panel,
+.s3-preview-page__notice + .s3-preview-page__panel {
+  margin-top: 1rem;
+}
+
+.s3-preview-page__panel--text {
+  overflow-x: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: var(--color-text);
+}
+
+.s3-preview-page__panel--image {
+  display: flex;
+  justify-content: center;
+}
+
+.s3-preview-page__img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-lg);
+}
+
+.s3-preview-page__panel--binary {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.s3-preview-page__panel--pdf {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.s3-preview-page__pdf-status {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.s3-preview-page__pdf-status--error {
+  color: var(--color-danger);
+}
+
+.s3-preview-page__pdf-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.s3-preview-page__pdf-sheet {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  padding: 0.875rem;
+}
+
+.s3-preview-page__pdf-label {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+.s3-preview-page__pdf-page {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-whisper);
+  background: white;
+}
+
+.s3-preview-page__notice {
+  margin: 0 0 1rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.s3-preview-page__notice--warning {
+  background: var(--color-warm-sand);
+  border-color: var(--color-border-strong);
+}

@@ -1,0 +1,53 @@
+.ssm-parameter-form-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.ssm-parameter-form-page__value {
+  min-height: 220px;
+}
+
+.ssm-parameter-form-page__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.ssm-parameter-form-page__section-title {
+  margin-bottom: 0;
+}
+
+.ssm-parameter-form-page__empty {
+  margin-bottom: 0;
+}
+
+.ssm-parameter-form-page__tag-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.ssm-parameter-form-page__tag-remove {
+  margin-bottom: 1.25rem;
+}
+
+.ssm-parameter-form-page__success {
+  margin-top: 0.75rem;
+  border-color: rgba(127, 199, 154, 0.4);
+  background: rgba(127, 199, 154, 0.14);
+  color: #3f7b56;
+}
+
+@media (max-width: 720px) {
+  .ssm-parameter-form-page__tag-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ssm-parameter-form-page__tag-remove {
+    margin-bottom: 0;
+  }
+}

@@ -1,0 +1,25 @@
+services:
+  floci:
+    image: hectorvent/floci:latest
+    container_name: floci
+    ports:
+      - "4566:4566"
+
+  floci-ui:
+    build:
+      context: .
+      target: development
+    container_name: floci-ui
+    ports:
+      - "3000:3000"
+    environment:
+      FLOCI_ENDPOINT: http://floci:4566
+      FLOCI_DEFAULT_REGION: ${FLOCI_DEFAULT_REGION:-us-east-1}
+      FLOCI_DEFAULT_ACCOUNT_ID: ${FLOCI_DEFAULT_ACCOUNT_ID:-000000000000}
+      PORT: "3000"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./tsconfig.json:/app/tsconfig.json:ro
+    depends_on:
+      - floci
