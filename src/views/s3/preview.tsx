@@ -44,9 +44,16 @@ window.addEventListener('load', async () => {
     const pdf = await window.pdfjsLib.getDocument(${JSON.stringify(downloadHref)}).promise
     statusEl.textContent = pdf.numPages + ' ページを読み込みました'
 
+    const outputScale = window.devicePixelRatio || 1
+    const containerWidth = pagesEl.clientWidth || 960
+    const MAX_CSS_SCALE = 2.0
+
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber)
-      const viewport = page.getViewport({ scale: 1.25 })
+      const baseViewport = page.getViewport({ scale: 1 })
+      const cssScale = Math.min(containerWidth / baseViewport.width, MAX_CSS_SCALE)
+      const cssViewport = page.getViewport({ scale: cssScale })
+
       const canvas = document.createElement('canvas')
       const context = canvas.getContext('2d')
 
@@ -54,8 +61,10 @@ window.addEventListener('load', async () => {
         throw new Error('Canvas rendering is unavailable')
       }
 
-      canvas.width = viewport.width
-      canvas.height = viewport.height
+      canvas.width = Math.floor(cssViewport.width * outputScale)
+      canvas.height = Math.floor(cssViewport.height * outputScale)
+      canvas.style.width = Math.floor(cssViewport.width) + 'px'
+      canvas.style.height = Math.floor(cssViewport.height) + 'px'
       canvas.className = 's3-preview-page__pdf-page'
 
       const section = document.createElement('section')
@@ -69,7 +78,8 @@ window.addEventListener('load', async () => {
       section.appendChild(canvas)
       pagesEl.appendChild(section)
 
-      await page.render({ canvasContext: context, viewport }).promise
+      const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null
+      await page.render({ canvasContext: context, viewport: cssViewport, transform }).promise
     }
   } catch (error) {
     statusEl.textContent =
