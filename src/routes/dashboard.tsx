@@ -1,6 +1,5 @@
-import { Html } from "@elysiajs/html"
+import html, { Html } from "@elysiajs/html"
 import { Elysia } from "elysia"
-import html from "@elysiajs/html"
 import { FLOCI_ENDPOINT } from "../infrastructure/floci-clients"
 import { loadDashboardData } from "../services/dashboard-service"
 import { Dashboard } from "../views/dashboard"

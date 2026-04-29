@@ -2,8 +2,8 @@ import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import { S3Client } from "@aws-sdk/client-s3"
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager"
-import { SSMClient } from "@aws-sdk/client-ssm"
 import { SQSClient } from "@aws-sdk/client-sqs"
+import { SSMClient } from "@aws-sdk/client-ssm"
 
 export const FLOCI_ENDPOINT =
   process.env.FLOCI_ENDPOINT ?? "http://localhost:4566"

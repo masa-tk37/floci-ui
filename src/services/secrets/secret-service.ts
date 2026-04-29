@@ -4,10 +4,10 @@ import {
   DescribeSecretCommand,
   GetSecretValueCommand,
   ListSecretsCommand,
+  type Tag,
   TagResourceCommand,
   UntagResourceCommand,
   UpdateSecretCommand,
-  type Tag,
 } from "@aws-sdk/client-secrets-manager"
 import { ServiceError } from "../../errors"
 import { secretsManager } from "../../infrastructure/floci-clients"

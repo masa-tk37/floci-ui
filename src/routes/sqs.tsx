@@ -1,28 +1,27 @@
-import { Html } from "@elysiajs/html"
+import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
-import html from "@elysiajs/html"
+import { httpStatusFor, ServiceError } from "../errors"
+import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
 import {
-  listQueues,
   createQueue,
+  deleteMessage,
   deleteQueue,
+  getQueueAttributes,
   getQueueDetail,
   getQueueMessages,
-  getQueueAttributes,
   getQueueSettings,
-  updateQueueSettings,
-  sendMessage,
-  deleteMessage,
+  listQueues,
   purgeQueue,
+  sendMessage,
+  updateQueueSettings,
 } from "../services/sqs/queue-service"
-import { ServiceError, httpStatusFor } from "../errors"
-import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
-import { QueueList } from "../views/sqs/queue-list"
+import { CreateQueueForm } from "../views/sqs/create-form"
 import {
+  QueueAttributesCards,
   QueueDetail,
   QueueMessagesTable,
-  QueueAttributesCards,
 } from "../views/sqs/queue-detail"
-import { CreateQueueForm } from "../views/sqs/create-form"
+import { QueueList } from "../views/sqs/queue-list"
 import { SQSSettingsForm } from "../views/sqs/settings-form"
 
 export const sqsRoutes = new Elysia({ prefix: "/sqs" })

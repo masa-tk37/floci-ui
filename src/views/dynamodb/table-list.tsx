@@ -1,7 +1,6 @@
 import { Html } from "@elysiajs/html"
-
+import { IconPlus, IconSearch, IconSettings, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
-import { IconSearch, IconSettings, IconTrash, IconPlus } from "../icons"
 
 interface TableListProps {
   tables: string[]

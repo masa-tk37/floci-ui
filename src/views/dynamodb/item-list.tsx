@@ -1,7 +1,6 @@
 import { Html } from "@elysiajs/html"
-
-import { Layout, type SidebarCounts } from "../layout"
 import { IconSearch, IconSettings } from "../icons"
+import { Layout, type SidebarCounts } from "../layout"
 
 interface ItemListProps {
   tableName: string

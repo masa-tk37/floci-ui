@@ -1,25 +1,25 @@
 import {
-  ListQueuesCommand,
-  GetQueueAttributesCommand,
   CreateQueueCommand,
+  DeleteMessageCommand,
   DeleteQueueCommand,
+  GetQueueAttributesCommand,
+  ListQueuesCommand,
+  ListQueueTagsCommand,
+  PurgeQueueCommand,
   ReceiveMessageCommand,
   SendMessageCommand,
-  DeleteMessageCommand,
-  PurgeQueueCommand,
   SetQueueAttributesCommand,
   TagQueueCommand,
-  ListQueueTagsCommand,
 } from "@aws-sdk/client-sqs"
-import {
-  sqs,
-  FLOCI_ENDPOINT,
-  FLOCI_ACCOUNT_ID,
-} from "../../infrastructure/floci-clients"
 import { ServiceError, toOperationFailed } from "../../errors"
+import {
+  FLOCI_ACCOUNT_ID,
+  FLOCI_ENDPOINT,
+  sqs,
+} from "../../infrastructure/floci-clients"
 import type {
-  QueueAttributes,
   PeekedMessage,
+  QueueAttributes,
 } from "../../views/sqs/queue-detail"
 import type { SQSSettingsInitial } from "../../views/sqs/settings-form-state"
 import { queueNameFromUrl } from "./queue-utils"

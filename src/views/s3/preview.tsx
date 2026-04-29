@@ -1,6 +1,6 @@
 import { Html } from "@elysiajs/html"
 
-import { Layout } from "../layout"
+import { Layout, type SidebarCounts } from "../layout"
 
 type PreviewMode = "text" | "image" | "pdf" | "binary"
 
@@ -11,6 +11,7 @@ interface PreviewProps {
   mode: PreviewMode
   text?: string
   truncated?: boolean
+  sidebarCounts?: SidebarCounts
 }
 
 function parentPrefix(key: string): string {
@@ -86,6 +87,7 @@ export function Preview({
   mode,
   text,
   truncated,
+  sidebarCounts,
 }: PreviewProps) {
   const bucketPath = `/s3/${encodeURIComponent(bucket)}`
   const parent = parentPrefix(objectKey)
@@ -100,6 +102,7 @@ export function Preview({
     <Layout
       title={`Preview · ${objectKey}`}
       active="s3"
+      sidebarCounts={sidebarCounts}
       crumbs={[
         { label: "S3", href: "/s3" },
         { label: bucket, href: bucketPath },

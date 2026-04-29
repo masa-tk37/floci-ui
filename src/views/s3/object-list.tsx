@@ -1,6 +1,4 @@
 import { Html } from "@elysiajs/html"
-
-import { Layout } from "../layout"
 import {
   IconFile,
   IconFolder,
@@ -8,6 +6,7 @@ import {
   IconPlus,
   IconSettings,
 } from "../icons"
+import { Layout } from "../layout"
 import { makeS3ObjectListAlpineState } from "./object-list-state"
 
 interface S3Object {

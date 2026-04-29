@@ -1,5 +1,5 @@
-import { describe, it, expect } from "bun:test"
-import { ServiceError, httpStatusFor } from "./errors"
+import { describe, expect, it } from "bun:test"
+import { httpStatusFor, ServiceError } from "./errors"
 
 describe("ServiceError", () => {
   it("should extend Error", () => {

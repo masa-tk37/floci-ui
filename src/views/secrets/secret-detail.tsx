@@ -2,9 +2,9 @@ import { Html } from "@elysiajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import type { SecretDetail as SecretDetailData } from "../../services/secrets/secret-service"
+import { formatDate } from "../format"
 import { IconEdit, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
-import { formatDate } from "../format"
 
 interface SecretDetailProps {
   detail: SecretDetailData

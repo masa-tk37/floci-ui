@@ -1,13 +1,13 @@
-import { Elysia } from "elysia"
 import html from "@elysiajs/html"
 import { staticPlugin } from "@elysiajs/static"
+import { Elysia } from "elysia"
+import { cognitoRoutes } from "./routes/cognito"
 import { dashboardRoutes } from "./routes/dashboard"
 import { dynamodbRoutes } from "./routes/dynamodb"
-import { cognitoRoutes } from "./routes/cognito"
-import { secretsRoutes } from "./routes/secrets"
 import { s3Routes } from "./routes/s3"
-import { ssmRoutes } from "./routes/ssm"
+import { secretsRoutes } from "./routes/secrets"
 import { sqsRoutes } from "./routes/sqs"
+import { ssmRoutes } from "./routes/ssm"
 
 const port = Number(process.env.PORT ?? 3000)
 

@@ -1,24 +1,23 @@
-import { Html } from "@elysiajs/html"
-import html from "@elysiajs/html"
+import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
-import { respondWithError } from "./route-utils"
 import {
   decodeResourceName,
   encodeResourceName,
 } from "../infrastructure/resource-name-codec"
-import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
 import {
+  type CreateSecretInput,
   createSecret,
   deleteSecret,
   getSecretDetail,
   listSecrets,
-  updateSecret,
-  type CreateSecretInput,
   type UpdateSecretInput,
+  updateSecret,
 } from "../services/secrets/secret-service"
+import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
 import { SecretDetail } from "../views/secrets/secret-detail"
 import { SecretForm } from "../views/secrets/secret-form"
 import { SecretList } from "../views/secrets/secret-list"
+import { respondWithError } from "./route-utils"
 
 export const secretsRoutes = new Elysia({ prefix: "/secrets" })
   .use(html())

@@ -1,37 +1,37 @@
+import { posix as path } from "node:path"
 import {
-  ListBucketsCommand,
+  CopyObjectCommand,
   CreateBucketCommand,
   DeleteBucketCommand,
   DeleteBucketCorsCommand,
   DeleteBucketEncryptionCommand,
   DeleteBucketLifecycleCommand,
-  ListObjectsV2Command,
-  GetObjectCommand,
-  HeadObjectCommand,
-  type HeadObjectCommandOutput,
   DeleteObjectCommand,
   DeleteObjectsCommand,
-  CopyObjectCommand,
-  PutObjectCommand,
-  PutBucketVersioningCommand,
-  PutBucketEncryptionCommand,
-  PutBucketTaggingCommand,
-  PutPublicAccessBlockCommand,
-  PutBucketOwnershipControlsCommand,
-  PutBucketCorsCommand,
-  PutBucketLifecycleConfigurationCommand,
-  GetBucketVersioningCommand,
-  GetBucketEncryptionCommand,
-  GetBucketTaggingCommand,
-  GetPublicAccessBlockCommand,
-  GetBucketOwnershipControlsCommand,
   GetBucketCorsCommand,
+  GetBucketEncryptionCommand,
   GetBucketLifecycleConfigurationCommand,
+  GetBucketOwnershipControlsCommand,
+  GetBucketTaggingCommand,
+  GetBucketVersioningCommand,
+  GetObjectCommand,
+  GetPublicAccessBlockCommand,
+  HeadObjectCommand,
+  type HeadObjectCommandOutput,
+  ListBucketsCommand,
+  ListObjectsV2Command,
+  PutBucketCorsCommand,
+  PutBucketEncryptionCommand,
+  PutBucketLifecycleConfigurationCommand,
+  PutBucketOwnershipControlsCommand,
+  PutBucketTaggingCommand,
+  PutBucketVersioningCommand,
+  PutObjectCommand,
+  PutPublicAccessBlockCommand,
 } from "@aws-sdk/client-s3"
 import mime from "mime-types"
-import { posix as path } from "node:path"
-import { s3 } from "../../infrastructure/floci-clients"
 import { ServiceError } from "../../errors"
+import { s3 } from "../../infrastructure/floci-clients"
 import type { S3SettingsInitial } from "../../views/s3/settings-form-state"
 
 const PREVIEW_TEXT_LIMIT = 50 * 1024

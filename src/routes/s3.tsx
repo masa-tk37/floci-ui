@@ -1,33 +1,32 @@
-import { Html } from "@elysiajs/html"
+import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
-import html from "@elysiajs/html"
+import { httpStatusFor, ServiceError } from "../errors"
 import {
-  listBuckets,
+  type BucketSettingsInput,
+  type CreateBucketOptions,
   createBucket,
-  deleteBucket,
-  getBucketSettings,
-  updateBucketSettings,
-  listObjects,
-  getObjectForDownload,
-  getObjectPreview,
-  getObjectDetails,
-  renameObject,
-  renameFolder,
-  updateObjectProperties,
   createFolderObject,
-  uploadObjects,
+  deleteBucket,
   deleteObject,
   deleteSelectedObjects,
-  type CreateBucketOptions,
-  type BucketSettingsInput,
+  getBucketSettings,
+  getObjectDetails,
+  getObjectForDownload,
+  getObjectPreview,
+  listBuckets,
+  listObjects,
+  renameFolder,
+  renameObject,
+  updateBucketSettings,
+  updateObjectProperties,
+  uploadObjects,
 } from "../services/s3/bucket-service"
-import { ServiceError, httpStatusFor } from "../errors"
 import { buildAttachmentContentDisposition } from "../services/s3/content-disposition"
 import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
 import { BucketList } from "../views/s3/bucket-list"
+import { CreateBucketForm } from "../views/s3/create-form"
 import { ObjectList } from "../views/s3/object-list"
 import { Preview } from "../views/s3/preview"
-import { CreateBucketForm } from "../views/s3/create-form"
 import { S3SettingsForm } from "../views/s3/settings-form"
 
 export const s3Routes = new Elysia({ prefix: "/s3" })
@@ -321,45 +320,19 @@ export const s3Routes = new Elysia({ prefix: "/s3" })
     const key = query.key
     if (!key) return new Response("Missing key", { status: 400 })
     try {
-      const result = await getObjectPreview(params.bucket, key)
-      if (result.mode === "text") {
-        return (
-          <Preview
-            bucket={params.bucket}
-            objectKey={key}
-            contentType={result.contentType}
-            mode="text"
-            text={result.text}
-            truncated={result.truncated}
-          />
-        )
-      }
-      if (result.mode === "image") {
-        return (
-          <Preview
-            bucket={params.bucket}
-            objectKey={key}
-            contentType={result.contentType}
-            mode="image"
-          />
-        )
-      }
-      if (result.mode === "pdf") {
-        return (
-          <Preview
-            bucket={params.bucket}
-            objectKey={key}
-            contentType={result.contentType}
-            mode="pdf"
-          />
-        )
-      }
+      const [result, sidebarData] = await Promise.all([
+        getObjectPreview(params.bucket, key),
+        loadSidebarSafe(),
+      ])
       return (
         <Preview
           bucket={params.bucket}
           objectKey={key}
           contentType={result.contentType}
-          mode="binary"
+          mode={result.mode}
+          text={result.text}
+          truncated={result.truncated}
+          sidebarCounts={toSidebarCounts(sidebarData)}
         />
       )
     } catch (e) {

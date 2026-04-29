@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach } from "bun:test"
+import { beforeEach, describe, expect, it, mock } from "bun:test"
 
 const mockSend = mock(() => Promise.resolve({}))
 mock.module("../../infrastructure/floci-clients", () => ({
@@ -11,14 +11,14 @@ mock.module("../../infrastructure/floci-clients", () => ({
 }))
 
 import {
-  listQueues,
   createQueue,
   deleteQueue,
   getQueueDetail,
   getQueueSettings,
-  updateQueueSettings,
-  sendMessage,
+  listQueues,
   purgeQueue,
+  sendMessage,
+  updateQueueSettings,
 } from "./queue-service"
 import { queueNameFromUrl } from "./queue-utils"
 

@@ -1,6 +1,6 @@
-import { describe, it, expect } from "bun:test"
-import { encodeCursor, decodeCursor } from "./cursor"
+import { describe, expect, it } from "bun:test"
 import type { AttributeValue } from "@aws-sdk/client-dynamodb"
+import { decodeCursor, encodeCursor } from "./cursor"
 
 describe("encodeCursor", () => {
   it("should return undefined for undefined input", () => {

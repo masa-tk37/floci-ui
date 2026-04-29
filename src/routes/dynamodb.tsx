@@ -1,28 +1,27 @@
-import { Html } from "@elysiajs/html"
-import { Elysia, t } from "elysia"
-import html from "@elysiajs/html"
 import type { BillingMode, StreamViewType } from "@aws-sdk/client-dynamodb"
+import html, { Html } from "@elysiajs/html"
+import { Elysia, t } from "elysia"
+import { httpStatusFor, ServiceError } from "../errors"
 import {
-  listTables,
-  getTableDetail,
-  createTable,
-  deleteTable,
-  updateTable,
-  scanItems,
-  queryItems,
-  getItem,
-  saveItem,
-  deleteItem,
   type CreateTableInput,
+  createTable,
+  deleteItem,
+  deleteTable,
+  getItem,
+  getTableDetail,
+  listTables,
+  queryItems,
+  saveItem,
+  scanItems,
+  updateTable,
 } from "../services/dynamodb/table-service"
-import { ServiceError, httpStatusFor } from "../errors"
 import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
-import { TableList } from "../views/dynamodb/table-list"
 import { CreateTableForm } from "../views/dynamodb/create-form"
-import { UpdateTableForm } from "../views/dynamodb/update-form"
-import { ItemList } from "../views/dynamodb/item-list"
 import { ItemEditForm } from "../views/dynamodb/item-edit-form"
+import { ItemList } from "../views/dynamodb/item-list"
 import { QueryBuilder } from "../views/dynamodb/query-builder"
+import { TableList } from "../views/dynamodb/table-list"
+import { UpdateTableForm } from "../views/dynamodb/update-form"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)

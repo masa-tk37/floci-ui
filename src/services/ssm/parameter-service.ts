@@ -4,9 +4,9 @@ import {
   DescribeParametersCommand,
   GetParameterCommand,
   ListTagsForResourceCommand,
+  type ParameterMetadata,
   PutParameterCommand,
   RemoveTagsFromResourceCommand,
-  type ParameterMetadata,
   type Tag,
 } from "@aws-sdk/client-ssm"
 import { ServiceError } from "../../errors"

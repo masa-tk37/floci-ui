@@ -1,7 +1,6 @@
 import { Html } from "@elysiajs/html"
-
+import { IconPlus, IconSettings, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
-import { IconSettings, IconTrash, IconPlus } from "../icons"
 
 interface Bucket {
   Name?: string

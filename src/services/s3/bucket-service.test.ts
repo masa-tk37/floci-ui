@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach } from "bun:test"
+import { beforeEach, describe, expect, it, mock } from "bun:test"
 
 const mockSend = mock(() => Promise.resolve({}))
 mock.module("../../infrastructure/floci-clients", () => ({
@@ -11,22 +11,22 @@ mock.module("../../infrastructure/floci-clients", () => ({
 }))
 
 import {
-  listBuckets,
   createBucket,
-  deleteBucket,
-  getBucketSettings,
-  updateBucketSettings,
-  listObjects,
-  getObjectForDownload,
-  getObjectPreview,
-  getObjectDetails,
-  renameObject,
-  renameFolder,
-  updateObjectProperties,
   createFolderObject,
-  uploadObjects,
+  deleteBucket,
   deleteObject,
   deleteSelectedObjects,
+  getBucketSettings,
+  getObjectDetails,
+  getObjectForDownload,
+  getObjectPreview,
+  listBuckets,
+  listObjects,
+  renameFolder,
+  renameObject,
+  updateBucketSettings,
+  updateObjectProperties,
+  uploadObjects,
 } from "./bucket-service"
 
 beforeEach(() => {

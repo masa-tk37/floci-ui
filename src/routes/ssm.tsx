@@ -1,24 +1,23 @@
-import { Html } from "@elysiajs/html"
-import html from "@elysiajs/html"
+import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
 import {
   decodeResourceName,
   encodeResourceName,
 } from "../infrastructure/resource-name-codec"
 import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
-import { respondWithError } from "./route-utils"
 import {
+  type CreateParameterInput,
   createParameter,
   deleteParameter,
   getParameterDetail,
   listParameters,
-  updateParameter,
-  type CreateParameterInput,
   type UpdateParameterInput,
+  updateParameter,
 } from "../services/ssm/parameter-service"
 import { ParameterDetail } from "../views/ssm/parameter-detail"
 import { ParameterForm } from "../views/ssm/parameter-form"
 import { ParameterList } from "../views/ssm/parameter-list"
+import { respondWithError } from "./route-utils"
 
 export const ssmRoutes = new Elysia({ prefix: "/ssm" })
   .use(html())

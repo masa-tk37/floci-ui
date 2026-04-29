@@ -1,29 +1,29 @@
 import {
-  ListTablesCommand,
-  DescribeTableCommand,
-  DescribeTimeToLiveCommand,
-  CreateTableCommand,
-  DeleteTableCommand,
-  UpdateTableCommand,
-  UpdateTimeToLiveCommand,
-  GetItemCommand,
-  PutItemCommand,
-  ScanCommand,
-  QueryCommand,
-  DeleteItemCommand,
   type AttributeDefinition,
-  type KeySchemaElement,
-  type GlobalSecondaryIndex,
-  type LocalSecondaryIndex,
-  type StreamSpecification,
   type AttributeValue,
   type BillingMode,
+  CreateTableCommand,
+  DeleteItemCommand,
+  DeleteTableCommand,
+  DescribeTableCommand,
+  DescribeTimeToLiveCommand,
+  GetItemCommand,
+  type GlobalSecondaryIndex,
+  type KeySchemaElement,
+  ListTablesCommand,
+  type LocalSecondaryIndex,
+  PutItemCommand,
+  QueryCommand,
+  ScanCommand,
+  type StreamSpecification,
   type StreamViewType,
+  UpdateTableCommand,
+  UpdateTimeToLiveCommand,
 } from "@aws-sdk/client-dynamodb"
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb"
-import { dynamodb } from "../../infrastructure/floci-clients"
 import { ServiceError, toOperationFailed } from "../../errors"
-import { encodeCursor, decodeCursor } from "./cursor"
+import { dynamodb } from "../../infrastructure/floci-clients"
+import { decodeCursor, encodeCursor } from "./cursor"
 
 const SCAN_PAGE_SIZE = 25
 

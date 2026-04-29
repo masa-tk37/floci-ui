@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach } from "bun:test"
+import { beforeEach, describe, expect, it, mock } from "bun:test"
 
 // Mock the dynamodb client before importing table-service
 const mockSend = mock(() => Promise.resolve({}))
@@ -12,17 +12,17 @@ mock.module("../../infrastructure/floci-clients", () => ({
 }))
 
 import {
-  listTables,
-  getTableDetail,
-  createTable,
-  deleteTable,
-  updateTable,
-  scanItems,
-  queryItems,
-  getItem,
-  saveItem,
-  deleteItem,
   clearKeyInfoCache,
+  createTable,
+  deleteItem,
+  deleteTable,
+  getItem,
+  getTableDetail,
+  listTables,
+  queryItems,
+  saveItem,
+  scanItems,
+  updateTable,
 } from "./table-service"
 
 beforeEach(() => {
