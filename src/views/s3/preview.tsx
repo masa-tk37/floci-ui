@@ -20,11 +20,11 @@ function parentPrefix(key: string): string {
 }
 
 const PDF_JS_URL =
-  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+  "https://cdn.jsdelivr.net/npm/pdfjs-dist@5.7.284/build/pdf.min.mjs"
 const PDF_JS_INTEGRITY =
-  "sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"
+  "sha384-Lu/+LFD+sBPeBR+46Ob8a/rd6aBbHktYM/B5wIPKkThU1sW5cY7EyGNX/LV5mv4A"
 const PDF_WORKER_URL =
-  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
+  "https://cdn.jsdelivr.net/npm/pdfjs-dist@5.7.284/build/pdf.worker.min.mjs"
 
 function makePdfPreviewScript(downloadHref: string): string {
   return `
@@ -129,7 +129,7 @@ export function Preview({
       stylesheets={["/public/styles/views/s3/preview.css"]}
       scripts={
         mode === "pdf"
-          ? [{ src: PDF_JS_URL, integrity: PDF_JS_INTEGRITY }]
+          ? [{ src: PDF_JS_URL, integrity: PDF_JS_INTEGRITY, module: true }]
           : undefined
       }
       inlineScripts={inlineScripts}

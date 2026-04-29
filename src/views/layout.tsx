@@ -25,8 +25,10 @@ export interface SidebarCounts {
   userPools: number
 }
 
-/** A script tag specification. Use the object form to add SRI integrity. */
-export type ScriptSpec = string | { src: string; integrity: string }
+/** A script tag specification. Use the object form to add SRI integrity or module type. */
+export type ScriptSpec =
+  | string
+  | { src: string; integrity?: string; module?: boolean }
 
 interface LayoutProps {
   title: string
@@ -178,13 +180,13 @@ export function Layout({
           if (typeof spec === "string") {
             return <script defer src={spec} />
           }
-          return (
-            <script
-              defer
-              src={spec.src}
-              integrity={spec.integrity}
-              crossorigin="anonymous"
-            />
+          const sri = spec.integrity
+            ? { integrity: spec.integrity, crossorigin: "anonymous" }
+            : {}
+          return spec.module ? (
+            <script type="module" src={spec.src} {...sri} />
+          ) : (
+            <script defer src={spec.src} {...sri} />
           )
         })}
       </head>
