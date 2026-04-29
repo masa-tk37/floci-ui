@@ -2,6 +2,10 @@
   margin-bottom: 0.75rem;
 }
 
+.send-form--modal {
+  padding: 0;
+}
+
 .sqs-queue-detail-page__message-id {
   font-size: 0.78rem;
   color: var(--color-text-muted);

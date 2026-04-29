@@ -31,7 +31,8 @@ export function toSidebarCounts(data: SidebarData | undefined) {
 export async function loadSidebarSafe(): Promise<SidebarData | undefined> {
   try {
     return await loadSidebar()
-  } catch {
+  } catch (e) {
+    console.error("[sidebar] failed to load:", e)
     return undefined
   }
 }

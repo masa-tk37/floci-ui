@@ -1,13 +1,14 @@
 import { Html } from "@elysiajs/html"
 
-import { Layout } from "../layout"
+import { Layout, type SidebarCounts } from "../layout"
 import { makeQueryBuilderAlpineState } from "./query-builder-state"
 
 interface QueryBuilderProps {
   tableName: string
+  sidebarCounts?: SidebarCounts
 }
 
-export function QueryBuilder({ tableName }: QueryBuilderProps) {
+export function QueryBuilder({ tableName, sidebarCounts }: QueryBuilderProps) {
   const tablePath = `/dynamodb/${encodeURIComponent(tableName)}`
   const alpineState = makeQueryBuilderAlpineState(tableName)
 
@@ -15,6 +16,7 @@ export function QueryBuilder({ tableName }: QueryBuilderProps) {
     <Layout
       title={`DynamoDB · ${tableName} · Query`}
       active="dynamodb"
+      sidebarCounts={sidebarCounts}
       crumbs={[
         { label: "DynamoDB", href: "/dynamodb" },
         { label: tableName, href: tablePath },

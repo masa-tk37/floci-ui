@@ -35,6 +35,8 @@ interface LayoutProps {
   active?: Service
   crumbs?: Crumb[]
   sidebarCounts?: SidebarCounts
+  mainClass?: string
+  contentClass?: string
   stylesheets?: string[]
   scripts?: ScriptSpec[]
   /**
@@ -142,11 +144,39 @@ function deleteModal() {
 }
 `
 
+const listFilterScript = `
+function listFilter() {
+  return {
+    query: '',
+    visibleCount: 0,
+    get normalizedQuery() {
+      return this.query.trim().toLowerCase()
+    },
+    get hasQuery() {
+      return this.normalizedQuery.length > 0
+    },
+    matches(value) {
+      if (!this.hasQuery) return true
+      return String(value || '').toLowerCase().includes(this.normalizedQuery)
+    },
+    update() {
+      const q = this.normalizedQuery
+      this.$nextTick(() => {
+        const rows = Array.from(this.$root.querySelectorAll('[data-filter-text]'))
+        this.visibleCount = rows.filter((row) => String(row.dataset.filterText || '').toLowerCase().includes(q)).length
+      })
+    },
+  }
+}
+`
+
 export function Layout({
   title,
   active,
   crumbs,
   sidebarCounts,
+  mainClass,
+  contentClass,
   stylesheets,
   scripts,
   inlineScripts,
@@ -192,7 +222,7 @@ export function Layout({
       </head>
       <body class="app" data-service={active}>
         <Sidebar active={active} counts={sidebarCounts} />
-        <div class="main">
+        <div class={mainClass ? `main ${mainClass}` : "main"}>
           <header class="toolbar">
             {crumbs && crumbs.length > 0 ? (
               <nav class="toolbar__breadcrumb">
@@ -209,7 +239,9 @@ export function Layout({
               <div class="toolbar__spacer" />
             )}
           </header>
-          <main class="content">{children}</main>
+          <main class={contentClass ? `content ${contentClass}` : "content"}>
+            {children}
+          </main>
         </div>
         <div
           x-data="deleteModal()"
@@ -279,6 +311,7 @@ export function Layout({
         </div>
         <script>{toastScript}</script>
         <script>{deleteModalScript}</script>
+        <script>{listFilterScript}</script>
         {inlineScripts?.map((script) => (
           <script>{script}</script>
         ))}

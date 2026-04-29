@@ -1,3 +1,89 @@
 .dashboard-page__note {
   font-size: 0.85rem;
 }
+
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.recent-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-whisper);
+}
+
+.recent-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+}
+
+.recent-card__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.recent-card__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.recent-card__actions .status-pill {
+  white-space: nowrap;
+}
+
+.recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.85rem;
+}
+
+.recent-item:last-child {
+  border-bottom: 0;
+}
+
+.recent-item__name {
+  color: var(--color-accent-hover);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.recent-item__name:hover {
+  color: var(--color-primary-ink);
+}
+
+.recent-item__meta {
+  font-size: 0.78rem;
+  color: var(--color-text-dim);
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+.view-all-link {
+  display: block;
+  text-align: center;
+  padding: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--color-text-dim);
+  margin-top: 0.5rem;
+}
+
+.view-all-link:hover {
+  color: var(--color-theme-hover);
+  text-decoration: none;
+}

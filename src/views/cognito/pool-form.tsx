@@ -1,6 +1,6 @@
 import { Html } from "@elysiajs/html"
 
-import { Layout } from "../layout"
+import { Layout, type SidebarCounts } from "../layout"
 import {
   makeUserPoolFormAlpineState,
   type UserPoolFormInitial,
@@ -8,15 +8,17 @@ import {
 
 interface UserPoolFormProps {
   init: UserPoolFormInitial
+  sidebarCounts?: SidebarCounts
 }
 
-export function UserPoolForm({ init }: UserPoolFormProps) {
+export function UserPoolForm({ init, sidebarCounts }: UserPoolFormProps) {
   const state = makeUserPoolFormAlpineState(init)
 
   return (
     <Layout
       title="User Pool を作成"
       active="cognito"
+      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/cognito/pool-form.css"]}
       crumbs={[
         { label: "Cognito", href: "/cognito" },

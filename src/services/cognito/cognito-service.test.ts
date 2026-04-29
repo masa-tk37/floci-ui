@@ -12,10 +12,13 @@ const {
   createUserPool,
   createUserPoolClient,
   deleteUser,
+  deleteUserPool,
+  deleteUserPoolClient,
   disableUser,
   enableUser,
   getUserDetail,
   getUserPoolDetail,
+  listUserPoolClients,
   listUserPools,
   listUsers,
   setUserPassword,
@@ -336,6 +339,70 @@ describe("setUserPassword", () => {
       Username: "alice",
       Password: "NewStrongPassw0rd!",
       Permanent: true,
+    })
+  })
+})
+
+describe("listUserPoolClients", () => {
+  it("returns sorted app clients for a pool", async () => {
+    sendMock.mockResolvedValueOnce({
+      UserPoolClients: [
+        { ClientId: "abc", ClientName: "ZApp" },
+        { ClientId: "xyz", ClientName: "AApp" },
+      ],
+    })
+    const result = await listUserPoolClients("pool-id")
+    expect(result).toHaveLength(2)
+    expect(result[0]).toMatchObject({ id: "xyz", name: "AApp" })
+    expect(result[1]).toMatchObject({ id: "abc", name: "ZApp" })
+  })
+
+  it("maps ResourceNotFoundException to NotFound", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("missing"), {
+        name: "ResourceNotFoundException",
+      }),
+    )
+    await expect(listUserPoolClients("pool-id")).rejects.toMatchObject({
+      code: "NotFound",
+    })
+  })
+})
+
+describe("deleteUserPoolClient", () => {
+  it("deletes the specified app client", async () => {
+    sendMock.mockResolvedValueOnce({})
+    await expect(
+      deleteUserPoolClient("pool-id", "client-id"),
+    ).resolves.toBeUndefined()
+  })
+
+  it("maps ResourceNotFoundException to NotFound", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("missing"), {
+        name: "ResourceNotFoundException",
+      }),
+    )
+    await expect(
+      deleteUserPoolClient("pool-id", "client-id"),
+    ).rejects.toMatchObject({ code: "NotFound" })
+  })
+})
+
+describe("deleteUserPool", () => {
+  it("deletes a user pool successfully", async () => {
+    sendMock.mockResolvedValueOnce({})
+    await expect(deleteUserPool("pool-id")).resolves.toBeUndefined()
+  })
+
+  it("maps ResourceNotFoundException to NotFound", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("missing"), {
+        name: "ResourceNotFoundException",
+      }),
+    )
+    await expect(deleteUserPool("pool-id")).rejects.toMatchObject({
+      code: "NotFound",
     })
   })
 })

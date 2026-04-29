@@ -1,5 +1,5 @@
 import { Html } from "@elysiajs/html"
-import { IconPlus, IconSettings, IconTrash } from "../icons"
+import { IconPlus, IconSearch, IconSettings, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
 
 interface Bucket {
@@ -29,7 +29,18 @@ export function BucketList({ buckets, sidebarCounts }: BucketListProps) {
       {buckets.length === 0 ? (
         <p class="empty-state">まだ Bucket がありません</p>
       ) : (
-        <>
+        <div x-data="listFilter()" x-init="update()" x-effect="update()">
+          <div class="list-toolbar">
+            <label class="list-filter">
+              <span class="list-filter__icon">{IconSearch}</span>
+              <input
+                type="search"
+                class="input list-filter__input"
+                placeholder="Bucket を検索"
+                {...{ "x-model.debounce.120ms": "query" }}
+              />
+            </label>
+          </div>
           <p class="list-count">{buckets.length} 件の Bucket</p>
           <div class="data-table-wrap">
             <table class="data-table">
@@ -43,7 +54,10 @@ export function BucketList({ buckets, sidebarCounts }: BucketListProps) {
                 {buckets.map((bucket) => {
                   const name = bucket.Name ?? ""
                   return (
-                    <tr>
+                    <tr
+                      data-filter-text={name}
+                      x-show="matches($el.dataset.filterText)"
+                    >
                       <td>
                         <a href={`/s3/${encodeURIComponent(name)}`} safe>
                           {name}
@@ -77,10 +91,15 @@ export function BucketList({ buckets, sidebarCounts }: BucketListProps) {
                     </tr>
                   )
                 })}
+                <tr x-show="hasQuery && visibleCount === 0" x-cloak>
+                  <td colspan={2} class="data-table__empty">
+                    一致する Bucket がありません
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
     </Layout>
   )

@@ -28,6 +28,7 @@ import { CreateBucketForm } from "../views/s3/create-form"
 import { ObjectList } from "../views/s3/object-list"
 import { Preview } from "../views/s3/preview"
 import { S3SettingsForm } from "../views/s3/settings-form"
+import { respondWithError } from "./route-utils"
 
 export const s3Routes = new Elysia({ prefix: "/s3" })
   .use(html())
@@ -43,8 +44,9 @@ export const s3Routes = new Elysia({ prefix: "/s3" })
       />
     )
   })
-  .get("/new", () => {
-    return <CreateBucketForm />
+  .get("/new", async () => {
+    const sidebarData = await loadSidebarSafe()
+    return <CreateBucketForm sidebarCounts={toSidebarCounts(sidebarData)} />
   })
   .post(
     "/bucket",
@@ -72,26 +74,33 @@ export const s3Routes = new Elysia({ prefix: "/s3" })
         } as CreateBucketOptions)
         return { success: true, warnings: result.warnings }
       } catch (e) {
-        if (e instanceof ServiceError) {
-          set.status = httpStatusFor(e.code)
-          return { error: e.message }
-        }
-        set.status = 500
-        return { error: "Internal server error" }
+        return respondWithError(e, set)
       }
     },
     { body: t.Any() },
   )
   .get("/:bucket/settings", async ({ params }) => {
-    const init = await getBucketSettings(params.bucket)
-    return <S3SettingsForm init={init} />
+    const [init, sidebarData] = await Promise.all([
+      getBucketSettings(params.bucket),
+      loadSidebarSafe(),
+    ])
+    return (
+      <S3SettingsForm
+        init={init}
+        sidebarCounts={toSidebarCounts(sidebarData)}
+      />
+    )
   })
   .post(
     "/:bucket/settings",
-    async ({ params, body }) => {
+    async ({ params, body, set }) => {
       const b = body as BucketSettingsInput
-      const result = await updateBucketSettings(params.bucket, b)
-      return { success: true, warnings: result.warnings }
+      try {
+        const result = await updateBucketSettings(params.bucket, b)
+        return { success: true, warnings: result.warnings }
+      } catch (e) {
+        return respondWithError(e, set)
+      }
     },
     { body: t.Any() },
   )
@@ -157,12 +166,7 @@ export const s3Routes = new Elysia({ prefix: "/s3" })
         )
         return { success: true, key: result.key }
       } catch (e) {
-        if (e instanceof ServiceError) {
-          set.status = httpStatusFor(e.code)
-          return { error: e.message }
-        }
-        set.status = 500
-        return { error: "Internal server error" }
+        return respondWithError(e, set)
       }
     },
     { body: t.Any() },
@@ -206,12 +210,7 @@ export const s3Routes = new Elysia({ prefix: "/s3" })
         )
         return { success: true, key: result.key }
       } catch (e) {
-        if (e instanceof ServiceError) {
-          set.status = httpStatusFor(e.code)
-          return { error: e.message }
-        }
-        set.status = 500
-        return { error: "Internal server error" }
+        return respondWithError(e, set)
       }
     },
     { body: t.Any() },
@@ -243,12 +242,7 @@ export const s3Routes = new Elysia({ prefix: "/s3" })
           prefix: result.prefix,
         }
       } catch (e) {
-        if (e instanceof ServiceError) {
-          set.status = httpStatusFor(e.code)
-          return { error: e.message }
-        }
-        set.status = 500
-        return { error: "Internal server error" }
+        return respondWithError(e, set)
       }
     },
     { body: t.Any() },
@@ -267,12 +261,7 @@ export const s3Routes = new Elysia({ prefix: "/s3" })
         )
         return { success: true, object: result }
       } catch (e) {
-        if (e instanceof ServiceError) {
-          set.status = httpStatusFor(e.code)
-          return { error: e.message }
-        }
-        set.status = 500
-        return { error: "Internal server error" }
+        return respondWithError(e, set)
       }
     },
     { body: t.Any() },
@@ -306,12 +295,7 @@ export const s3Routes = new Elysia({ prefix: "/s3" })
         }
         return { success: true, deletedCount: result.deletedCount }
       } catch (e) {
-        if (e instanceof ServiceError) {
-          set.status = httpStatusFor(e.code)
-          return { error: e.message }
-        }
-        set.status = 500
-        return { error: "Internal server error" }
+        return respondWithError(e, set)
       }
     },
     { body: t.Any() },
@@ -348,9 +332,11 @@ export const s3Routes = new Elysia({ prefix: "/s3" })
       listObjects(params.bucket, prefix),
       loadSidebarSafe(),
     ])
+    const buckets = (sidebarData?.buckets ?? []).map((name) => ({ Name: name }))
     return (
       <ObjectList
         bucket={params.bucket}
+        buckets={buckets}
         prefix={prefix}
         objects={result.objects.map((o) => ({
           Key: o.key,

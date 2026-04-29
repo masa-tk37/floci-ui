@@ -44,7 +44,8 @@ export const cognitoRoutes = new Elysia({ prefix: "/cognito" })
       />
     )
   })
-  .get("/new", () => {
+  .get("/new", async () => {
+    const sidebarData = await loadSidebarSafe()
     return (
       <UserPoolForm
         init={{
@@ -54,6 +55,7 @@ export const cognitoRoutes = new Elysia({ prefix: "/cognito" })
           autoVerifiedAttributes: [],
           mfaConfiguration: "OFF",
         }}
+        sidebarCounts={toSidebarCounts(sidebarData)}
       />
     )
   })

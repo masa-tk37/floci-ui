@@ -34,7 +34,8 @@ export const ssmRoutes = new Elysia({ prefix: "/ssm" })
       />
     )
   })
-  .get("/new", () => {
+  .get("/new", async () => {
+    const sidebarData = await loadSidebarSafe()
     return (
       <ParameterForm
         init={{
@@ -48,6 +49,7 @@ export const ssmRoutes = new Elysia({ prefix: "/ssm" })
           keyId: "",
           tags: [],
         }}
+        sidebarCounts={toSidebarCounts(sidebarData)}
       />
     )
   })
@@ -78,7 +80,10 @@ export const ssmRoutes = new Elysia({ prefix: "/ssm" })
     )
   })
   .get("/:id/edit", async ({ params }) => {
-    const detail = await getParameterDetail(decodeResourceName(params.id))
+    const [detail, sidebarData] = await Promise.all([
+      getParameterDetail(decodeResourceName(params.id)),
+      loadSidebarSafe(),
+    ])
 
     return (
       <ParameterForm
@@ -93,6 +98,7 @@ export const ssmRoutes = new Elysia({ prefix: "/ssm" })
           keyId: detail.keyId,
           tags: detail.tags,
         }}
+        sidebarCounts={toSidebarCounts(sidebarData)}
       />
     )
   })

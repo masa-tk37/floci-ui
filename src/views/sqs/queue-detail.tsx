@@ -1,7 +1,9 @@
 import { Html } from "@elysiajs/html"
 
-import { IconSettings } from "../icons"
+import { IconPlus, IconSettings } from "../icons"
 import { Layout } from "../layout"
+import { ResourceRail } from "../resource-rail"
+import type { QueueSummary } from "./queue-list"
 
 export interface QueueAttributes {
   depth: number
@@ -23,6 +25,7 @@ export interface PeekedMessage {
 
 interface QueueDetailProps {
   name: string
+  queues?: QueueSummary[]
   attributes: QueueAttributes
   messages: PeekedMessage[]
   sidebarCounts?: import("../layout").SidebarCounts
@@ -113,8 +116,7 @@ export function QueueMessagesTable({
             class="data-table__row data-table__row--clickable"
             data-msg-id={msg.messageId}
             data-msg-receipt={msg.receiptHandle ?? ""}
-            data-msg-body={msg.body}
-            onclick="document.dispatchEvent(new CustomEvent('open-message-modal',{detail:{id:this.dataset.msgId,receipt:this.dataset.msgReceipt,body:this.dataset.msgBody}}))"
+            onclick="document.dispatchEvent(new CustomEvent('open-message-modal',{detail:{id:this.dataset.msgId,receipt:this.dataset.msgReceipt}}))"
           >
             <td>
               <code class="code-inline" safe>
@@ -138,6 +140,7 @@ export function QueueMessagesTable({
 
 export function QueueDetail({
   name,
+  queues = [],
   attributes,
   messages,
   sidebarCounts,
@@ -156,9 +159,14 @@ export function QueueDetail({
       .catch(() => {});`
 
   const sendState = `{
-    body: '', groupId: '', deduplicationId: '', sending: false, lastId: '', error: '',
+    open: false, body: '', groupId: '', deduplicationId: '', sending: false, lastId: '', error: '',
     isFifo: ${isFifo},
     requiresDeduplicationId: ${isFifo && !attributes.contentBasedDeduplication},
+    close() {
+      if (this.sending) return;
+      this.open = false;
+      this.error = '';
+    },
     async send() {
       if (this.isFifo && !this.groupId) {
         this.error = 'FIFO queue では Message Group ID が必須です';
@@ -185,6 +193,7 @@ export function QueueDetail({
         this.groupId = '';
         this.deduplicationId = '';
         this.sending = false;
+        this.open = false;
         ${refreshFragments}
       } catch (e) {
         this.error = e.message || 'ネットワークエラー';
@@ -195,6 +204,8 @@ export function QueueDetail({
 
   const msgModalState = `{
     selectedMsg: null,
+    bodyLoading: false,
+    bodyError: '',
     deleting: false,
     deleteError: '',
     async deleteMsg() {
@@ -215,6 +226,24 @@ export function QueueDetail({
     }
   }`
 
+  const openMessageModalHandler = `selectedMsg = $event.detail; bodyLoading = true; bodyError = ''; deleteError = ''; deleting = false;
+    fetch('${queuePath}/messages/' + $event.detail.id + '/body')
+      .then(r => r.json())
+      .then(d => { if (d.body !== undefined) { selectedMsg = {...selectedMsg, body: d.body}; } else { bodyError = d.error || 'Failed to load'; } bodyLoading = false; })
+      .catch(() => { bodyError = 'Network error'; bodyLoading = false; })`
+  const queueRailItems = queues.map((queue) => ({
+    label: queue.name,
+    href: `/sqs/${encodeURIComponent(queue.name)}`,
+    active: queue.name === name,
+    filterText: `${queue.name} ${queue.dlqName ?? ""}`,
+    meta: (
+      <>
+        <span class="badge badge--depth">{queue.depth}</span>
+        {queue.dlqName ? <span class="badge badge--dlq">DLQ</span> : null}
+      </>
+    ),
+  }))
+
   return (
     <Layout
       title={`SQS · ${name}`}
@@ -224,190 +253,239 @@ export function QueueDetail({
         { label: name, href: queuePath },
       ]}
       sidebarCounts={sidebarCounts}
+      mainClass="main--resource-workspace"
+      contentClass="content--resource-workspace"
       stylesheets={["/public/styles/views/sqs/queue-detail.css"]}
     >
       <div class="sqs-queue-detail-page">
-        <section class="page-header page-header--row">
-          <div>
-            <h1 class="page-title">
-              <span safe>{name}</span>
-            </h1>
-            {attributes.queueArn ? (
-              <p class="page-subtitle" safe>
-                {attributes.queueArn}
-              </p>
-            ) : null}
-          </div>
-          <div class="page-header__actions">
-            <a href={`${queuePath}/settings`} class="btn btn--ghost btn--sm">
-              {IconSettings}設定
-            </a>
-          </div>
-        </section>
-
-        <section class="attr-grid" id="attr-grid">
-          <QueueAttributesCards attributes={attributes} />
-        </section>
-
-        <section class="panel">
-          <div class="panel__header">
-            <h2 class="panel__title">メッセージを送信</h2>
-          </div>
-          <form
-            class="send-form"
-            x-data={sendState}
-            {...{ "@submit.prevent": "send()" }}
-          >
-            <textarea
-              rows="5"
-              placeholder="Message body (text or JSON)"
-              required
-              x-model="body"
-              class="send-form__textarea"
+        <div class="resource-workspace sqs-queue-detail-page__workspace">
+          {queues.length > 0 ? (
+            <ResourceRail
+              title="Queues"
+              searchPlaceholder="Queue を検索"
+              items={queueRailItems}
+              emptyLabel="一致する Queue がありません"
             />
-            <template x-if="isFifo">
-              <div class="form-row sqs-queue-detail-page__group-row">
-                <label class="form-label" for="sqs-group-id">
-                  Message Group ID{" "}
-                  <span class="form-label__hint">(FIFO 必須)</span>
-                </label>
-                <input
-                  id="sqs-group-id"
-                  type="text"
-                  class="input"
-                  x-model="groupId"
-                  placeholder="my-group"
-                />
-              </div>
-            </template>
-            <template x-if="requiresDeduplicationId">
-              <div class="form-row sqs-queue-detail-page__group-row">
-                <label class="form-label" for="sqs-deduplication-id">
-                  Message Deduplication ID{" "}
-                  <span class="form-label__hint">
-                    (content-based dedup 無効時に必須)
-                  </span>
-                </label>
-                <input
-                  id="sqs-deduplication-id"
-                  type="text"
-                  class="input"
-                  x-model="deduplicationId"
-                  placeholder="my-dedup-id"
-                />
-              </div>
-            </template>
-            <div class="send-form__actions">
-              <button
-                type="submit"
-                class="btn btn--sqs"
-                {...{
-                  ":disabled":
-                    "sending || !body || (isFifo && !groupId) || (requiresDeduplicationId && !deduplicationId)",
-                }}
-              >
-                <span x-show="!sending">送信</span>
-                <span x-show="sending">送信中…</span>
-              </button>
-              <span class="send-form__feedback" x-show="lastId" x-cloak>
-                送信済み · <code x-text="lastId" />
-              </span>
-            </div>
-            <div class="error-inline" x-show="error" x-cloak>
-              <strong>エラー:</strong> <span x-text="error" />
-            </div>
-          </form>
-        </section>
+          ) : null}
 
-        <div
-          x-data={msgModalState}
-          {...{
-            "@open-message-modal.document":
-              'selectedMsg = $event.detail; deleteError = ""; deleting = false;',
-          }}
-        >
-          <section class="panel">
-            <div class="panel__header">
-              <h2 class="panel__title">メッセージをプレビュー</h2>
-              <div class="panel__actions" x-data="{ confirming: false }">
-                <button
-                  type="button"
-                  x-show="!confirming"
-                  {...{ "@click": "confirming = true" }}
-                  class="btn btn--danger-ghost btn--sm"
+          <div class="resource-main sqs-queue-detail-page__main">
+            <section class="page-header page-header--row">
+              <div>
+                <h1 class="page-title">
+                  <span safe>{name}</span>
+                </h1>
+                {attributes.queueArn ? (
+                  <p class="page-subtitle" safe>
+                    {attributes.queueArn}
+                  </p>
+                ) : null}
+              </div>
+              <div class="page-header__actions">
+                <a
+                  href={`${queuePath}/settings`}
+                  class="btn btn--ghost btn--sm"
                 >
-                  キューをパージ
-                </button>
-                <template x-if="confirming">
-                  <span class="confirm-inline">
-                    <span class="confirm-inline__text">
-                      全メッセージを削除しますか？
+                  {IconSettings}設定
+                </a>
+              </div>
+            </section>
+
+            <section class="attr-grid" id="attr-grid">
+              <QueueAttributesCards attributes={attributes} />
+            </section>
+
+            <div
+              x-data={msgModalState}
+              {...{
+                "@open-message-modal.document": openMessageModalHandler,
+              }}
+            >
+              <section class="panel" x-data={sendState}>
+                <div class="panel__header">
+                  <h2 class="panel__title">Messages</h2>
+                  <div class="panel__actions">
+                    <span class="send-form__feedback" x-show="lastId" x-cloak>
+                      送信済み · <code x-text="lastId" />
                     </span>
                     <button
                       type="button"
-                      class="btn btn--danger btn--sm"
-                      {...{
-                        "@click": `fetch('${queuePath}/messages', { method: 'DELETE' }).then(r => r.json()).then(() => location.reload())`,
-                      }}
+                      class="btn btn--sqs btn--sm"
+                      {...{ "@click": "open = true" }}
                     >
-                      パージ
+                      {IconPlus}送信
                     </button>
-                    <button
-                      type="button"
-                      class="btn btn--ghost btn--sm"
-                      {...{ "@click": "confirming = false" }}
-                    >
-                      キャンセル
-                    </button>
-                  </span>
-                </template>
-              </div>
-            </div>
-            <div id="messages-list-inner">
-              <QueueMessagesTable messages={messages} />
-            </div>
-          </section>
-
-          <template x-if="selectedMsg">
-            <div
-              class="modal-overlay"
-              {...{ "@click.self": "selectedMsg = null" }}
-            >
-              <div class="modal modal--wide">
-                <h2 class="modal__title">メッセージ詳細</h2>
-                <p class="sqs-queue-detail-page__message-id">
-                  ID: <span x-text="selectedMsg.id" />
-                </p>
-                <pre
-                  x-text="selectedMsg.body"
-                  class="sqs-queue-detail-page__message-body"
-                />
-                <div class="error-inline" x-show="deleteError" x-cloak>
-                  <strong>エラー:</strong> <span x-text="deleteError" />
+                    <span x-data="{ confirming: false }">
+                      <button
+                        type="button"
+                        x-show="!confirming"
+                        {...{ "@click": "confirming = true" }}
+                        class="btn btn--danger-ghost btn--sm"
+                      >
+                        キューをパージ
+                      </button>
+                      <template x-if="confirming">
+                        <span class="confirm-inline">
+                          <span class="confirm-inline__text">
+                            全メッセージを削除しますか？
+                          </span>
+                          <button
+                            type="button"
+                            class="btn btn--danger btn--sm"
+                            {...{
+                              "@click": `fetch('${queuePath}/messages', { method: 'DELETE' }).then(r => r.json()).then(() => location.reload())`,
+                            }}
+                          >
+                            パージ
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn--ghost btn--sm"
+                            {...{ "@click": "confirming = false" }}
+                          >
+                            キャンセル
+                          </button>
+                        </span>
+                      </template>
+                    </span>
+                  </div>
                 </div>
-                <div class="modal__actions">
-                  <button
-                    type="button"
-                    class="btn btn--danger-ghost"
+                <div id="messages-list-inner">
+                  <QueueMessagesTable messages={messages} />
+                </div>
+                <div
+                  x-show="open"
+                  class="modal-overlay"
+                  x-cloak
+                  {...{ "@click": "close()" }}
+                >
+                  <div
+                    class="modal modal--wide"
                     {...{
-                      "@click": "deleteMsg()",
-                      ":disabled": "deleting || !selectedMsg.receipt",
+                      "@click.stop": "",
+                      "@keydown.escape.window": "close()",
                     }}
                   >
-                    <span x-show="!deleting">削除</span>
-                    <span x-show="deleting">削除中…</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn--ghost"
-                    {...{ "@click": "selectedMsg = null" }}
-                  >
-                    閉じる
-                  </button>
+                    <h2 class="modal__title">メッセージを送信</h2>
+                    <form
+                      class="send-form send-form--modal"
+                      {...{ "@submit.prevent": "send()" }}
+                    >
+                      <textarea
+                        rows="6"
+                        placeholder="Message body (text or JSON)"
+                        required
+                        x-model="body"
+                        class="send-form__textarea"
+                      />
+                      <template x-if="isFifo">
+                        <div class="form-row sqs-queue-detail-page__group-row">
+                          <label class="form-label" for="sqs-group-id">
+                            Message Group ID{" "}
+                            <span class="form-label__hint">(FIFO 必須)</span>
+                          </label>
+                          <input
+                            id="sqs-group-id"
+                            type="text"
+                            class="input"
+                            x-model="groupId"
+                            placeholder="my-group"
+                          />
+                        </div>
+                      </template>
+                      <template x-if="requiresDeduplicationId">
+                        <div class="form-row sqs-queue-detail-page__group-row">
+                          <label class="form-label" for="sqs-deduplication-id">
+                            Message Deduplication ID{" "}
+                            <span class="form-label__hint">
+                              (content-based dedup 無効時に必須)
+                            </span>
+                          </label>
+                          <input
+                            id="sqs-deduplication-id"
+                            type="text"
+                            class="input"
+                            x-model="deduplicationId"
+                            placeholder="my-dedup-id"
+                          />
+                        </div>
+                      </template>
+                      <div class="error-inline" x-show="error" x-cloak>
+                        <strong>エラー:</strong> <span x-text="error" />
+                      </div>
+                      <div class="modal__actions">
+                        <button
+                          type="submit"
+                          class="btn btn--sqs"
+                          {...{
+                            ":disabled":
+                              "sending || !body || (isFifo && !groupId) || (requiresDeduplicationId && !deduplicationId)",
+                          }}
+                        >
+                          <span x-show="!sending">送信</span>
+                          <span x-show="sending">送信中…</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn--ghost"
+                          {...{ "@click": "close()", ":disabled": "sending" }}
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
-              </div>
+              </section>
+
+              <template x-if="selectedMsg">
+                <div
+                  class="modal-overlay"
+                  {...{ "@click.self": "selectedMsg = null" }}
+                >
+                  <div class="modal modal--wide">
+                    <h2 class="modal__title">メッセージ詳細</h2>
+                    <p class="sqs-queue-detail-page__message-id">
+                      ID: <span x-text="selectedMsg.id" />
+                    </p>
+                    <template x-if="bodyLoading">
+                      <p class="loading-text">Loading...</p>
+                    </template>
+                    <template x-if="bodyError">
+                      <p class="error-text" x-text="bodyError" />
+                    </template>
+                    <pre
+                      x-show="!bodyLoading && !bodyError"
+                      x-text="selectedMsg?.body ?? ''"
+                      class="sqs-queue-detail-page__message-body"
+                    />
+                    <div class="error-inline" x-show="deleteError" x-cloak>
+                      <strong>エラー:</strong> <span x-text="deleteError" />
+                    </div>
+                    <div class="modal__actions">
+                      <button
+                        type="button"
+                        class="btn btn--danger-ghost"
+                        {...{
+                          "@click": "deleteMsg()",
+                          ":disabled": "deleting || !selectedMsg.receipt",
+                        }}
+                      >
+                        <span x-show="!deleting">削除</span>
+                        <span x-show="deleting">削除中…</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn--ghost"
+                        {...{ "@click": "selectedMsg = null" }}
+                      >
+                        閉じる
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </template>
             </div>
-          </template>
+          </div>
         </div>
       </div>
     </Layout>

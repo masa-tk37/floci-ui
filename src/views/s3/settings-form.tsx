@@ -1,6 +1,6 @@
 import { Html } from "@elysiajs/html"
 
-import { Layout } from "../layout"
+import { Layout, type SidebarCounts } from "../layout"
 import {
   makeS3SettingsAlpineState,
   type S3SettingsInitial,
@@ -8,9 +8,10 @@ import {
 
 interface S3SettingsFormProps {
   init: S3SettingsInitial
+  sidebarCounts?: SidebarCounts
 }
 
-export function S3SettingsForm({ init }: S3SettingsFormProps) {
+export function S3SettingsForm({ init, sidebarCounts }: S3SettingsFormProps) {
   const bucketPath = `/s3/${encodeURIComponent(init.bucket)}`
   const alpineState = makeS3SettingsAlpineState(init)
 
@@ -18,6 +19,7 @@ export function S3SettingsForm({ init }: S3SettingsFormProps) {
     <Layout
       title={`Settings · ${init.bucket}`}
       active="s3"
+      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/s3/settings-form.css"]}
       crumbs={[
         { label: "S3", href: "/s3" },

@@ -94,6 +94,17 @@ describe("getSecretDetail", () => {
       secretString: "",
     })
   })
+
+  it("maps ResourceNotFoundException to NotFound", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("missing"), {
+        name: "ResourceNotFoundException",
+      }),
+    )
+    await expect(getSecretDetail("missing-secret")).rejects.toMatchObject({
+      code: "NotFound",
+    })
+  })
 })
 
 describe("createSecret", () => {
@@ -111,6 +122,15 @@ describe("createSecret", () => {
       SecretString: "secret",
       Tags: [{ Key: "Environment", Value: "dev" }],
     })
+  })
+
+  it("maps ResourceExistsException to AlreadyExists", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("exists"), { name: "ResourceExistsException" }),
+    )
+    await expect(
+      createSecret({ name: "name", secretString: "value" }),
+    ).rejects.toMatchObject({ code: "AlreadyExists" })
   })
 })
 

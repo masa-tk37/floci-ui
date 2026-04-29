@@ -274,6 +274,7 @@ export async function createTable(input: CreateTableInput): Promise<void> {
 export async function deleteTable(tableName: string): Promise<void> {
   try {
     await dynamodb.send(new DeleteTableCommand({ TableName: tableName }))
+    keyInfoCache.delete(tableName)
   } catch (e: unknown) {
     if (e instanceof Error && e.name === "ResourceNotFoundException") {
       throw new ServiceError("NotFound", `Table ${tableName} not found`, e)

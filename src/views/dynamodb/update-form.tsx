@@ -1,6 +1,6 @@
 import { Html } from "@elysiajs/html"
 
-import { Layout } from "../layout"
+import { Layout, type SidebarCounts } from "../layout"
 import {
   makeUpdateTableAlpineState,
   type UpdateFormInitial,
@@ -8,9 +8,10 @@ import {
 
 interface UpdateTableFormProps {
   init: UpdateFormInitial
+  sidebarCounts?: SidebarCounts
 }
 
-export function UpdateTableForm({ init }: UpdateTableFormProps) {
+export function UpdateTableForm({ init, sidebarCounts }: UpdateTableFormProps) {
   const tablePath = `/dynamodb/${encodeURIComponent(init.tableName)}`
   const alpineState = makeUpdateTableAlpineState(init)
 
@@ -18,6 +19,7 @@ export function UpdateTableForm({ init }: UpdateTableFormProps) {
     <Layout
       title={`Table を編集 · ${init.tableName}`}
       active="dynamodb"
+      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/dynamodb/update-form.css"]}
       crumbs={[
         { label: "DynamoDB", href: "/dynamodb" },

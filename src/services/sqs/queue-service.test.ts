@@ -12,8 +12,12 @@ mock.module("../../infrastructure/floci-clients", () => ({
 
 import {
   createQueue,
+  deleteMessage,
   deleteQueue,
+  getQueueAttributes,
   getQueueDetail,
+  getQueueMessageBody,
+  getQueueMessages,
   getQueueSettings,
   listQueues,
   purgeQueue,
@@ -213,5 +217,103 @@ describe("purgeQueue", () => {
     mockSend.mockResolvedValueOnce({})
     await expect(purgeQueue("my-queue")).resolves.toBeUndefined()
     expect(mockSend).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("getQueueMessages", () => {
+  it("returns mapped messages", async () => {
+    mockSend.mockResolvedValueOnce({
+      Messages: [
+        {
+          MessageId: "msg-1",
+          ReceiptHandle: "rh-1",
+          Body: "hello",
+          Attributes: { SentTimestamp: "1700000000000" },
+        },
+      ],
+    })
+    const result = await getQueueMessages("my-queue")
+    expect(result).toHaveLength(1)
+    expect(result[0]).toEqual({
+      messageId: "msg-1",
+      receiptHandle: "rh-1",
+      body: "hello",
+      sentTimestamp: 1700000000000,
+    })
+  })
+
+  it("returns empty array when no messages", async () => {
+    mockSend.mockResolvedValueOnce({ Messages: undefined })
+    const result = await getQueueMessages("my-queue")
+    expect(result).toEqual([])
+  })
+})
+
+describe("getQueueAttributes", () => {
+  it("returns parsed queue attributes", async () => {
+    mockSend.mockResolvedValueOnce({
+      Attributes: {
+        ApproximateNumberOfMessages: "7",
+        ApproximateNumberOfMessagesNotVisible: "2",
+        ApproximateNumberOfMessagesDelayed: "1",
+        VisibilityTimeout: "30",
+        MessageRetentionPeriod: "86400",
+        ContentBasedDeduplication: "true",
+        QueueArn: "arn:aws:sqs:us-east-1:000000000000:my-queue",
+      },
+    })
+    const result = await getQueueAttributes("my-queue")
+    expect(result).toMatchObject({
+      depth: 7,
+      inFlight: 2,
+      delayed: 1,
+      visibilityTimeout: 30,
+      messageRetention: 86400,
+      contentBasedDeduplication: true,
+      queueArn: "arn:aws:sqs:us-east-1:000000000000:my-queue",
+      dlqName: null,
+    })
+  })
+})
+
+describe("deleteMessage", () => {
+  it("deletes a message by receipt handle", async () => {
+    mockSend.mockResolvedValueOnce({})
+    await expect(deleteMessage("my-queue", "rh-abc")).resolves.toBeUndefined()
+    const calls = mockSend.mock.calls as unknown[][]
+    expect((calls[0]?.[0] as { input?: unknown })?.input).toMatchObject({
+      ReceiptHandle: "rh-abc",
+    })
+  })
+
+  it("throws OperationFailed on error", async () => {
+    mockSend.mockRejectedValueOnce(new Error("delete failed"))
+    await expect(deleteMessage("my-queue", "rh-bad")).rejects.toMatchObject({
+      code: "OperationFailed",
+    })
+  })
+})
+
+describe("getQueueMessageBody", () => {
+  it("returns the body of a matching message", async () => {
+    mockSend.mockResolvedValueOnce({
+      Messages: [
+        {
+          MessageId: "msg-1",
+          ReceiptHandle: "rh-1",
+          Body: '{"key":"value"}',
+          Attributes: {},
+        },
+      ],
+    })
+    const body = await getQueueMessageBody("my-queue", "msg-1")
+    expect(body).toBe('{"key":"value"}')
+  })
+
+  it("throws NotFound when message id is not in peek results", async () => {
+    mockSend.mockResolvedValueOnce({ Messages: [] })
+    await expect(
+      getQueueMessageBody("my-queue", "missing-id"),
+    ).rejects.toMatchObject({ code: "NotFound" })
   })
 })

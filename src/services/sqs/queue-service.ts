@@ -347,3 +347,14 @@ export async function purgeQueue(name: string): Promise<void> {
     toOperationFailed(e)
   }
 }
+
+export async function getQueueMessageBody(
+  queueName: string,
+  messageId: string,
+): Promise<string> {
+  const messages = await getQueueMessages(queueName)
+  const found = messages.find((m) => m.messageId === messageId)
+  if (!found)
+    throw new ServiceError("NotFound", `Message ${messageId} not found`)
+  return found.body
+}

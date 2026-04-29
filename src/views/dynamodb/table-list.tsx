@@ -25,7 +25,18 @@ export function TableList({ tables, sidebarCounts }: TableListProps) {
       {tables.length === 0 ? (
         <p class="empty-state">まだテーブルがありません</p>
       ) : (
-        <>
+        <div x-data="listFilter()" x-init="update()" x-effect="update()">
+          <div class="list-toolbar">
+            <label class="list-filter">
+              <span class="list-filter__icon">{IconSearch}</span>
+              <input
+                type="search"
+                class="input list-filter__input"
+                placeholder="Table を検索"
+                {...{ "x-model.debounce.120ms": "query" }}
+              />
+            </label>
+          </div>
           <p class="list-count">{tables.length} 件の Table</p>
           <div class="data-table-wrap">
             <table class="data-table">
@@ -37,7 +48,10 @@ export function TableList({ tables, sidebarCounts }: TableListProps) {
               </thead>
               <tbody>
                 {tables.map((name) => (
-                  <tr>
+                  <tr
+                    data-filter-text={name}
+                    x-show="matches($el.dataset.filterText)"
+                  >
                     <td>
                       <a href={`/dynamodb/${encodeURIComponent(name)}`} safe>
                         {name}
@@ -76,10 +90,15 @@ export function TableList({ tables, sidebarCounts }: TableListProps) {
                     </td>
                   </tr>
                 ))}
+                <tr x-show="hasQuery && visibleCount === 0" x-cloak>
+                  <td colspan={2} class="data-table__empty">
+                    一致する Table がありません
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
     </Layout>
   )

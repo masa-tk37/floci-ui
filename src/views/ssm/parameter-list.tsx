@@ -3,7 +3,7 @@ import { Html } from "@elysiajs/html"
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import type { ParameterSummary } from "../../services/ssm/parameter-service"
 import { formatDate } from "../format"
-import { IconEdit, IconPlus, IconTrash } from "../icons"
+import { IconEdit, IconPlus, IconSearch, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
 
 interface ParameterListProps {
@@ -32,7 +32,18 @@ export function ParameterList({
       {parameters.length === 0 ? (
         <p class="empty-state">まだ Parameter がありません</p>
       ) : (
-        <>
+        <div x-data="listFilter()" x-init="update()" x-effect="update()">
+          <div class="list-toolbar">
+            <label class="list-filter">
+              <span class="list-filter__icon">{IconSearch}</span>
+              <input
+                type="search"
+                class="input list-filter__input"
+                placeholder="Parameter を検索"
+                {...{ "x-model.debounce.120ms": "query" }}
+              />
+            </label>
+          </div>
           <p class="list-count">{parameters.length} 件の Parameter</p>
           <div class="data-table-wrap">
             <table class="data-table">
@@ -50,7 +61,10 @@ export function ParameterList({
                   const id = encodeResourceName(parameter.name)
                   const path = `/ssm/${id}`
                   return (
-                    <tr>
+                    <tr
+                      data-filter-text={`${parameter.name} ${parameter.type} ${parameter.tier}`}
+                      x-show="matches($el.dataset.filterText)"
+                    >
                       <td>
                         <a href={path} safe>
                           {parameter.name}
@@ -80,10 +94,15 @@ export function ParameterList({
                     </tr>
                   )
                 })}
+                <tr x-show="hasQuery && visibleCount === 0" x-cloak>
+                  <td colspan={5} class="data-table__empty">
+                    一致する Parameter がありません
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
     </Layout>
   )

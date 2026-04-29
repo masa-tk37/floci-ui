@@ -1,6 +1,5 @@
 import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
-import { httpStatusFor, ServiceError } from "../errors"
 import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
 import {
   createQueue,
@@ -8,6 +7,7 @@ import {
   deleteQueue,
   getQueueAttributes,
   getQueueDetail,
+  getQueueMessageBody,
   getQueueMessages,
   getQueueSettings,
   listQueues,
@@ -15,6 +15,7 @@ import {
   sendMessage,
   updateQueueSettings,
 } from "../services/sqs/queue-service"
+import { respondWithError } from "./route-utils"
 import { CreateQueueForm } from "../views/sqs/create-form"
 import {
   QueueAttributesCards,
@@ -35,8 +36,9 @@ export const sqsRoutes = new Elysia({ prefix: "/sqs" })
       <QueueList queues={queues} sidebarCounts={toSidebarCounts(sidebarData)} />
     )
   })
-  .get("/new", () => {
-    return <CreateQueueForm />
+  .get("/new", async () => {
+    const sidebarData = await loadSidebarSafe()
+    return <CreateQueueForm sidebarCounts={toSidebarCounts(sidebarData)} />
   })
   .post(
     "/",
@@ -50,12 +52,7 @@ export const sqsRoutes = new Elysia({ prefix: "/sqs" })
         await createQueue(b.name, b.attributes, b.tags)
         return { success: true }
       } catch (e) {
-        if (e instanceof ServiceError) {
-          set.status = httpStatusFor(e.code)
-          return { error: e.message }
-        }
-        set.status = 500
-        return { error: "Internal server error" }
+        return respondWithError(e, set)
       }
     },
     { body: t.Any() },
@@ -65,17 +62,20 @@ export const sqsRoutes = new Elysia({ prefix: "/sqs" })
       await deleteQueue(params.queue)
       return { success: true }
     } catch (e) {
-      if (e instanceof ServiceError) {
-        set.status = httpStatusFor(e.code)
-        return { error: e.message }
-      }
-      set.status = 500
-      return { error: "Internal server error" }
+      return respondWithError(e, set)
     }
   })
   .get("/:queue/settings", async ({ params }) => {
-    const init = await getQueueSettings(params.queue)
-    return <SQSSettingsForm init={init} />
+    const [init, sidebarData] = await Promise.all([
+      getQueueSettings(params.queue),
+      loadSidebarSafe(),
+    ])
+    return (
+      <SQSSettingsForm
+        init={init}
+        sidebarCounts={toSidebarCounts(sidebarData)}
+      />
+    )
   })
   .post(
     "/:queue/settings",
@@ -92,24 +92,21 @@ export const sqsRoutes = new Elysia({ prefix: "/sqs" })
         )
         return { success: true }
       } catch (e) {
-        if (e instanceof ServiceError) {
-          set.status = httpStatusFor(e.code)
-          return { error: e.message }
-        }
-        set.status = 500
-        return { error: "Internal server error" }
+        return respondWithError(e, set)
       }
     },
     { body: t.Any() },
   )
   .get("/:queue", async ({ params }) => {
-    const [detail, sidebarData] = await Promise.all([
+    const [detail, sidebarData, queues] = await Promise.all([
       getQueueDetail(params.queue),
       loadSidebarSafe(),
+      listQueues(),
     ])
     return (
       <QueueDetail
         name={params.queue}
+        queues={queues}
         attributes={detail.attributes}
         messages={detail.messages}
         sidebarCounts={toSidebarCounts(sidebarData)}
@@ -128,12 +125,7 @@ export const sqsRoutes = new Elysia({ prefix: "/sqs" })
         )
         return { messageId }
       } catch (e) {
-        if (e instanceof ServiceError) {
-          set.status = httpStatusFor(e.code)
-          return { error: e.message }
-        }
-        set.status = 500
-        return { error: "Internal server error" }
+        return respondWithError(e, set)
       }
     },
     {
@@ -159,17 +151,24 @@ export const sqsRoutes = new Elysia({ prefix: "/sqs" })
         await deleteMessage(params.queue, body.receipt)
         return { success: true }
       } catch (e) {
-        if (e instanceof ServiceError) {
-          set.status = httpStatusFor(e.code)
-          return { error: e.message }
-        }
-        set.status = 500
-        return { error: "Internal server error" }
+        return respondWithError(e, set)
       }
     },
     { body: t.Object({ receipt: t.String({ minLength: 1 }) }) },
   )
-  .delete("/:queue/messages", async ({ params }) => {
-    await purgeQueue(params.queue)
-    return { success: true }
+  .delete("/:queue/messages", async ({ params, set }) => {
+    try {
+      await purgeQueue(params.queue)
+      return { success: true }
+    } catch (e) {
+      return respondWithError(e, set)
+    }
+  })
+  .get("/:queue/messages/:messageId/body", async ({ params, set }) => {
+    try {
+      const body = await getQueueMessageBody(params.queue, params.messageId)
+      return { body }
+    } catch (e) {
+      return respondWithError(e, set)
+    }
   })

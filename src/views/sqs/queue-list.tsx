@@ -1,5 +1,5 @@
 import { Html } from "@elysiajs/html"
-import { IconPlus, IconSettings, IconTrash } from "../icons"
+import { IconPlus, IconSearch, IconSettings, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
 
 export interface QueueSummary {
@@ -31,7 +31,18 @@ export function QueueList({ queues, sidebarCounts }: QueueListProps) {
       {queues.length === 0 ? (
         <p class="empty-state">まだ Queue がありません</p>
       ) : (
-        <>
+        <div x-data="listFilter()" x-init="update()" x-effect="update()">
+          <div class="list-toolbar">
+            <label class="list-filter">
+              <span class="list-filter__icon">{IconSearch}</span>
+              <input
+                type="search"
+                class="input list-filter__input"
+                placeholder="Queue を検索"
+                {...{ "x-model.debounce.120ms": "query" }}
+              />
+            </label>
+          </div>
           <p class="list-count">{queues.length} 件の Queue</p>
           <div class="data-table-wrap">
             <table class="data-table">
@@ -45,7 +56,10 @@ export function QueueList({ queues, sidebarCounts }: QueueListProps) {
               </thead>
               <tbody>
                 {queues.map((queue) => (
-                  <tr>
+                  <tr
+                    data-filter-text={`${queue.name} ${queue.dlqName ?? ""}`}
+                    x-show="matches($el.dataset.filterText)"
+                  >
                     <td>
                       <a href={`/sqs/${encodeURIComponent(queue.name)}`} safe>
                         {queue.name}
@@ -88,10 +102,15 @@ export function QueueList({ queues, sidebarCounts }: QueueListProps) {
                     </td>
                   </tr>
                 ))}
+                <tr x-show="hasQuery && visibleCount === 0" x-cloak>
+                  <td colspan={4} class="data-table__empty">
+                    一致する Queue がありません
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
     </Layout>
   )

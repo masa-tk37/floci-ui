@@ -34,7 +34,8 @@ export const secretsRoutes = new Elysia({ prefix: "/secrets" })
       />
     )
   })
-  .get("/new", () => {
+  .get("/new", async () => {
+    const sidebarData = await loadSidebarSafe()
     return (
       <SecretForm
         init={{
@@ -47,6 +48,7 @@ export const secretsRoutes = new Elysia({ prefix: "/secrets" })
           tags: [],
           isBinary: false,
         }}
+        sidebarCounts={toSidebarCounts(sidebarData)}
       />
     )
   })
@@ -77,7 +79,10 @@ export const secretsRoutes = new Elysia({ prefix: "/secrets" })
     )
   })
   .get("/:id/edit", async ({ params }) => {
-    const detail = await getSecretDetail(decodeResourceName(params.id))
+    const [detail, sidebarData] = await Promise.all([
+      getSecretDetail(decodeResourceName(params.id)),
+      loadSidebarSafe(),
+    ])
 
     return (
       <SecretForm
@@ -91,6 +96,7 @@ export const secretsRoutes = new Elysia({ prefix: "/secrets" })
           tags: detail.tags,
           isBinary: detail.isBinary,
         }}
+        sidebarCounts={toSidebarCounts(sidebarData)}
       />
     )
   })

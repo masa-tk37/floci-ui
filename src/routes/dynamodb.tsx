@@ -38,8 +38,9 @@ export const dynamodbRoutes = new Elysia({ prefix: "/dynamodb" })
       <TableList tables={tables} sidebarCounts={toSidebarCounts(sidebarData)} />
     )
   })
-  .get("/new", () => {
-    return <CreateTableForm />
+  .get("/new", async () => {
+    const sidebarData = await loadSidebarSafe()
+    return <CreateTableForm sidebarCounts={toSidebarCounts(sidebarData)} />
   })
   .post(
     "/tables",
@@ -83,7 +84,10 @@ export const dynamodbRoutes = new Elysia({ prefix: "/dynamodb" })
     }
   })
   .get("/:table/edit", async ({ params }) => {
-    const detail = await getTableDetail(params.table)
+    const [detail, sidebarData] = await Promise.all([
+      getTableDetail(params.table),
+      loadSidebarSafe(),
+    ])
     return (
       <UpdateTableForm
         init={{
@@ -97,6 +101,7 @@ export const dynamodbRoutes = new Elysia({ prefix: "/dynamodb" })
           ttlAttr: detail.ttlAttr,
           deletionProtection: detail.deletionProtection,
         }}
+        sidebarCounts={toSidebarCounts(sidebarData)}
       />
     )
   })
@@ -147,6 +152,7 @@ export const dynamodbRoutes = new Elysia({ prefix: "/dynamodb" })
       return (
         <ItemList
           tableName={params.table}
+          tables={sidebarData?.tables ?? []}
           items={result.items}
           hashKey={result.hashKey}
           sortKey={result.sortKey}
@@ -161,8 +167,14 @@ export const dynamodbRoutes = new Elysia({ prefix: "/dynamodb" })
       query: t.Object({ cursor: t.Optional(t.String()) }),
     },
   )
-  .get("/:table/query", ({ params }) => {
-    return <QueryBuilder tableName={params.table} />
+  .get("/:table/query", async ({ params }) => {
+    const sidebarData = await loadSidebarSafe()
+    return (
+      <QueryBuilder
+        tableName={params.table}
+        sidebarCounts={toSidebarCounts(sidebarData)}
+      />
+    )
   })
   .get("/:table/:pk/edit", async ({ params }) => {
     const [detail, sidebarData] = await Promise.all([

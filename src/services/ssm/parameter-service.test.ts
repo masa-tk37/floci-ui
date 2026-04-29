@@ -87,6 +87,15 @@ describe("getParameterDetail", () => {
       tags: [{ key: "Environment", value: "dev" }],
     })
   })
+
+  it("maps ParameterNotFound to NotFound", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("missing"), { name: "ParameterNotFound" }),
+    )
+    await expect(getParameterDetail("/missing")).rejects.toMatchObject({
+      code: "NotFound",
+    })
+  })
 })
 
 describe("createParameter", () => {

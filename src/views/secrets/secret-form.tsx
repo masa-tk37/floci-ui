@@ -1,7 +1,7 @@
 import { Html } from "@elysiajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
-import { Layout } from "../layout"
+import { Layout, type SidebarCounts } from "../layout"
 import {
   makeSecretFormAlpineState,
   type SecretFormInitial,
@@ -9,9 +9,10 @@ import {
 
 interface SecretFormProps {
   init: SecretFormInitial
+  sidebarCounts?: SidebarCounts
 }
 
-export function SecretForm({ init }: SecretFormProps) {
+export function SecretForm({ init, sidebarCounts }: SecretFormProps) {
   const state = makeSecretFormAlpineState(init)
   const secretPath =
     init.mode === "edit"
@@ -28,6 +29,7 @@ export function SecretForm({ init }: SecretFormProps) {
             : `編集 · ${init.name}`
       }
       active="secrets"
+      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/secrets/secret-form.css"]}
       crumbs={
         init.mode === "create"

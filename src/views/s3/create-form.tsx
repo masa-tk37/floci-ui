@@ -1,13 +1,20 @@
 import { Html } from "@elysiajs/html"
 
-import { Layout } from "../layout"
+import { Layout, type SidebarCounts } from "../layout"
 import { createBucketAlpineState } from "./create-form-state"
 
-export function CreateBucketForm() {
+interface CreateBucketFormProps {
+  sidebarCounts?: SidebarCounts
+}
+
+export function CreateBucketForm({
+  sidebarCounts,
+}: CreateBucketFormProps = {}) {
   return (
     <Layout
       title="Create S3 Bucket"
       active="s3"
+      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/s3/create-form.css"]}
       crumbs={[
         { label: "S3", href: "/s3" },

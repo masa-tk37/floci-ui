@@ -5,6 +5,7 @@ import type { UserDetail as UserDetailData } from "../../services/cognito/cognit
 import { formatDate } from "../format"
 import { IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
+import { CognitoStatusBadge, EnabledBadge } from "./status-badge"
 
 interface CognitoUserDetailProps {
   poolId: string
@@ -139,14 +140,14 @@ export function CognitoUserDetail({
         <section class="attr-grid">
           <div class="attr-card">
             <span class="attr-card__label">Status</span>
-            <span class="cognito-user-detail-page__meta-value" safe>
-              {detail.status}
+            <span class="cognito-user-detail-page__meta-value">
+              <CognitoStatusBadge status={detail.status} />
             </span>
           </div>
           <div class="attr-card">
             <span class="attr-card__label">Enabled</span>
             <span class="cognito-user-detail-page__meta-value">
-              {detail.enabled ? "Yes" : "No"}
+              <EnabledBadge enabled={detail.enabled} />
             </span>
           </div>
           <div class="attr-card">

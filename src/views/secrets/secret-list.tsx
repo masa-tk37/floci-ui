@@ -3,7 +3,7 @@ import { Html } from "@elysiajs/html"
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import type { SecretSummary } from "../../services/secrets/secret-service"
 import { formatDate } from "../format"
-import { IconEdit, IconPlus, IconTrash } from "../icons"
+import { IconEdit, IconPlus, IconSearch, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
 
 interface SecretListProps {
@@ -29,7 +29,18 @@ export function SecretList({ secrets, sidebarCounts }: SecretListProps) {
       {secrets.length === 0 ? (
         <p class="empty-state">まだ Secret がありません</p>
       ) : (
-        <>
+        <div x-data="listFilter()" x-init="update()" x-effect="update()">
+          <div class="list-toolbar">
+            <label class="list-filter">
+              <span class="list-filter__icon">{IconSearch}</span>
+              <input
+                type="search"
+                class="input list-filter__input"
+                placeholder="Secret を検索"
+                {...{ "x-model.debounce.120ms": "query" }}
+              />
+            </label>
+          </div>
           <p class="list-count">{secrets.length} 件の Secret</p>
           <div class="data-table-wrap">
             <table class="data-table">
@@ -48,7 +59,10 @@ export function SecretList({ secrets, sidebarCounts }: SecretListProps) {
                   const path = `/secrets/${id}`
 
                   return (
-                    <tr>
+                    <tr
+                      data-filter-text={`${secret.name} ${secret.description ?? ""} ${secret.kmsKeyId ?? ""}`}
+                      x-show="matches($el.dataset.filterText)"
+                    >
                       <td>
                         <a href={path} safe>
                           {secret.name}
@@ -80,10 +94,15 @@ export function SecretList({ secrets, sidebarCounts }: SecretListProps) {
                     </tr>
                   )
                 })}
+                <tr x-show="hasQuery && visibleCount === 0" x-cloak>
+                  <td colspan={5} class="data-table__empty">
+                    一致する Secret がありません
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
     </Layout>
   )

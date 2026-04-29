@@ -1,7 +1,7 @@
 import { Html } from "@elysiajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
-import { Layout } from "../layout"
+import { Layout, type SidebarCounts } from "../layout"
 import {
   makeParameterFormAlpineState,
   type ParameterFormInitial,
@@ -9,9 +9,10 @@ import {
 
 interface ParameterFormProps {
   init: ParameterFormInitial
+  sidebarCounts?: SidebarCounts
 }
 
-export function ParameterForm({ init }: ParameterFormProps) {
+export function ParameterForm({ init, sidebarCounts }: ParameterFormProps) {
   const state = makeParameterFormAlpineState(init)
   const parameterPath =
     init.mode === "edit" ? `/ssm/${encodeResourceName(init.name)}` : "/ssm"
@@ -22,6 +23,7 @@ export function ParameterForm({ init }: ParameterFormProps) {
         init.mode === "create" ? "SSM Parameter を作成" : `編集 · ${init.name}`
       }
       active="ssm"
+      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/ssm/parameter-form.css"]}
       crumbs={
         init.mode === "create"

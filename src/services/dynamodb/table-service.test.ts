@@ -355,3 +355,80 @@ describe("deleteItem", () => {
     ).rejects.toHaveProperty("code", "InvalidInput")
   })
 })
+
+describe("getItem (NotFound)", () => {
+  it("throws NotFound when Item is undefined in response", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        Table: {
+          KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+          AttributeDefinitions: [{ AttributeName: "id", AttributeType: "S" }],
+        },
+      })
+      .mockResolvedValueOnce({ Item: undefined })
+
+    await expect(getItem("my-table", "missing-key")).rejects.toMatchObject({
+      code: "NotFound",
+    })
+  })
+})
+
+describe("saveItem (sort key change)", () => {
+  it("throws InvalidInput when sort key value differs from route key", async () => {
+    mockSend.mockResolvedValueOnce({
+      Table: {
+        KeySchema: [
+          { AttributeName: "id", KeyType: "HASH" },
+          { AttributeName: "sk", KeyType: "RANGE" },
+        ],
+        AttributeDefinitions: [
+          { AttributeName: "id", AttributeType: "S" },
+          { AttributeName: "sk", AttributeType: "S" },
+        ],
+      },
+    })
+
+    await expect(
+      saveItem(
+        "my-table",
+        "pk-value",
+        { id: "pk-value", sk: "changed-sk" },
+        "original-sk",
+      ),
+    ).rejects.toMatchObject({ code: "InvalidInput" })
+  })
+})
+
+describe("deleteTable (cache eviction)", () => {
+  it("re-issues DescribeTableCommand after deleteTable clears the cache", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        Table: {
+          KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+          AttributeDefinitions: [{ AttributeName: "id", AttributeType: "S" }],
+        },
+      })
+      .mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined })
+
+    await scanItems("my-table")
+    expect(mockSend).toHaveBeenCalledTimes(2)
+
+    mockSend.mockClear()
+    mockSend.mockResolvedValueOnce({})
+    await deleteTable("my-table")
+    expect(mockSend).toHaveBeenCalledTimes(1)
+
+    mockSend.mockClear()
+    mockSend
+      .mockResolvedValueOnce({
+        Table: {
+          KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+          AttributeDefinitions: [{ AttributeName: "id", AttributeType: "S" }],
+        },
+      })
+      .mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined })
+
+    await scanItems("my-table")
+    expect(mockSend).toHaveBeenCalledTimes(2)
+  })
+})

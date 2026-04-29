@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { httpStatusFor, ServiceError } from "./errors"
+import { ServiceError, httpStatusFor, toOperationFailed } from "./errors"
 
 describe("ServiceError", () => {
   it("should extend Error", () => {
@@ -46,5 +46,31 @@ describe("httpStatusFor", () => {
 
   it("should return 400 for OperationFailed", () => {
     expect(httpStatusFor("OperationFailed")).toBe(400)
+  })
+})
+
+describe("toOperationFailed", () => {
+  it("should re-throw existing ServiceError without wrapping", () => {
+    const original = new ServiceError("NotFound", "already a service error")
+    expect(() => toOperationFailed(original)).toThrow(original)
+  })
+
+  it("should wrap non-ServiceError in OperationFailed", () => {
+    const err = new Error("raw error")
+    expect(() => toOperationFailed(err)).toThrowError(
+      expect.objectContaining({
+        code: "OperationFailed",
+        message: "raw error",
+      }),
+    )
+  })
+
+  it("should wrap non-Error in OperationFailed with string representation", () => {
+    expect(() => toOperationFailed("string error")).toThrowError(
+      expect.objectContaining({
+        code: "OperationFailed",
+        message: "string error",
+      }),
+    )
   })
 })

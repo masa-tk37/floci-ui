@@ -13,18 +13,16 @@
   word-break: break-word;
 }
 
-.cognito-pool-detail-page__split {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1rem;
-}
-
 .cognito-panel__body {
   padding: 1.25rem;
 }
 
 .cognito-panel__body .data-table-wrap {
   margin: 0;
+}
+
+.cognito-panel__body .status-pill {
+  white-space: nowrap;
 }
 
 .cognito-pool-detail-page__form-grid {
@@ -42,10 +40,4 @@
 
 .cognito-user-detail-page__password-form {
   margin-top: 0.5rem;
-}
-
-@media (max-width: 720px) {
-  .cognito-pool-detail-page__split {
-    grid-template-columns: 1fr;
-  }
 }

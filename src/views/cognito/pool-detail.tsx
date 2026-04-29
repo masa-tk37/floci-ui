@@ -9,6 +9,7 @@ import type {
 import { formatDate } from "../format"
 import { IconPlus, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
+import { CognitoStatusBadge, EnabledBadge } from "./status-badge"
 
 interface UserPoolDetailProps {
   pool: UserPoolDetailData
@@ -47,17 +48,25 @@ function renderVerifiedAttributes(values: string[]) {
   ))
 }
 
-function makeInlineCreateState(
+function makeCreateModalState(
   actionUrl: string,
   fields: Record<string, string>,
 ): string {
   const fieldEntries = Object.entries(fields)
 
   return `{
+  open: false,
   actionUrl: ${JSON.stringify(actionUrl)},
   ${fieldEntries.map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join(",\n  ")},
   submitting: false,
   error: null,
+
+  close() {
+    if (this.submitting) return;
+    this.open = false;
+    this.error = null;
+    ${fieldEntries.map(([key, value]) => `this.${key} = ${JSON.stringify(value)};`).join('\n    ')}
+  },
 
   async submit(payload) {
     this.error = null;
@@ -93,10 +102,10 @@ export function UserPoolDetail({
   sidebarCounts,
 }: UserPoolDetailProps) {
   const poolPath = `/cognito/${encodeURIComponent(pool.id)}`
-  const createClientState = makeInlineCreateState(`${poolPath}/clients`, {
+  const createClientState = makeCreateModalState(`${poolPath}/clients`, {
     name: "",
   })
-  const createUserState = makeInlineCreateState(`${poolPath}/users`, {
+  const createUserState = makeCreateModalState(`${poolPath}/users`, {
     username: "",
     temporaryPassword: "",
     email: "",
@@ -175,124 +184,18 @@ export function UserPoolDetail({
           </div>
         </section>
 
-        <section class="cognito-pool-detail-page__split">
-          <div class="query-form" x-data={createClientState}>
-            <h2 class="section-title">App Client を追加</h2>
-            <div class="form-row">
-              <label class="form-label" for="cognito-client-name">
-                Client 名
-              </label>
-              <input
-                id="cognito-client-name"
-                type="text"
-                class="input"
-                x-model="name"
-                placeholder="local-web"
-              />
-              <p class="form-help">
-                Client secret は作成せず、
-                <code class="code-inline">ALLOW_USER_PASSWORD_AUTH</code> /{" "}
-                <code class="code-inline">ALLOW_REFRESH_TOKEN_AUTH</code> /{" "}
-                <code class="code-inline">ALLOW_USER_SRP_AUTH</code>{" "}
-                を有効にします。
-              </p>
-            </div>
-            <div class="error-inline" x-show="error" x-cloak>
-              <span x-text="error" />
-            </div>
-            <div class="form-actions">
-              <button
-                type="button"
-                class="btn btn--cognito btn--sm"
-                {...{
-                  "@click": "submit({ name })",
-                  ":disabled": "submitting || !name.trim()",
-                }}
-              >
-                <span x-show="!submitting">{IconPlus}追加</span>
-                <span x-show="submitting">追加中…</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="query-form" x-data={createUserState}>
-            <h2 class="section-title">User を追加</h2>
-            <div class="cognito-pool-detail-page__form-grid">
-              <div class="form-row">
-                <label class="form-label" for="cognito-user-username">
-                  Username
-                </label>
-                <input
-                  id="cognito-user-username"
-                  type="text"
-                  class="input"
-                  x-model="username"
-                  placeholder="alice"
-                />
-              </div>
-              <div class="form-row">
-                <label class="form-label" for="cognito-user-temp-password">
-                  Temporary Password
-                </label>
-                <input
-                  id="cognito-user-temp-password"
-                  type="password"
-                  class="input"
-                  x-model="temporaryPassword"
-                  placeholder="TempPassw0rd!"
-                />
-              </div>
-            </div>
-            <div class="cognito-pool-detail-page__form-grid">
-              <div class="form-row">
-                <label class="form-label" for="cognito-user-email">
-                  Email
-                </label>
-                <input
-                  id="cognito-user-email"
-                  type="email"
-                  class="input"
-                  x-model="email"
-                  placeholder="alice@example.com"
-                />
-              </div>
-              <div class="form-row">
-                <label class="form-label" for="cognito-user-phone">
-                  Phone Number
-                </label>
-                <input
-                  id="cognito-user-phone"
-                  type="text"
-                  class="input"
-                  x-model="phoneNumber"
-                  placeholder="+819012345678"
-                />
-              </div>
-            </div>
-            <div class="error-inline" x-show="error" x-cloak>
-              <span x-text="error" />
-            </div>
-            <div class="form-actions">
-              <button
-                type="button"
-                class="btn btn--cognito btn--sm"
-                {...{
-                  "@click":
-                    "submit({ username, temporaryPassword, email, phoneNumber })",
-                  ":disabled":
-                    "submitting || !username.trim() || !temporaryPassword.trim()",
-                }}
-              >
-                <span x-show="!submitting">{IconPlus}追加</span>
-                <span x-show="submitting">追加中…</span>
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel">
+        <section class="panel" x-data={createClientState}>
           <div class="panel__header">
             <h2 class="panel__title">App Clients</h2>
+            <div class="panel__actions">
+              <button
+                type="button"
+                class="btn btn--cognito btn--sm"
+                {...{ "@click": "open = true" }}
+              >
+                {IconPlus}追加
+              </button>
+            </div>
           </div>
           <div class="cognito-panel__body">
             {appClients.length === 0 ? (
@@ -338,11 +241,78 @@ export function UserPoolDetail({
               </div>
             )}
           </div>
+          <div
+            x-show="open"
+            class="modal-overlay"
+            x-cloak
+            {...{ "@click": "close()" }}
+          >
+            <div
+              class="modal"
+              {...{
+                "@click.stop": "",
+                "@keydown.escape.window": "close()",
+              }}
+            >
+              <h2 class="modal__title">App Client を追加</h2>
+              <div class="form-row">
+                <label class="form-label" for="cognito-client-name">
+                  Client 名
+                </label>
+                <input
+                  id="cognito-client-name"
+                  type="text"
+                  class="input"
+                  x-model="name"
+                  placeholder="local-web"
+                />
+                <p class="form-help">
+                  Client secret は作成せず、
+                  <code class="code-inline">ALLOW_USER_PASSWORD_AUTH</code> /{" "}
+                  <code class="code-inline">ALLOW_REFRESH_TOKEN_AUTH</code> /{" "}
+                  <code class="code-inline">ALLOW_USER_SRP_AUTH</code>{" "}
+                  を有効にします。
+                </p>
+              </div>
+              <div class="error-inline" x-show="error" x-cloak>
+                <span x-text="error" />
+              </div>
+              <div class="modal__actions">
+                <button
+                  type="button"
+                  class="btn btn--cognito"
+                  {...{
+                    "@click": "submit({ name })",
+                    ":disabled": "submitting || !name.trim()",
+                  }}
+                >
+                  <span x-show="!submitting">追加</span>
+                  <span x-show="submitting">追加中…</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  {...{ "@click": "close()", ":disabled": "submitting" }}
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          </div>
         </section>
 
-        <section class="panel">
+        <section class="panel" x-data={createUserState}>
           <div class="panel__header">
             <h2 class="panel__title">Users</h2>
+            <div class="panel__actions">
+              <button
+                type="button"
+                class="btn btn--cognito btn--sm"
+                {...{ "@click": "open = true" }}
+              >
+                {IconPlus}追加
+              </button>
+            </div>
           </div>
           <div class="cognito-panel__body">
             {users.length === 0 ? (
@@ -373,8 +343,12 @@ export function UserPoolDetail({
                             </a>
                           </td>
                           <td safe>{user.email || "—"}</td>
-                          <td safe>{user.status}</td>
-                          <td>{user.enabled ? "有効" : "無効"}</td>
+                          <td>
+                            <CognitoStatusBadge status={user.status} />
+                          </td>
+                          <td>
+                            <EnabledBadge enabled={user.enabled} />
+                          </td>
                           <td class="data-table__actions">
                             <button
                               type="button"
@@ -397,6 +371,99 @@ export function UserPoolDetail({
                 </table>
               </div>
             )}
+          </div>
+          <div
+            x-show="open"
+            class="modal-overlay"
+            x-cloak
+            {...{ "@click": "close()" }}
+          >
+            <div
+              class="modal modal--wide"
+              {...{
+                "@click.stop": "",
+                "@keydown.escape.window": "close()",
+              }}
+            >
+              <h2 class="modal__title">User を追加</h2>
+              <div class="cognito-pool-detail-page__form-grid">
+                <div class="form-row">
+                  <label class="form-label" for="cognito-user-username">
+                    Username
+                  </label>
+                  <input
+                    id="cognito-user-username"
+                    type="text"
+                    class="input"
+                    x-model="username"
+                    placeholder="alice"
+                  />
+                </div>
+                <div class="form-row">
+                  <label class="form-label" for="cognito-user-temp-password">
+                    Temporary Password
+                  </label>
+                  <input
+                    id="cognito-user-temp-password"
+                    type="password"
+                    class="input"
+                    x-model="temporaryPassword"
+                    placeholder="TempPassw0rd!"
+                  />
+                </div>
+              </div>
+              <div class="cognito-pool-detail-page__form-grid">
+                <div class="form-row">
+                  <label class="form-label" for="cognito-user-email">
+                    Email
+                  </label>
+                  <input
+                    id="cognito-user-email"
+                    type="email"
+                    class="input"
+                    x-model="email"
+                    placeholder="alice@example.com"
+                  />
+                </div>
+                <div class="form-row">
+                  <label class="form-label" for="cognito-user-phone">
+                    Phone Number
+                  </label>
+                  <input
+                    id="cognito-user-phone"
+                    type="text"
+                    class="input"
+                    x-model="phoneNumber"
+                    placeholder="+819012345678"
+                  />
+                </div>
+              </div>
+              <div class="error-inline" x-show="error" x-cloak>
+                <span x-text="error" />
+              </div>
+              <div class="modal__actions">
+                <button
+                  type="button"
+                  class="btn btn--cognito"
+                  {...{
+                    "@click":
+                      "submit({ username, temporaryPassword, email, phoneNumber })",
+                    ":disabled":
+                      "submitting || !username.trim() || !temporaryPassword.trim()",
+                  }}
+                >
+                  <span x-show="!submitting">追加</span>
+                  <span x-show="submitting">追加中…</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  {...{ "@click": "close()", ":disabled": "submitting" }}
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       </div>

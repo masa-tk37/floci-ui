@@ -26,6 +26,18 @@ interface DashboardProps {
   sidebarCounts?: SidebarCounts
 }
 
+function ServiceHealth({ error }: { error?: string }) {
+  return (
+    <span
+      class={`status-pill ${error ? "status-pill--danger" : "status-pill--success"}`}
+      title={error ?? "Service is available"}
+    >
+      <span class="status-pill__dot" />
+      {error ? "Error" : "OK"}
+    </span>
+  )
+}
+
 export function Dashboard({
   dynamodb,
   s3,
@@ -74,7 +86,10 @@ export function Dashboard({
           <div class="recent-card">
             <div class="recent-card__header">
               <h3 class="recent-card__title">DynamoDB Tables</h3>
-              <span class="badge badge--dynamodb">{dynamodb.count}</span>
+              <div class="recent-card__actions">
+                <ServiceHealth error={dynamodb.error} />
+                <span class="badge badge--dynamodb">{dynamodb.count}</span>
+              </div>
             </div>
             {dynamodb.error ? (
               <p class="dashboard-page__note muted" safe>
@@ -107,7 +122,10 @@ export function Dashboard({
           <div class="recent-card">
             <div class="recent-card__header">
               <h3 class="recent-card__title">S3 Buckets</h3>
-              <span class="badge badge--s3">{s3.count}</span>
+              <div class="recent-card__actions">
+                <ServiceHealth error={s3.error} />
+                <span class="badge badge--s3">{s3.count}</span>
+              </div>
             </div>
             {s3.error ? (
               <p class="dashboard-page__note muted" safe>
@@ -140,7 +158,10 @@ export function Dashboard({
           <div class="recent-card">
             <div class="recent-card__header">
               <h3 class="recent-card__title">SQS Queues</h3>
-              <span class="badge badge--sqs">{sqs.count}</span>
+              <div class="recent-card__actions">
+                <ServiceHealth error={sqs.error} />
+                <span class="badge badge--sqs">{sqs.count}</span>
+              </div>
             </div>
             {sqs.error ? (
               <p class="dashboard-page__note muted" safe>
@@ -173,7 +194,10 @@ export function Dashboard({
           <div class="recent-card">
             <div class="recent-card__header">
               <h3 class="recent-card__title">SSM Parameters</h3>
-              <span class="badge badge--ssm">{ssm.count}</span>
+              <div class="recent-card__actions">
+                <ServiceHealth error={ssm.error} />
+                <span class="badge badge--ssm">{ssm.count}</span>
+              </div>
             </div>
             {ssm.error ? (
               <p class="dashboard-page__note muted" safe>
@@ -206,7 +230,10 @@ export function Dashboard({
           <div class="recent-card">
             <div class="recent-card__header">
               <h3 class="recent-card__title">Secrets Manager</h3>
-              <span class="badge badge--secrets">{secrets.count}</span>
+              <div class="recent-card__actions">
+                <ServiceHealth error={secrets.error} />
+                <span class="badge badge--secrets">{secrets.count}</span>
+              </div>
             </div>
             {secrets.error ? (
               <p class="dashboard-page__note muted" safe>
@@ -239,7 +266,10 @@ export function Dashboard({
           <div class="recent-card">
             <div class="recent-card__header">
               <h3 class="recent-card__title">Cognito User Pools</h3>
-              <span class="badge badge--cognito">{cognito.count}</span>
+              <div class="recent-card__actions">
+                <ServiceHealth error={cognito.error} />
+                <span class="badge badge--cognito">{cognito.count}</span>
+              </div>
             </div>
             {cognito.error ? (
               <p class="dashboard-page__note muted" safe>

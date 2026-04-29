@@ -2,7 +2,7 @@ import { Html } from "@elysiajs/html"
 
 import type { UserPoolSummary } from "../../services/cognito/cognito-service"
 import { formatDate } from "../format"
-import { IconPlus, IconTrash } from "../icons"
+import { IconPlus, IconSearch, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
 
 interface UserPoolListProps {
@@ -28,7 +28,18 @@ export function UserPoolList({ userPools, sidebarCounts }: UserPoolListProps) {
       {userPools.length === 0 ? (
         <p class="empty-state">まだ User Pool がありません</p>
       ) : (
-        <>
+        <div x-data="listFilter()" x-init="update()" x-effect="update()">
+          <div class="list-toolbar">
+            <label class="list-filter">
+              <span class="list-filter__icon">{IconSearch}</span>
+              <input
+                type="search"
+                class="input list-filter__input"
+                placeholder="User Pool を検索"
+                {...{ "x-model.debounce.120ms": "query" }}
+              />
+            </label>
+          </div>
           <p class="list-count">{userPools.length} 件の User Pool</p>
           <div class="data-table-wrap">
             <table class="data-table">
@@ -45,7 +56,10 @@ export function UserPoolList({ userPools, sidebarCounts }: UserPoolListProps) {
                   const path = `/cognito/${encodeURIComponent(pool.id)}`
 
                   return (
-                    <tr>
+                    <tr
+                      data-filter-text={`${pool.name} ${pool.id}`}
+                      x-show="matches($el.dataset.filterText)"
+                    >
                       <td>
                         <a href={path} safe>
                           {pool.name}
@@ -73,10 +87,15 @@ export function UserPoolList({ userPools, sidebarCounts }: UserPoolListProps) {
                     </tr>
                   )
                 })}
+                <tr x-show="hasQuery && visibleCount === 0" x-cloak>
+                  <td colspan={4} class="data-table__empty">
+                    一致する User Pool がありません
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
     </Layout>
   )
