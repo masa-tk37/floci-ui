@@ -24,7 +24,7 @@ export function httpStatusFor(code: ServiceErrorCode): number {
     case "InvalidInput":
       return 400
     case "OperationFailed":
-      return 400
+      return 500
   }
 }
 

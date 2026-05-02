@@ -44,8 +44,8 @@ describe("httpStatusFor", () => {
     expect(httpStatusFor("InvalidInput")).toBe(400)
   })
 
-  it("should return 400 for OperationFailed", () => {
-    expect(httpStatusFor("OperationFailed")).toBe(400)
+  it("should return 500 for OperationFailed", () => {
+    expect(httpStatusFor("OperationFailed")).toBe(500)
   })
 })
 

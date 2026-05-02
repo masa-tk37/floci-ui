@@ -15,7 +15,7 @@ import {
   sendMessage,
   updateQueueSettings,
 } from "../services/sqs/queue-service"
-import { respondWithError } from "./route-utils"
+import { jsonData, jsonOk, respondWithError } from "./route-utils"
 import { CreateQueueForm } from "../views/sqs/create-form"
 import {
   QueueAttributesCards,
@@ -25,150 +25,196 @@ import {
 import { QueueList } from "../views/sqs/queue-list"
 import { SQSSettingsForm } from "../views/sqs/settings-form"
 
-export const sqsRoutes = new Elysia({ prefix: "/sqs" })
-  .use(html())
-  .get("/", async () => {
-    const [queues, sidebarData] = await Promise.all([
-      listQueues(),
-      loadSidebarSafe(),
-    ])
-    return (
-      <QueueList queues={queues} sidebarCounts={toSidebarCounts(sidebarData)} />
+const stringRecordSchema = t.Record(t.String(), t.String())
+
+const createQueueSchema = t.Object({
+  name: t.String({ minLength: 1 }),
+  attributes: t.Optional(stringRecordSchema),
+  tags: t.Optional(stringRecordSchema),
+})
+
+const updateQueueSettingsSchema = t.Object({
+  attributes: t.Optional(stringRecordSchema),
+  tags: t.Optional(stringRecordSchema),
+})
+
+export interface SqsRouteDeps {
+  createQueue: typeof createQueue
+  deleteMessage: typeof deleteMessage
+  deleteQueue: typeof deleteQueue
+  getQueueAttributes: typeof getQueueAttributes
+  getQueueDetail: typeof getQueueDetail
+  getQueueMessageBody: typeof getQueueMessageBody
+  getQueueMessages: typeof getQueueMessages
+  getQueueSettings: typeof getQueueSettings
+  listQueues: typeof listQueues
+  loadSidebarSafe: typeof loadSidebarSafe
+  purgeQueue: typeof purgeQueue
+  sendMessage: typeof sendMessage
+  updateQueueSettings: typeof updateQueueSettings
+}
+
+const defaultSqsRouteDeps: SqsRouteDeps = {
+  createQueue,
+  deleteMessage,
+  deleteQueue,
+  getQueueAttributes,
+  getQueueDetail,
+  getQueueMessageBody,
+  getQueueMessages,
+  getQueueSettings,
+  listQueues,
+  loadSidebarSafe,
+  purgeQueue,
+  sendMessage,
+  updateQueueSettings,
+}
+
+export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
+  return new Elysia({ prefix: "/sqs" })
+    .use(html())
+    .get("/", async () => {
+      const [queues, sidebarData] = await Promise.all([
+        deps.listQueues(),
+        deps.loadSidebarSafe(),
+      ])
+      return (
+        <QueueList
+          queues={queues}
+          sidebarCounts={toSidebarCounts(sidebarData)}
+        />
+      )
+    })
+    .get("/new", async () => {
+      const sidebarData = await deps.loadSidebarSafe()
+      return <CreateQueueForm sidebarCounts={toSidebarCounts(sidebarData)} />
+    })
+    .post(
+      "/",
+      async ({ body, set }) => {
+        try {
+          await deps.createQueue(body.name, body.attributes, body.tags)
+          return jsonOk()
+        } catch (e) {
+          return respondWithError(e, set)
+        }
+      },
+      { body: createQueueSchema },
     )
-  })
-  .get("/new", async () => {
-    const sidebarData = await loadSidebarSafe()
-    return <CreateQueueForm sidebarCounts={toSidebarCounts(sidebarData)} />
-  })
-  .post(
-    "/",
-    async ({ body, set }) => {
-      const b = body as {
-        name: string
-        attributes?: Record<string, string>
-        tags?: Record<string, string>
-      }
+    .delete("/:queue", async ({ params, set }) => {
       try {
-        await createQueue(b.name, b.attributes, b.tags)
-        return { success: true }
+        await deps.deleteQueue(params.queue)
+        return jsonOk()
       } catch (e) {
         return respondWithError(e, set)
       }
-    },
-    { body: t.Any() },
-  )
-  .delete("/:queue", async ({ params, set }) => {
-    try {
-      await deleteQueue(params.queue)
-      return { success: true }
-    } catch (e) {
-      return respondWithError(e, set)
-    }
-  })
-  .get("/:queue/settings", async ({ params }) => {
-    const [init, sidebarData] = await Promise.all([
-      getQueueSettings(params.queue),
-      loadSidebarSafe(),
-    ])
-    return (
-      <SQSSettingsForm
-        init={init}
-        sidebarCounts={toSidebarCounts(sidebarData)}
-      />
+    })
+    .get("/:queue/settings", async ({ params }) => {
+      const [init, sidebarData] = await Promise.all([
+        deps.getQueueSettings(params.queue),
+        deps.loadSidebarSafe(),
+      ])
+      return (
+        <SQSSettingsForm
+          init={init}
+          sidebarCounts={toSidebarCounts(sidebarData)}
+        />
+      )
+    })
+    .post(
+      "/:queue/settings",
+      async ({ params, body, set }) => {
+        try {
+          await deps.updateQueueSettings(
+            params.queue,
+            body.attributes ?? {},
+            body.tags ?? {},
+          )
+          return jsonOk()
+        } catch (e) {
+          return respondWithError(e, set)
+        }
+      },
+      { body: updateQueueSettingsSchema },
     )
-  })
-  .post(
-    "/:queue/settings",
-    async ({ params, body, set }) => {
-      const b = body as {
-        attributes?: Record<string, string>
-        tags?: Record<string, string>
-      }
+    .get("/:queue", async ({ params }) => {
+      const [detail, sidebarData, queues] = await Promise.all([
+        deps.getQueueDetail(params.queue),
+        deps.loadSidebarSafe(),
+        deps.listQueues(),
+      ])
+      return (
+        <QueueDetail
+          name={params.queue}
+          queues={queues}
+          attributes={detail.attributes}
+          messages={detail.messages}
+          sidebarCounts={toSidebarCounts(sidebarData)}
+        />
+      )
+    })
+    .post(
+      "/:queue/send",
+      async ({ params, body, set }) => {
+        try {
+          const messageId = await deps.sendMessage(
+            params.queue,
+            body.body,
+            body.groupId,
+            body.messageDeduplicationId,
+          )
+          return jsonData({ messageId })
+        } catch (e) {
+          return respondWithError(e, set)
+        }
+      },
+      {
+        body: t.Object({
+          body: t.String({ minLength: 1 }),
+          groupId: t.Optional(t.String()),
+          messageDeduplicationId: t.Optional(t.String()),
+        }),
+      },
+    )
+    .get("/:queue/messages-fragment", async ({ params }) => {
+      const messages = await deps.getQueueMessages(params.queue)
+      return <QueueMessagesTable messages={messages} />
+    })
+    .get("/:queue/attributes-fragment", async ({ params }) => {
+      const attributes = await deps.getQueueAttributes(params.queue)
+      return <QueueAttributesCards attributes={attributes} />
+    })
+    .delete(
+      "/:queue/message",
+      async ({ params, body, set }) => {
+        try {
+          await deps.deleteMessage(params.queue, body.receipt)
+          return jsonOk()
+        } catch (e) {
+          return respondWithError(e, set)
+        }
+      },
+      { body: t.Object({ receipt: t.String({ minLength: 1 }) }) },
+    )
+    .delete("/:queue/messages", async ({ params, set }) => {
       try {
-        await updateQueueSettings(
+        await deps.purgeQueue(params.queue)
+        return jsonOk()
+      } catch (e) {
+        return respondWithError(e, set)
+      }
+    })
+    .get("/:queue/messages/:messageId/body", async ({ params, set }) => {
+      try {
+        const body = await deps.getQueueMessageBody(
           params.queue,
-          b.attributes ?? {},
-          b.tags ?? {},
+          params.messageId,
         )
-        return { success: true }
+        return jsonData({ body })
       } catch (e) {
         return respondWithError(e, set)
       }
-    },
-    { body: t.Any() },
-  )
-  .get("/:queue", async ({ params }) => {
-    const [detail, sidebarData, queues] = await Promise.all([
-      getQueueDetail(params.queue),
-      loadSidebarSafe(),
-      listQueues(),
-    ])
-    return (
-      <QueueDetail
-        name={params.queue}
-        queues={queues}
-        attributes={detail.attributes}
-        messages={detail.messages}
-        sidebarCounts={toSidebarCounts(sidebarData)}
-      />
-    )
-  })
-  .post(
-    "/:queue/send",
-    async ({ params, body, set }) => {
-      try {
-        const messageId = await sendMessage(
-          params.queue,
-          body.body,
-          body.groupId,
-          body.messageDeduplicationId,
-        )
-        return { messageId }
-      } catch (e) {
-        return respondWithError(e, set)
-      }
-    },
-    {
-      body: t.Object({
-        body: t.String({ minLength: 1 }),
-        groupId: t.Optional(t.String()),
-        messageDeduplicationId: t.Optional(t.String()),
-      }),
-    },
-  )
-  .get("/:queue/messages-fragment", async ({ params }) => {
-    const messages = await getQueueMessages(params.queue)
-    return <QueueMessagesTable messages={messages} />
-  })
-  .get("/:queue/attributes-fragment", async ({ params }) => {
-    const attributes = await getQueueAttributes(params.queue)
-    return <QueueAttributesCards attributes={attributes} />
-  })
-  .delete(
-    "/:queue/message",
-    async ({ params, body, set }) => {
-      try {
-        await deleteMessage(params.queue, body.receipt)
-        return { success: true }
-      } catch (e) {
-        return respondWithError(e, set)
-      }
-    },
-    { body: t.Object({ receipt: t.String({ minLength: 1 }) }) },
-  )
-  .delete("/:queue/messages", async ({ params, set }) => {
-    try {
-      await purgeQueue(params.queue)
-      return { success: true }
-    } catch (e) {
-      return respondWithError(e, set)
-    }
-  })
-  .get("/:queue/messages/:messageId/body", async ({ params, set }) => {
-    try {
-      const body = await getQueueMessageBody(params.queue, params.messageId)
-      return { body }
-    } catch (e) {
-      return respondWithError(e, set)
-    }
-  })
+    })
+}
+
+export const sqsRoutes = createSqsRoutes()

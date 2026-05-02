@@ -56,16 +56,14 @@ export const createQueueAlpineState = `{
     this.error = null;
     this.submitting = true;
     try {
-      const res = await fetch('/sqs', {
+      await globalThis.floci.requestJson('/sqs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.buildPayload()),
       });
-      const data = await res.json();
-      if (data.error) { this.error = data.error; this.submitting = false; return; }
       window.location.href = '/sqs';
     } catch (e) {
-      this.error = e.message;
+      this.error = globalThis.floci.errorMessage(e);
       this.submitting = false;
     }
   },

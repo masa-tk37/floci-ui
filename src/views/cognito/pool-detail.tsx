@@ -65,7 +65,7 @@ function makeCreateModalState(
     if (this.submitting) return;
     this.open = false;
     this.error = null;
-    ${fieldEntries.map(([key, value]) => `this.${key} = ${JSON.stringify(value)};`).join('\n    ')}
+    ${fieldEntries.map(([key, value]) => `this.${key} = ${JSON.stringify(value)};`).join("\n    ")}
   },
 
   async submit(payload) {
@@ -73,22 +73,15 @@ function makeCreateModalState(
     this.submitting = true;
 
     try {
-      const response = await fetch(this.actionUrl, {
+      await globalThis.floci.requestJson(this.actionUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        this.error = data.error || ('エラーが発生しました (HTTP ' + response.status + ')');
-        this.submitting = false;
-        return;
-      }
 
       window.location.reload();
     } catch (error) {
-      this.error = error?.message || 'ネットワークエラーが発生しました';
+      this.error = globalThis.floci.errorMessage(error);
       this.submitting = false;
     }
   },

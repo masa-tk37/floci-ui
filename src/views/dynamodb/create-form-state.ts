@@ -109,16 +109,14 @@ export const createTableAlpineState = `{
     this.submitting = true;
     try {
       const payload = this.buildPayload();
-      const res = await fetch('/dynamodb/tables', {
+      await globalThis.floci.requestJson('/dynamodb/tables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (data.error) { this.error = data.error; this.submitting = false; return; }
       window.location.href = '/dynamodb';
     } catch (e) {
-      this.error = e.message;
+      this.error = globalThis.floci.errorMessage(e);
       this.submitting = false;
     }
   },

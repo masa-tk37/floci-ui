@@ -57,18 +57,11 @@ export function makeParameterFormAlpineState(
     this.submitting = true;
 
     try {
-      const response = await fetch(this.actionUrl, {
+      const data = await globalThis.floci.requestJson(this.actionUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.buildPayload()),
       });
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        this.error = data.error || ('エラーが発生しました (HTTP ' + response.status + ')');
-        this.submitting = false;
-        return;
-      }
 
       if (this.mode === 'create') {
         window.location.href = data.id ? ('/ssm/' + data.id) : '/ssm';
@@ -78,7 +71,7 @@ export function makeParameterFormAlpineState(
       window.dispatchEvent(new CustomEvent('floci:toast', { detail: { kind: 'success', message: 'Parameter を保存しました' } }));
       this.submitting = false;
     } catch (error) {
-      this.error = error?.message || 'ネットワークエラーが発生しました';
+      this.error = globalThis.floci.errorMessage(error);
       this.submitting = false;
     }
   },

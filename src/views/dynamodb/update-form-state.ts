@@ -28,7 +28,7 @@ export function makeUpdateTableAlpineState(init: UpdateFormInitial): string {
     this.error = null;
     this.submitting = true;
     try {
-      const res = await fetch('/dynamodb/tables/' + encodeURIComponent(this.tableName) + '/update', {
+      await globalThis.floci.requestJson('/dynamodb/tables/' + encodeURIComponent(this.tableName) + '/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -42,11 +42,9 @@ export function makeUpdateTableAlpineState(init: UpdateFormInitial): string {
           deletionProtection: this.deletionProtection,
         }),
       });
-      const data = await res.json();
-      if (data.error) { this.error = data.error; this.submitting = false; return; }
       window.location.href = '/dynamodb/' + encodeURIComponent(this.tableName);
     } catch (e) {
-      this.error = e.message;
+      this.error = globalThis.floci.errorMessage(e);
       this.submitting = false;
     }
   },

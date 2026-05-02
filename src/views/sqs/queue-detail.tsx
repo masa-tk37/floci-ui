@@ -181,13 +181,11 @@ export function QueueDetail({
       if (this.isFifo) payload.groupId = this.groupId;
       if (this.requiresDeduplicationId) payload.messageDeduplicationId = this.deduplicationId;
       try {
-        const r = await fetch('${queuePath}/send', {
+        const d = await globalThis.floci.requestJson('${queuePath}/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const d = await r.json();
-        if (d.error) { this.error = d.error; this.sending = false; return; }
         this.lastId = d.messageId;
         this.body = '';
         this.groupId = '';
@@ -196,7 +194,7 @@ export function QueueDetail({
         this.open = false;
         ${refreshFragments}
       } catch (e) {
-        this.error = e.message || 'ネットワークエラー';
+        this.error = globalThis.floci.errorMessage(e);
         this.sending = false;
       }
     }
@@ -208,29 +206,26 @@ export function QueueDetail({
     bodyError: '',
     deleting: false,
     deleteError: '',
-    async deleteMsg() {
+  async deleteMsg() {
       this.deleting = true; this.deleteError = '';
       try {
-        const r = await fetch('${queuePath}/message', {
+        await globalThis.floci.requestJson('${queuePath}/message', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ receipt: this.selectedMsg.receipt })
         });
-        const d = await r.json();
-        if (d.error) { this.deleteError = d.error; this.deleting = false; return; }
         this.selectedMsg = null; this.deleting = false;
         ${refreshFragments}
       } catch(e) {
-        this.deleteError = e.message || 'ネットワークエラー'; this.deleting = false;
+        this.deleteError = globalThis.floci.errorMessage(e); this.deleting = false;
       }
     }
   }`
 
   const openMessageModalHandler = `selectedMsg = $event.detail; bodyLoading = true; bodyError = ''; deleteError = ''; deleting = false;
-    fetch('${queuePath}/messages/' + $event.detail.id + '/body')
-      .then(r => r.json())
-      .then(d => { if (d.body !== undefined) { selectedMsg = {...selectedMsg, body: d.body}; } else { bodyError = d.error || 'Failed to load'; } bodyLoading = false; })
-      .catch(() => { bodyError = 'Network error'; bodyLoading = false; })`
+    globalThis.floci.requestJson('${queuePath}/messages/' + $event.detail.id + '/body')
+      .then(d => { selectedMsg = {...selectedMsg, body: d.body}; bodyLoading = false; })
+      .catch((error) => { bodyError = globalThis.floci.errorMessage(error); bodyLoading = false; })`
   const queueRailItems = queues.map((queue) => ({
     label: queue.name,
     href: `/sqs/${encodeURIComponent(queue.name)}`,
@@ -332,7 +327,7 @@ export function QueueDetail({
                             type="button"
                             class="btn btn--danger btn--sm"
                             {...{
-                              "@click": `fetch('${queuePath}/messages', { method: 'DELETE' }).then(r => r.json()).then(() => location.reload())`,
+                              "@click": `globalThis.floci.requestJson('${queuePath}/messages', { method: 'DELETE' }).then(() => location.reload()).catch((error) => window.dispatchEvent(new CustomEvent('floci:toast', { detail: { kind: 'error', message: globalThis.floci.errorMessage(error) } })))`,
                             }}
                           >
                             パージ

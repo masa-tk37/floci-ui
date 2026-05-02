@@ -61,7 +61,7 @@ export function makeSQSSettingsAlpineState(init: SQSSettingsInitial): string {
     this.error = null;
     this.submitting = true;
     try {
-      const res = await fetch('/sqs/' + encodeURIComponent(this.name) + '/settings', {
+      await globalThis.floci.requestJson('/sqs/' + encodeURIComponent(this.name) + '/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -69,12 +69,10 @@ export function makeSQSSettingsAlpineState(init: SQSSettingsInitial): string {
           tags: this.tags.filter(t => t.key).reduce((acc, t) => { acc[t.key] = t.value; return acc; }, {}),
         }),
       });
-      const data = await res.json();
-      if (data.error) { this.error = data.error; this.submitting = false; return; }
       window.dispatchEvent(new CustomEvent('floci:toast', { detail: { kind: 'success', message: '設定を保存しました' } }));
       this.submitting = false;
     } catch (e) {
-      this.error = e.message;
+      this.error = globalThis.floci.errorMessage(e);
       this.submitting = false;
     }
   },

@@ -24,7 +24,12 @@ export function ResourceRail({
   emptyLabel,
 }: ResourceRailProps) {
   return (
-    <aside class="resource-rail" x-data="listFilter()" x-init="update()" x-effect="update()">
+    <aside
+      class="resource-rail"
+      x-data="listFilter()"
+      x-init="update()"
+      x-effect="update()"
+    >
       <div class="resource-rail__head">
         <h2 class="resource-rail__title">{title}</h2>
         <span class="badge">{items.length}</span>

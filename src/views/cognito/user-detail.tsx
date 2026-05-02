@@ -34,22 +34,15 @@ function makeActionState(paths: {
     this.loading = true;
 
     try {
-      const response = await fetch(url, {
+      await globalThis.floci.requestJson(url, {
         method: 'POST',
         headers: body ? { 'Content-Type': 'application/json' } : undefined,
         body: body ? JSON.stringify(body) : undefined,
       });
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        this.error = data.error || ('エラーが発生しました (HTTP ' + response.status + ')');
-        this.loading = false;
-        return;
-      }
 
       window.location.reload();
     } catch (error) {
-      this.error = error?.message || 'ネットワークエラーが発生しました';
+      this.error = globalThis.floci.errorMessage(error);
       this.loading = false;
     }
   },

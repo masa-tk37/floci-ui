@@ -33,16 +33,14 @@ export function makeItemEditAlpineState(
     this.error = null;
     this.submitting = true;
     try {
-      const res = await fetch(${JSON.stringify(`${itemPath}/edit`)}, {
+      await globalThis.floci.requestJson(${JSON.stringify(`${itemPath}/edit`)}, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ itemJson: this.itemJson }),
       });
-      const data = await res.json();
-      if (data.error) { this.error = data.error; this.submitting = false; return; }
       window.location.href = ${JSON.stringify(itemPath)};
     } catch (e) {
-      this.error = e.message;
+      this.error = globalThis.floci.errorMessage(e);
       this.submitting = false;
     }
   },

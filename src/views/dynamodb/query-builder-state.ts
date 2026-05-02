@@ -31,14 +31,12 @@ export function makeQueryBuilderAlpineState(tableName: string): string {
       this.loading = true;
       this.error = '';
       try {
-        const r = await fetch(${JSON.stringify(queryPath)}, {
+        const d = await globalThis.floci.requestJson(${JSON.stringify(queryPath)}, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(this.buildPayload(cursor))
         });
-        const d = await r.json();
         this.loading = false;
-        if (d.error) { this.error = d.error; return false; }
         this.results = d.items || [];
         this.columns = this.results.length > 0 ? Object.keys(this.results[0]) : [];
         this.nextCursor = d.cursor || '';
@@ -48,7 +46,7 @@ export function makeQueryBuilderAlpineState(tableName: string): string {
         return true;
       } catch (e) {
         this.loading = false;
-        this.error = e.message;
+        this.error = globalThis.floci.errorMessage(e);
         return false;
       }
     },

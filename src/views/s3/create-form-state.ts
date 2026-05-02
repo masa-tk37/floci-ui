@@ -40,13 +40,11 @@ export const createBucketAlpineState = `{
     this.warnings = [];
     this.submitting = true;
     try {
-      const res = await fetch('/s3/bucket', {
+      const data = await globalThis.floci.requestJson('/s3/bucket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.buildPayload()),
       });
-      const data = await res.json();
-      if (data.error) { this.error = data.error; this.submitting = false; return; }
       if (data.warnings && data.warnings.length) {
         this.warnings = data.warnings;
         this.submitting = false;
@@ -55,7 +53,7 @@ export const createBucketAlpineState = `{
       }
       window.location.href = '/s3';
     } catch (e) {
-      this.error = e.message;
+      this.error = globalThis.floci.errorMessage(e);
       this.submitting = false;
     }
   },

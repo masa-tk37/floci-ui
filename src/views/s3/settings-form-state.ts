@@ -77,18 +77,16 @@ export function makeS3SettingsAlpineState(init: S3SettingsInitial): string {
     this.warnings = [];
     this.submitting = true;
     try {
-      const res = await fetch('/s3/' + encodeURIComponent(this.bucket) + '/settings', {
+      const data = await globalThis.floci.requestJson('/s3/' + encodeURIComponent(this.bucket) + '/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.buildPayload()),
       });
-      const data = await res.json();
-      if (data.error) { this.error = data.error; this.submitting = false; return; }
       if (data.warnings && data.warnings.length) { this.warnings = data.warnings; }
       window.dispatchEvent(new CustomEvent('floci:toast', { detail: { kind: 'success', message: '設定を保存しました' } }));
       this.submitting = false;
     } catch (e) {
-      this.error = e.message;
+      this.error = globalThis.floci.errorMessage(e);
       this.submitting = false;
     }
   },

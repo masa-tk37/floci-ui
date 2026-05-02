@@ -39,14 +39,44 @@ interface LayoutProps {
   contentClass?: string
   stylesheets?: string[]
   scripts?: ScriptSpec[]
-  /**
-   * Raw inline script bodies. Each string is placed verbatim inside a
-   * <script> tag. SECURITY: strings MUST be static templates with no
-   * untrusted-data interpolation. Use jsonForScript() for any runtime values.
-   */
+  /** Raw inline script bodies — strings MUST be static templates with no untrusted-data interpolation. */
   inlineScripts?: string[]
   children: JSX.Element | JSX.Element[] | string
 }
+
+const flociClientScript = `
+function flociErrorMessage(error) {
+  if (!error) return 'ネットワークエラーが発生しました'
+  if (typeof error.message === 'string' && error.message) return error.message
+  return 'ネットワークエラーが発生しました'
+}
+
+async function flociRequestJson(url, options) {
+  const response = await fetch(url, options)
+  let payload = null
+
+  try {
+    payload = await response.json()
+  } catch (_) {
+    payload = null
+  }
+
+  if (response.ok && payload?.ok) {
+    return payload.data
+  }
+
+  const message = payload?.error?.message || ('エラーが発生しました (HTTP ' + response.status + ')')
+  const error = new Error(message)
+  error.code = payload?.error?.code || 'InternalServerError'
+  error.status = response.status
+  throw error
+}
+
+globalThis.floci = {
+  requestJson: flociRequestJson,
+  errorMessage: flociErrorMessage,
+}
+`
 
 const toastScript = `
 function toast() {
@@ -115,18 +145,7 @@ function deleteModal() {
             options.headers = { 'Content-Type': this.contentType }
           }
         }
-        const res = await fetch(this.deleteUrl, options)
-        let data = null
-        try {
-          data = await res.json()
-        } catch (_) {
-          data = null
-        }
-        if (!res.ok || data?.error) {
-          this.error = data?.error || ('エラーが発生しました (HTTP ' + res.status + ')')
-          this.loading = false
-          return
-        }
+        await globalThis.floci.requestJson(this.deleteUrl, options)
         this.isOpen = false
         if (this.redirectUrl) {
           location.href = this.redirectUrl
@@ -136,7 +155,7 @@ function deleteModal() {
           location.reload()
         }
       } catch (e) {
-        this.error = 'ネットワークエラーが発生しました'
+        this.error = globalThis.floci.errorMessage(e)
         this.loading = false
       }
     },
@@ -309,6 +328,7 @@ export function Layout({
             </div>
           </template>
         </div>
+        <script>{flociClientScript}</script>
         <script>{toastScript}</script>
         <script>{deleteModalScript}</script>
         <script>{listFilterScript}</script>
