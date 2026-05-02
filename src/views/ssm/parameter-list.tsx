@@ -2,6 +2,7 @@ import { Html } from "@elysiajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import type { ParameterSummary } from "../../services/ssm/parameter-service"
+import { mountComponentAttrs } from "../client"
 import { formatDate } from "../format"
 import { IconEdit, IconPlus, IconSearch, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
@@ -32,7 +33,7 @@ export function ParameterList({
       {parameters.length === 0 ? (
         <p class="empty-state">まだ Parameter がありません</p>
       ) : (
-        <div x-data="listFilter()" x-init="update()" x-effect="update()">
+        <div {...mountComponentAttrs("list-filter")}>
           <div class="list-toolbar">
             <label class="list-filter">
               <span class="list-filter__icon">{IconSearch}</span>
@@ -80,13 +81,10 @@ export function ParameterList({
                         <button
                           type="button"
                           class="btn btn--danger-ghost btn--sm"
+                          data-floci-delete-trigger=""
                           data-resource-name={parameter.name}
                           data-delete-url={path}
-                          x-data
-                          {...{
-                            "x-on:click":
-                              "$dispatch('open-delete-modal', { resourceName: $el.dataset.resourceName, deleteUrl: $el.dataset.deleteUrl, onSuccess: 'reload' })",
-                          }}
+                          data-on-success="reload"
                         >
                           {IconTrash}削除
                         </button>

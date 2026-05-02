@@ -1,11 +1,9 @@
 import { Html } from "@elysiajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
+import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout, type SidebarCounts } from "../layout"
-import {
-  makeParameterFormAlpineState,
-  type ParameterFormInitial,
-} from "./parameter-form-state"
+import type { ParameterFormInitial } from "./parameter-form-state"
 
 interface ParameterFormProps {
   init: ParameterFormInitial
@@ -13,7 +11,6 @@ interface ParameterFormProps {
 }
 
 export function ParameterForm({ init, sidebarCounts }: ParameterFormProps) {
-  const state = makeParameterFormAlpineState(init)
   const parameterPath =
     init.mode === "edit" ? `/ssm/${encodeResourceName(init.name)}` : "/ssm"
 
@@ -52,7 +49,8 @@ export function ParameterForm({ init, sidebarCounts }: ParameterFormProps) {
           </p>
         </section>
 
-        <div x-data={state}>
+        <div {...mountComponentAttrs("parameter-form")}>
+          <ClientProps props={init} />
           <div class="query-form">
             <h2 class="section-title">基本設定</h2>
             <div class="ssm-parameter-form-page__grid">

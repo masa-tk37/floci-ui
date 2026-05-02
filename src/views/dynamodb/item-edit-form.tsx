@@ -1,10 +1,8 @@
 import { Html } from "@elysiajs/html"
 
+import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout, type SidebarCounts } from "../layout"
-import {
-  type ItemEditFormInitial,
-  makeItemEditAlpineState,
-} from "./item-edit-form-state"
+import type { ItemEditFormInitial } from "./item-edit-form-state"
 
 interface ItemEditFormProps {
   init: ItemEditFormInitial
@@ -16,7 +14,6 @@ export function ItemEditForm({ init, sidebarCounts }: ItemEditFormProps) {
   const itemPath = init.sk
     ? `${tablePath}/${encodeURIComponent(init.pk)}/${encodeURIComponent(init.sk)}`
     : `${tablePath}/${encodeURIComponent(init.pk)}`
-  const alpineState = makeItemEditAlpineState(init, itemPath)
 
   return (
     <Layout
@@ -46,7 +43,11 @@ export function ItemEditForm({ init, sidebarCounts }: ItemEditFormProps) {
           )}
         </section>
 
-        <div x-data={alpineState} class="ddb-item-edit-page__form">
+        <div
+          {...mountComponentAttrs("ddb-item-edit")}
+          class="ddb-item-edit-page__form"
+        >
+          <ClientProps props={{ ...init, itemPath }} />
           <div class="query-form">
             <h2 class="section-title">キー</h2>
             <div class="ddb-item-edit-page__key-grid">

@@ -1,5 +1,6 @@
 import { Html } from "@elysiajs/html"
 
+import { ClientProps, mountComponentAttrs } from "../client"
 import { IconPlus, IconSettings } from "../icons"
 import { Layout } from "../layout"
 import { ResourceRail } from "../resource-rail"
@@ -31,113 +32,6 @@ interface QueueDetailProps {
   sidebarCounts?: import("../layout").SidebarCounts
 }
 
-function approximateAge(sentTimestamp: number | null): string {
-  if (!sentTimestamp) return "—"
-  const ageMs = Date.now() - sentTimestamp
-  if (ageMs < 0) return "0s"
-  const sec = Math.floor(ageMs / 1000)
-  if (sec < 60) return `${sec}s`
-  const min = Math.floor(sec / 60)
-  if (min < 60) return `${min}m`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h`
-  const day = Math.floor(hr / 24)
-  return `${day}d`
-}
-
-export function QueueAttributesCards({
-  attributes,
-}: {
-  attributes: QueueAttributes
-}) {
-  return (
-    <>
-      <div class="attr-card">
-        <span class="attr-card__label">メッセージ数</span>
-        <span class="attr-card__value">{attributes.depth}</span>
-      </div>
-      <div class="attr-card">
-        <span class="attr-card__label">処理中</span>
-        <span class="attr-card__value">{attributes.inFlight}</span>
-      </div>
-      <div class="attr-card">
-        <span class="attr-card__label">遅延中</span>
-        <span class="attr-card__value">{attributes.delayed}</span>
-      </div>
-      <div class="attr-card">
-        <span class="attr-card__label">可視性タイムアウト</span>
-        <span class="attr-card__value">{attributes.visibilityTimeout}s</span>
-      </div>
-      <div class="attr-card">
-        <span class="attr-card__label">保持期間</span>
-        <span class="attr-card__value">{attributes.messageRetention}s</span>
-      </div>
-      {attributes.dlqName ? (
-        <div class="attr-card attr-card--dlq">
-          <span class="attr-card__label">Dead-letter queue</span>
-          <a
-            href={`/sqs/${encodeURIComponent(attributes.dlqName)}`}
-            class="attr-card__link"
-            safe
-          >
-            {attributes.dlqName}
-          </a>
-        </div>
-      ) : null}
-    </>
-  )
-}
-
-export function QueueMessagesTable({
-  messages,
-}: {
-  messages: PeekedMessage[]
-}) {
-  if (messages.length === 0) {
-    return (
-      <p class="empty-state empty-state--plain">
-        メッセージなし。VisibilityTimeout=0 でプレビューします —
-        処理中のメッセージは表示されません。
-      </p>
-    )
-  }
-  return (
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>メッセージ ID</th>
-          <th>本文プレビュー</th>
-          <th>経過時間</th>
-        </tr>
-      </thead>
-      <tbody>
-        {messages.map((msg) => (
-          <tr
-            class="data-table__row data-table__row--clickable"
-            data-msg-id={msg.messageId}
-            data-msg-receipt={msg.receiptHandle ?? ""}
-            onclick="document.dispatchEvent(new CustomEvent('open-message-modal',{detail:{id:this.dataset.msgId,receipt:this.dataset.msgReceipt}}))"
-          >
-            <td>
-              <code class="code-inline" safe>
-                {msg.messageId}
-              </code>
-            </td>
-            <td>
-              <pre class="msg-body" safe>
-                {msg.body.length > 300
-                  ? `${msg.body.slice(0, 300)}…`
-                  : msg.body}
-              </pre>
-            </td>
-            <td safe>{approximateAge(msg.sentTimestamp)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
 export function QueueDetail({
   name,
   queues = [],
@@ -147,85 +41,6 @@ export function QueueDetail({
 }: QueueDetailProps) {
   const queuePath = `/sqs/${encodeURIComponent(name)}`
   const isFifo = name.endsWith(".fifo")
-
-  const refreshFragments = `
-    fetch('${queuePath}/messages-fragment')
-      .then(r2 => r2.text())
-      .then(html => { const el = document.getElementById('messages-list-inner'); if (el) el.innerHTML = html; })
-      .catch(() => {});
-    fetch('${queuePath}/attributes-fragment')
-      .then(r2 => r2.text())
-      .then(html => { const el = document.getElementById('attr-grid'); if (el) el.innerHTML = html; })
-      .catch(() => {});`
-
-  const sendState = `{
-    open: false, body: '', groupId: '', deduplicationId: '', sending: false, lastId: '', error: '',
-    isFifo: ${isFifo},
-    requiresDeduplicationId: ${isFifo && !attributes.contentBasedDeduplication},
-    close() {
-      if (this.sending) return;
-      this.open = false;
-      this.error = '';
-    },
-    async send() {
-      if (this.isFifo && !this.groupId) {
-        this.error = 'FIFO queue では Message Group ID が必須です';
-        return;
-      }
-      if (this.requiresDeduplicationId && !this.deduplicationId) {
-        this.error = 'Content-based deduplication が無効な FIFO queue では Message Deduplication ID が必須です';
-        return;
-      }
-      this.sending = true; this.error = ''; this.lastId = '';
-      const payload = { body: this.body };
-      if (this.isFifo) payload.groupId = this.groupId;
-      if (this.requiresDeduplicationId) payload.messageDeduplicationId = this.deduplicationId;
-      try {
-        const d = await globalThis.floci.requestJson('${queuePath}/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        this.lastId = d.messageId;
-        this.body = '';
-        this.groupId = '';
-        this.deduplicationId = '';
-        this.sending = false;
-        this.open = false;
-        ${refreshFragments}
-      } catch (e) {
-        this.error = globalThis.floci.errorMessage(e);
-        this.sending = false;
-      }
-    }
-  }`
-
-  const msgModalState = `{
-    selectedMsg: null,
-    bodyLoading: false,
-    bodyError: '',
-    deleting: false,
-    deleteError: '',
-  async deleteMsg() {
-      this.deleting = true; this.deleteError = '';
-      try {
-        await globalThis.floci.requestJson('${queuePath}/message', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ receipt: this.selectedMsg.receipt })
-        });
-        this.selectedMsg = null; this.deleting = false;
-        ${refreshFragments}
-      } catch(e) {
-        this.deleteError = globalThis.floci.errorMessage(e); this.deleting = false;
-      }
-    }
-  }`
-
-  const openMessageModalHandler = `selectedMsg = $event.detail; bodyLoading = true; bodyError = ''; deleteError = ''; deleting = false;
-    globalThis.floci.requestJson('${queuePath}/messages/' + $event.detail.id + '/body')
-      .then(d => { selectedMsg = {...selectedMsg, body: d.body}; bodyLoading = false; })
-      .catch((error) => { bodyError = globalThis.floci.errorMessage(error); bodyLoading = false; })`
   const queueRailItems = queues.map((queue) => ({
     label: queue.name,
     href: `/sqs/${encodeURIComponent(queue.name)}`,
@@ -252,7 +67,20 @@ export function QueueDetail({
       contentClass="content--resource-workspace"
       stylesheets={["/public/styles/views/sqs/queue-detail.css"]}
     >
-      <div class="sqs-queue-detail-page">
+      <div
+        class="sqs-queue-detail-page"
+        {...mountComponentAttrs("sqs-queue-detail")}
+      >
+        <ClientProps
+          props={{
+            queuePath,
+            isFifo,
+            requiresDeduplicationId:
+              isFifo && !attributes.contentBasedDeduplication,
+            initialMessages: messages,
+            initialAttributes: attributes,
+          }}
+        />
         <div class="resource-workspace sqs-queue-detail-page__workspace">
           {queues.length > 0 ? (
             <ResourceRail
@@ -286,16 +114,49 @@ export function QueueDetail({
             </section>
 
             <section class="attr-grid" id="attr-grid">
-              <QueueAttributesCards attributes={attributes} />
+              <div class="attr-card">
+                <span class="attr-card__label">メッセージ数</span>
+                <span class="attr-card__value" x-text="attributes.depth" />
+              </div>
+              <div class="attr-card">
+                <span class="attr-card__label">処理中</span>
+                <span class="attr-card__value" x-text="attributes.inFlight" />
+              </div>
+              <div class="attr-card">
+                <span class="attr-card__label">遅延中</span>
+                <span class="attr-card__value" x-text="attributes.delayed" />
+              </div>
+              <div class="attr-card">
+                <span class="attr-card__label">可視性タイムアウト</span>
+                <span
+                  class="attr-card__value"
+                  x-text="attributes.visibilityTimeout + 's'"
+                />
+              </div>
+              <div class="attr-card">
+                <span class="attr-card__label">保持期間</span>
+                <span
+                  class="attr-card__value"
+                  x-text="attributes.messageRetention + 's'"
+                />
+              </div>
+              <template x-if="attributes.dlqName">
+                <div class="attr-card attr-card--dlq">
+                  <span class="attr-card__label">Dead-letter queue</span>
+                  <a
+                    {...{
+                      ":href":
+                        "'/sqs/' + encodeURIComponent(attributes.dlqName)",
+                    }}
+                    class="attr-card__link"
+                    x-text="attributes.dlqName"
+                  />
+                </div>
+              </template>
             </section>
 
-            <div
-              x-data={msgModalState}
-              {...{
-                "@open-message-modal.document": openMessageModalHandler,
-              }}
-            >
-              <section class="panel" x-data={sendState}>
+            <div>
+              <section class="panel">
                 <div class="panel__header">
                   <h2 class="panel__title">Messages</h2>
                   <div class="panel__actions">
@@ -309,16 +170,16 @@ export function QueueDetail({
                     >
                       {IconPlus}送信
                     </button>
-                    <span x-data="{ confirming: false }">
+                    <span>
                       <button
                         type="button"
-                        x-show="!confirming"
-                        {...{ "@click": "confirming = true" }}
+                        x-show="!purgeConfirming"
+                        {...{ "@click": "purgeConfirming = true" }}
                         class="btn btn--danger-ghost btn--sm"
                       >
                         キューをパージ
                       </button>
-                      <template x-if="confirming">
+                      <template x-if="purgeConfirming">
                         <span class="confirm-inline">
                           <span class="confirm-inline__text">
                             全メッセージを削除しますか？
@@ -326,16 +187,14 @@ export function QueueDetail({
                           <button
                             type="button"
                             class="btn btn--danger btn--sm"
-                            {...{
-                              "@click": `globalThis.floci.requestJson('${queuePath}/messages', { method: 'DELETE' }).then(() => location.reload()).catch((error) => window.dispatchEvent(new CustomEvent('floci:toast', { detail: { kind: 'error', message: globalThis.floci.errorMessage(error) } })))`,
-                            }}
+                            {...{ "@click": "confirmPurge()" }}
                           >
                             パージ
                           </button>
                           <button
                             type="button"
                             class="btn btn--ghost btn--sm"
-                            {...{ "@click": "confirming = false" }}
+                            {...{ "@click": "purgeConfirming = false" }}
                           >
                             キャンセル
                           </button>
@@ -345,7 +204,46 @@ export function QueueDetail({
                   </div>
                 </div>
                 <div id="messages-list-inner">
-                  <QueueMessagesTable messages={messages} />
+                  <p
+                    class="empty-state empty-state--plain"
+                    x-show="messages.length === 0"
+                    x-cloak
+                  >
+                    メッセージなし。VisibilityTimeout=0 でプレビューします —
+                    処理中のメッセージは表示されません。
+                  </p>
+                  <table
+                    class="data-table"
+                    x-show="messages.length > 0"
+                    x-cloak
+                  >
+                    <thead>
+                      <tr>
+                        <th>メッセージ ID</th>
+                        <th>本文プレビュー</th>
+                        <th>経過時間</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template
+                        x-for="msg in messages"
+                        {...{ ":key": "msg.messageId" }}
+                      >
+                        <tr
+                          class="data-table__row data-table__row--clickable"
+                          {...{ "@click": "selectMsg(msg)" }}
+                        >
+                          <td>
+                            <code class="code-inline" x-text="msg.messageId" />
+                          </td>
+                          <td>
+                            <pre class="msg-body" x-text="truncate(msg.body)" />
+                          </td>
+                          <td x-text="approximateAge(msg.sentTimestamp)" />
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
                 </div>
                 <div
                   x-show="open"

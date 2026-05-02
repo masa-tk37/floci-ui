@@ -1,7 +1,7 @@
 import { Html } from "@elysiajs/html"
 
+import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout, type SidebarCounts } from "../layout"
-import { createTableAlpineState } from "./create-form-state"
 
 interface CreateTableFormProps {
   sidebarCounts?: SidebarCounts
@@ -25,7 +25,11 @@ export function CreateTableForm({ sidebarCounts }: CreateTableFormProps = {}) {
           <p class="page-subtitle">新しい DynamoDB Table を設定します。</p>
         </section>
 
-        <div x-data={createTableAlpineState} class="ddb-create-page__form">
+        <div
+          {...mountComponentAttrs("ddb-create-table")}
+          class="ddb-create-page__form"
+        >
+          <ClientProps props={{}} />
           <div class="query-form">
             <h2 class="section-title">Table の基本設定</h2>
             <div class="form-row">

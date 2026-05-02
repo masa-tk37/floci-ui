@@ -1,10 +1,8 @@
 import { Html } from "@elysiajs/html"
 
+import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout, type SidebarCounts } from "../layout"
-import {
-  makeUpdateTableAlpineState,
-  type UpdateFormInitial,
-} from "./update-form-state"
+import type { UpdateFormInitial } from "./update-form-state"
 
 interface UpdateTableFormProps {
   init: UpdateFormInitial
@@ -13,7 +11,6 @@ interface UpdateTableFormProps {
 
 export function UpdateTableForm({ init, sidebarCounts }: UpdateTableFormProps) {
   const tablePath = `/dynamodb/${encodeURIComponent(init.tableName)}`
-  const alpineState = makeUpdateTableAlpineState(init)
 
   return (
     <Layout
@@ -37,7 +34,11 @@ export function UpdateTableForm({ init, sidebarCounts }: UpdateTableFormProps) {
           </p>
         </section>
 
-        <div x-data={alpineState} class="ddb-update-page__form">
+        <div
+          {...mountComponentAttrs("ddb-update-table")}
+          class="ddb-update-page__form"
+        >
+          <ClientProps props={init} />
           <div class="query-form">
             <h2 class="section-title">課金モード</h2>
             <div class="form-row radio-group">

@@ -6,6 +6,7 @@ import type {
   UserPoolDetail as UserPoolDetailData,
   UserSummary,
 } from "../../services/cognito/cognito-service"
+import { ClientProps, mountComponentAttrs } from "../client"
 import { formatDate } from "../format"
 import { IconPlus, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
@@ -48,46 +49,6 @@ function renderVerifiedAttributes(values: string[]) {
   ))
 }
 
-function makeCreateModalState(
-  actionUrl: string,
-  fields: Record<string, string>,
-): string {
-  const fieldEntries = Object.entries(fields)
-
-  return `{
-  open: false,
-  actionUrl: ${JSON.stringify(actionUrl)},
-  ${fieldEntries.map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join(",\n  ")},
-  submitting: false,
-  error: null,
-
-  close() {
-    if (this.submitting) return;
-    this.open = false;
-    this.error = null;
-    ${fieldEntries.map(([key, value]) => `this.${key} = ${JSON.stringify(value)};`).join("\n    ")}
-  },
-
-  async submit(payload) {
-    this.error = null;
-    this.submitting = true;
-
-    try {
-      await globalThis.floci.requestJson(this.actionUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      window.location.reload();
-    } catch (error) {
-      this.error = globalThis.floci.errorMessage(error);
-      this.submitting = false;
-    }
-  },
-}`
-}
-
 export function UserPoolDetail({
   pool,
   appClients,
@@ -95,15 +56,6 @@ export function UserPoolDetail({
   sidebarCounts,
 }: UserPoolDetailProps) {
   const poolPath = `/cognito/${encodeURIComponent(pool.id)}`
-  const createClientState = makeCreateModalState(`${poolPath}/clients`, {
-    name: "",
-  })
-  const createUserState = makeCreateModalState(`${poolPath}/users`, {
-    username: "",
-    temporaryPassword: "",
-    email: "",
-    phoneNumber: "",
-  })
 
   return (
     <Layout
@@ -116,7 +68,11 @@ export function UserPoolDetail({
         { label: pool.name, href: poolPath },
       ]}
     >
-      <div class="cognito-pool-detail-page">
+      <div
+        class="cognito-pool-detail-page"
+        {...mountComponentAttrs("cognito-pool-detail")}
+      >
+        <ClientProps props={{ poolPath }} />
         <section class="page-header page-header--row">
           <div>
             <h1 class="page-title">
@@ -130,14 +86,10 @@ export function UserPoolDetail({
             <button
               type="button"
               class="btn btn--danger-ghost btn--sm"
+              data-floci-delete-trigger=""
               data-resource-name={pool.name}
               data-delete-url={poolPath}
               data-redirect-url="/cognito"
-              x-data
-              {...{
-                "x-on:click":
-                  "$dispatch('open-delete-modal', { resourceName: $el.dataset.resourceName, deleteUrl: $el.dataset.deleteUrl, redirectUrl: $el.dataset.redirectUrl })",
-              }}
             >
               {IconTrash}削除
             </button>
@@ -177,14 +129,14 @@ export function UserPoolDetail({
           </div>
         </section>
 
-        <section class="panel" x-data={createClientState}>
+        <section class="panel">
           <div class="panel__header">
             <h2 class="panel__title">App Clients</h2>
             <div class="panel__actions">
               <button
                 type="button"
                 class="btn btn--cognito btn--sm"
-                {...{ "@click": "open = true" }}
+                {...{ "@click": "createClient.open = true" }}
               >
                 {IconPlus}追加
               </button>
@@ -216,13 +168,10 @@ export function UserPoolDetail({
                           <button
                             type="button"
                             class="btn btn--danger-ghost btn--sm"
+                            data-floci-delete-trigger=""
                             data-resource-name={client.name}
                             data-delete-url={`${poolPath}/clients/${encodeURIComponent(client.id)}`}
-                            x-data
-                            {...{
-                              "x-on:click":
-                                "$dispatch('open-delete-modal', { resourceName: $el.dataset.resourceName, deleteUrl: $el.dataset.deleteUrl, onSuccess: 'reload' })",
-                            }}
+                            data-on-success="reload"
                           >
                             {IconTrash}削除
                           </button>
@@ -235,16 +184,16 @@ export function UserPoolDetail({
             )}
           </div>
           <div
-            x-show="open"
+            x-show="createClient.open"
             class="modal-overlay"
             x-cloak
-            {...{ "@click": "close()" }}
+            {...{ "@click": "createClient.close()" }}
           >
             <div
               class="modal"
               {...{
                 "@click.stop": "",
-                "@keydown.escape.window": "close()",
+                "@keydown.escape.window": "createClient.close()",
               }}
             >
               <h2 class="modal__title">App Client を追加</h2>
@@ -256,7 +205,7 @@ export function UserPoolDetail({
                   id="cognito-client-name"
                   type="text"
                   class="input"
-                  x-model="name"
+                  x-model="createClient.name"
                   placeholder="local-web"
                 />
                 <p class="form-help">
@@ -267,25 +216,30 @@ export function UserPoolDetail({
                   を有効にします。
                 </p>
               </div>
-              <div class="error-inline" x-show="error" x-cloak>
-                <span x-text="error" />
+              <div class="error-inline" x-show="createClient.error" x-cloak>
+                <span x-text="createClient.error" />
               </div>
               <div class="modal__actions">
                 <button
                   type="button"
                   class="btn btn--cognito"
                   {...{
-                    "@click": "submit({ name })",
-                    ":disabled": "submitting || !name.trim()",
+                    "@click":
+                      "createClient.submit({ name: createClient.name })",
+                    ":disabled":
+                      "createClient.submitting || !createClient.name.trim()",
                   }}
                 >
-                  <span x-show="!submitting">追加</span>
-                  <span x-show="submitting">追加中…</span>
+                  <span x-show="!createClient.submitting">追加</span>
+                  <span x-show="createClient.submitting">追加中…</span>
                 </button>
                 <button
                   type="button"
                   class="btn btn--ghost"
-                  {...{ "@click": "close()", ":disabled": "submitting" }}
+                  {...{
+                    "@click": "createClient.close()",
+                    ":disabled": "createClient.submitting",
+                  }}
                 >
                   キャンセル
                 </button>
@@ -294,14 +248,14 @@ export function UserPoolDetail({
           </div>
         </section>
 
-        <section class="panel" x-data={createUserState}>
+        <section class="panel">
           <div class="panel__header">
             <h2 class="panel__title">Users</h2>
             <div class="panel__actions">
               <button
                 type="button"
                 class="btn btn--cognito btn--sm"
-                {...{ "@click": "open = true" }}
+                {...{ "@click": "createUser.open = true" }}
               >
                 {IconPlus}追加
               </button>
@@ -346,13 +300,10 @@ export function UserPoolDetail({
                             <button
                               type="button"
                               class="btn btn--danger-ghost btn--sm"
+                              data-floci-delete-trigger=""
                               data-resource-name={user.username}
                               data-delete-url={userPath}
-                              x-data
-                              {...{
-                                "x-on:click":
-                                  "$dispatch('open-delete-modal', { resourceName: $el.dataset.resourceName, deleteUrl: $el.dataset.deleteUrl, onSuccess: 'reload' })",
-                              }}
+                              data-on-success="reload"
                             >
                               {IconTrash}削除
                             </button>
@@ -366,16 +317,16 @@ export function UserPoolDetail({
             )}
           </div>
           <div
-            x-show="open"
+            x-show="createUser.open"
             class="modal-overlay"
             x-cloak
-            {...{ "@click": "close()" }}
+            {...{ "@click": "createUser.close()" }}
           >
             <div
               class="modal modal--wide"
               {...{
                 "@click.stop": "",
-                "@keydown.escape.window": "close()",
+                "@keydown.escape.window": "createUser.close()",
               }}
             >
               <h2 class="modal__title">User を追加</h2>
@@ -388,7 +339,7 @@ export function UserPoolDetail({
                     id="cognito-user-username"
                     type="text"
                     class="input"
-                    x-model="username"
+                    x-model="createUser.username"
                     placeholder="alice"
                   />
                 </div>
@@ -400,7 +351,7 @@ export function UserPoolDetail({
                     id="cognito-user-temp-password"
                     type="password"
                     class="input"
-                    x-model="temporaryPassword"
+                    x-model="createUser.temporaryPassword"
                     placeholder="TempPassw0rd!"
                   />
                 </div>
@@ -414,7 +365,7 @@ export function UserPoolDetail({
                     id="cognito-user-email"
                     type="email"
                     class="input"
-                    x-model="email"
+                    x-model="createUser.email"
                     placeholder="alice@example.com"
                   />
                 </div>
@@ -426,13 +377,13 @@ export function UserPoolDetail({
                     id="cognito-user-phone"
                     type="text"
                     class="input"
-                    x-model="phoneNumber"
+                    x-model="createUser.phoneNumber"
                     placeholder="+819012345678"
                   />
                 </div>
               </div>
-              <div class="error-inline" x-show="error" x-cloak>
-                <span x-text="error" />
+              <div class="error-inline" x-show="createUser.error" x-cloak>
+                <span x-text="createUser.error" />
               </div>
               <div class="modal__actions">
                 <button
@@ -440,18 +391,21 @@ export function UserPoolDetail({
                   class="btn btn--cognito"
                   {...{
                     "@click":
-                      "submit({ username, temporaryPassword, email, phoneNumber })",
+                      "createUser.submit({ username: createUser.username, temporaryPassword: createUser.temporaryPassword, email: createUser.email, phoneNumber: createUser.phoneNumber })",
                     ":disabled":
-                      "submitting || !username.trim() || !temporaryPassword.trim()",
+                      "createUser.submitting || !createUser.username.trim() || !createUser.temporaryPassword.trim()",
                   }}
                 >
-                  <span x-show="!submitting">追加</span>
-                  <span x-show="submitting">追加中…</span>
+                  <span x-show="!createUser.submitting">追加</span>
+                  <span x-show="createUser.submitting">追加中…</span>
                 </button>
                 <button
                   type="button"
                   class="btn btn--ghost"
-                  {...{ "@click": "close()", ":disabled": "submitting" }}
+                  {...{
+                    "@click": "createUser.close()",
+                    ":disabled": "createUser.submitting",
+                  }}
                 >
                   キャンセル
                 </button>

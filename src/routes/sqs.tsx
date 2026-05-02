@@ -17,11 +17,7 @@ import {
 } from "../services/sqs/queue-service"
 import { jsonData, jsonOk, respondWithError } from "./route-utils"
 import { CreateQueueForm } from "../views/sqs/create-form"
-import {
-  QueueAttributesCards,
-  QueueDetail,
-  QueueMessagesTable,
-} from "../views/sqs/queue-detail"
+import { QueueDetail } from "../views/sqs/queue-detail"
 import { QueueList } from "../views/sqs/queue-list"
 import { SQSSettingsForm } from "../views/sqs/settings-form"
 
@@ -176,13 +172,13 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
         }),
       },
     )
-    .get("/:queue/messages-fragment", async ({ params }) => {
+    .get("/:queue/messages.json", async ({ params }) => {
       const messages = await deps.getQueueMessages(params.queue)
-      return <QueueMessagesTable messages={messages} />
+      return jsonData({ messages })
     })
-    .get("/:queue/attributes-fragment", async ({ params }) => {
+    .get("/:queue/attributes.json", async ({ params }) => {
       const attributes = await deps.getQueueAttributes(params.queue)
-      return <QueueAttributesCards attributes={attributes} />
+      return jsonData({ attributes })
     })
     .delete(
       "/:queue/message",

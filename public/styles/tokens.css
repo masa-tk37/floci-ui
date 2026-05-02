@@ -1,0 +1,121 @@
+/* ============================================================
+   floci-ui — pastel orange + M PLUS Rounded 1c
+   ============================================================ */
+
+:root {
+  /* Fonts */
+  --font-sans:
+    "M PLUS Rounded 1c", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    monospace;
+
+  /* Surfaces — warm off-white */
+  --color-bg: #fdf9f5;
+  --color-surface: #fffaf5;
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #f7f1ea;
+  --color-warm-sand: #f0e8da;
+
+  /* Text */
+  --color-text: #2b221a;
+  --color-text-muted: #6b5e52;
+  --color-text-dim: #9c8e80;
+  --color-text-on-accent: #ffffff;
+
+  /* Borders */
+  --color-border: #f1e6d8;
+  --color-border-strong: #e6d5bf;
+  --color-ring: #d9c5a8;
+
+  /* Primary — pale orange (H24) */
+  --color-accent: #ffb787;
+  --color-accent-hover: #ff9f63;
+  --color-accent-light: #ff9f63;
+  --color-primary-soft: #ffe7d4;
+  --color-primary-ink: #7a3d14;
+
+  /* Service accents — triadic pastels */
+  --color-dynamodb: #ffa674;
+  --color-dynamodb-soft: #ffe3ce;
+  --color-s3: #8ed6b4;
+  --color-s3-soft: #d9f3e4;
+  --color-sqs: #c4b0e8;
+  --color-sqs-soft: #ece3f7;
+  --color-ssm: #d7bf74;
+  --color-ssm-soft: #f5eed0;
+
+  /* Theme tokens — follow current service; fallback to primary orange */
+  --color-theme: var(--color-accent);
+  --color-theme-hover: var(--color-accent-hover);
+  --color-theme-soft: var(--color-primary-soft);
+  --color-theme-ink: var(--color-primary-ink);
+  --color-secrets: #dd9ab2;
+  --color-secrets-soft: #f7dfe8;
+  --color-cognito: #82b7d9;
+  --color-cognito-soft: #dbeaf5;
+
+  /* Semantic */
+  --color-danger: #e07a7a;
+  --color-danger-bg: #fbe8e8;
+  --color-danger-border: #f2c4c4;
+  --color-success: #7fc79a;
+  --color-focus: #ffb787;
+
+  /* Radius — rounded/cute */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+  --radius-pill: 9999px;
+
+  /* Shadows */
+  --shadow-ring: 0 0 0 1px var(--color-ring);
+  --shadow-whisper: rgba(0, 0, 0, 0.05) 0 4px 24px;
+  --shadow-lift: rgba(0, 0, 0, 0.07) 0 8px 32px;
+}
+
+/* Service-specific theme token overrides */
+
+[data-service="dynamodb"] {
+  --color-theme: var(--color-dynamodb);
+  --color-theme-hover: #e8844d;
+  --color-theme-soft: var(--color-dynamodb-soft);
+  --color-theme-ink: #7a3014;
+}
+
+[data-service="s3"] {
+  --color-theme: var(--color-s3);
+  --color-theme-hover: #6cc49e;
+  --color-theme-soft: var(--color-s3-soft);
+  --color-theme-ink: #1a4d35;
+}
+
+[data-service="sqs"] {
+  --color-theme: var(--color-sqs);
+  --color-theme-hover: #ab94d8;
+  --color-theme-soft: var(--color-sqs-soft);
+  --color-theme-ink: #4a3070;
+}
+
+[data-service="ssm"] {
+  --color-theme: var(--color-ssm);
+  --color-theme-hover: #c6ae61;
+  --color-theme-soft: var(--color-ssm-soft);
+  --color-theme-ink: #5f4c13;
+}
+
+[data-service="secrets"] {
+  --color-theme: var(--color-secrets);
+  --color-theme-hover: #cf839f;
+  --color-theme-soft: var(--color-secrets-soft);
+  --color-theme-ink: #84445d;
+}
+
+[data-service="cognito"] {
+  --color-theme: var(--color-cognito);
+  --color-theme-hover: #68a4cb;
+  --color-theme-soft: var(--color-cognito-soft);
+  --color-theme-ink: #153e58;
+}

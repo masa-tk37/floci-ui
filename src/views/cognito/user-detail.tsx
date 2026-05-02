@@ -2,6 +2,7 @@ import { Html } from "@elysiajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import type { UserDetail as UserDetailData } from "../../services/cognito/cognito-service"
+import { ClientProps, mountComponentAttrs } from "../client"
 import { formatDate } from "../format"
 import { IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
@@ -14,65 +15,6 @@ interface CognitoUserDetailProps {
   sidebarCounts?: SidebarCounts
 }
 
-function makeActionState(paths: {
-  enableUrl: string
-  disableUrl: string
-  confirmUrl: string
-  passwordUrl: string
-}): string {
-  return `{
-  enableUrl: ${JSON.stringify(paths.enableUrl)},
-  disableUrl: ${JSON.stringify(paths.disableUrl)},
-  confirmUrl: ${JSON.stringify(paths.confirmUrl)},
-  passwordUrl: ${JSON.stringify(paths.passwordUrl)},
-  password: '',
-  loading: false,
-  error: null,
-
-  async run(url, body) {
-    this.error = null;
-    this.loading = true;
-
-    try {
-      await globalThis.floci.requestJson(url, {
-        method: 'POST',
-        headers: body ? { 'Content-Type': 'application/json' } : undefined,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-
-      window.location.reload();
-    } catch (error) {
-      this.error = globalThis.floci.errorMessage(error);
-      this.loading = false;
-    }
-  },
-
-  enable() {
-    return this.run(this.enableUrl);
-  },
-
-  disable() {
-    return this.run(this.disableUrl);
-  },
-
-  confirmUser() {
-    return this.run(this.confirmUrl);
-  },
-
-  setPassword() {
-    if (!this.password.trim()) {
-      this.error = 'Password is required';
-      return;
-    }
-
-    return this.run(this.passwordUrl, {
-      password: this.password,
-      permanent: true,
-    });
-  },
-}`
-}
-
 export function CognitoUserDetail({
   poolId,
   poolName,
@@ -81,12 +23,12 @@ export function CognitoUserDetail({
 }: CognitoUserDetailProps) {
   const poolPath = `/cognito/${encodeURIComponent(poolId)}`
   const userPath = `${poolPath}/users/${encodeResourceName(detail.username)}`
-  const state = makeActionState({
+  const state = {
     enableUrl: `${userPath}/enable`,
     disableUrl: `${userPath}/disable`,
     confirmUrl: `${userPath}/confirm`,
     passwordUrl: `${userPath}/password`,
-  })
+  }
 
   return (
     <Layout
@@ -116,14 +58,10 @@ export function CognitoUserDetail({
             <button
               type="button"
               class="btn btn--danger-ghost btn--sm"
+              data-floci-delete-trigger=""
               data-resource-name={detail.username}
               data-delete-url={userPath}
               data-redirect-url={poolPath}
-              x-data
-              {...{
-                "x-on:click":
-                  "$dispatch('open-delete-modal', { resourceName: $el.dataset.resourceName, deleteUrl: $el.dataset.deleteUrl, redirectUrl: $el.dataset.redirectUrl })",
-              }}
             >
               {IconTrash}削除
             </button>
@@ -183,7 +121,11 @@ export function CognitoUserDetail({
           </div>
         </section>
 
-        <section class="query-form" x-data={state}>
+        <section
+          class="query-form"
+          {...mountComponentAttrs("cognito-user-detail")}
+        >
+          <ClientProps props={state} />
           <h2 class="section-title">Admin Actions</h2>
 
           <div class="cognito-user-detail-page__actions">

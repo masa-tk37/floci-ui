@@ -1,11 +1,9 @@
 import { Html } from "@elysiajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
+import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout, type SidebarCounts } from "../layout"
-import {
-  makeSecretFormAlpineState,
-  type SecretFormInitial,
-} from "./secret-form-state"
+import type { SecretFormInitial } from "./secret-form-state"
 
 interface SecretFormProps {
   init: SecretFormInitial
@@ -13,7 +11,6 @@ interface SecretFormProps {
 }
 
 export function SecretForm({ init, sidebarCounts }: SecretFormProps) {
-  const state = makeSecretFormAlpineState(init)
   const secretPath =
     init.mode === "edit"
       ? `/secrets/${encodeResourceName(init.name)}`
@@ -65,7 +62,8 @@ export function SecretForm({ init, sidebarCounts }: SecretFormProps) {
           </p>
         </section>
 
-        <div x-data={state}>
+        <div {...mountComponentAttrs("secret-form")}>
+          <ClientProps props={init} />
           {init.isBinary ? (
             <div class="query-form">
               <h2 class="section-title">編集不可</h2>

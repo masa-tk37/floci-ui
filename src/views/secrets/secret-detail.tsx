@@ -2,6 +2,7 @@ import { Html } from "@elysiajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import type { SecretDetail as SecretDetailData } from "../../services/secrets/secret-service"
+import { ClientProps, mountComponentAttrs } from "../client"
 import { formatDate } from "../format"
 import { IconEdit, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
@@ -46,14 +47,10 @@ export function SecretDetail({ detail, sidebarCounts }: SecretDetailProps) {
             <button
               type="button"
               class="btn btn--danger-ghost btn--sm"
+              data-floci-delete-trigger=""
               data-resource-name={detail.name}
               data-delete-url={secretPath}
               data-redirect-url="/secrets"
-              x-data
-              {...{
-                "x-on:click":
-                  "$dispatch('open-delete-modal', { resourceName: $el.dataset.resourceName, deleteUrl: $el.dataset.deleteUrl, redirectUrl: $el.dataset.redirectUrl })",
-              }}
             >
               {IconTrash}削除
             </button>
@@ -101,7 +98,8 @@ export function SecretDetail({ detail, sidebarCounts }: SecretDetailProps) {
           </div>
         </section>
 
-        <section class="panel" x-data="{ revealed: false }">
+        <section class="panel" {...mountComponentAttrs("reveal-toggle")}>
+          <ClientProps props={{ initialRevealed: false }} />
           <div class="panel__header">
             <h2 class="panel__title">Secret Value</h2>
             {!detail.isBinary ? (

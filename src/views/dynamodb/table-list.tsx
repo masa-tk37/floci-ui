@@ -1,4 +1,5 @@
 import { Html } from "@elysiajs/html"
+import { mountComponentAttrs } from "../client"
 import { IconPlus, IconSearch, IconSettings, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
 
@@ -25,7 +26,7 @@ export function TableList({ tables, sidebarCounts }: TableListProps) {
       {tables.length === 0 ? (
         <p class="empty-state">まだテーブルがありません</p>
       ) : (
-        <div x-data="listFilter()" x-init="update()" x-effect="update()">
+        <div {...mountComponentAttrs("list-filter")}>
           <div class="list-toolbar">
             <label class="list-filter">
               <span class="list-filter__icon">{IconSearch}</span>
@@ -73,17 +74,10 @@ export function TableList({ tables, sidebarCounts }: TableListProps) {
                       <button
                         type="button"
                         class="btn btn--danger-ghost btn--sm"
+                        data-floci-delete-trigger=""
                         data-resource-name={name}
                         data-delete-url={`/dynamodb/${encodeURIComponent(name)}`}
                         data-on-success="reload"
-                        x-data
-                        {...{
-                          "x-on:click": `$dispatch('open-delete-modal', {
-                            resourceName: $el.dataset.resourceName,
-                            deleteUrl: $el.dataset.deleteUrl,
-                            onSuccess: $el.dataset.onSuccess
-                          })`,
-                        }}
                       >
                         {IconTrash}削除
                       </button>

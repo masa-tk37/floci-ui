@@ -2,6 +2,7 @@ import { Html } from "@elysiajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import type { ParameterDetail as ParameterDetailData } from "../../services/ssm/parameter-service"
+import { ClientProps, mountComponentAttrs } from "../client"
 import { formatDate } from "../format"
 import { IconEdit, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
@@ -16,7 +17,6 @@ export function ParameterDetail({
   sidebarCounts,
 }: ParameterDetailProps) {
   const parameterPath = `/ssm/${encodeResourceName(detail.name)}`
-  const revealState = `{ revealed: ${detail.type !== "SecureString"} }`
 
   return (
     <Layout
@@ -48,14 +48,10 @@ export function ParameterDetail({
             <button
               type="button"
               class="btn btn--danger-ghost btn--sm"
+              data-floci-delete-trigger=""
               data-resource-name={detail.name}
               data-delete-url={parameterPath}
               data-redirect-url="/ssm"
-              x-data
-              {...{
-                "x-on:click":
-                  "$dispatch('open-delete-modal', { resourceName: $el.dataset.resourceName, deleteUrl: $el.dataset.deleteUrl, redirectUrl: $el.dataset.redirectUrl })",
-              }}
             >
               {IconTrash}削除
             </button>
@@ -101,7 +97,10 @@ export function ParameterDetail({
           </div>
         </section>
 
-        <section class="panel" x-data={revealState}>
+        <section class="panel" {...mountComponentAttrs("reveal-toggle")}>
+          <ClientProps
+            props={{ initialRevealed: detail.type !== "SecureString" }}
+          />
           <div class="panel__header">
             <h2 class="panel__title">Value</h2>
             {detail.type === "SecureString" ? (

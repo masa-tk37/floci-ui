@@ -1,5 +1,6 @@
 import { Html } from "@elysiajs/html"
 
+import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout, type SidebarCounts } from "../layout"
 
 type PreviewMode = "text" | "image" | "pdf" | "binary"
@@ -19,77 +20,6 @@ function parentPrefix(key: string): string {
   return idx === -1 ? "" : key.slice(0, idx + 1)
 }
 
-const PDF_JS_URL =
-  "https://cdn.jsdelivr.net/npm/pdfjs-dist@5.7.284/build/pdf.min.mjs"
-const PDF_JS_INTEGRITY =
-  "sha384-Lu/+LFD+sBPeBR+46Ob8a/rd6aBbHktYM/B5wIPKkThU1sW5cY7EyGNX/LV5mv4A"
-const PDF_WORKER_URL =
-  "https://cdn.jsdelivr.net/npm/pdfjs-dist@5.7.284/build/pdf.worker.min.mjs"
-
-function makePdfPreviewScript(downloadHref: string): string {
-  return `
-window.addEventListener('load', async () => {
-  const statusEl = document.getElementById('pdf-preview-status')
-  const pagesEl = document.getElementById('pdf-preview-pages')
-
-  if (!statusEl || !pagesEl) return
-
-  try {
-    if (!window.pdfjsLib) {
-      throw new Error('pdf.js failed to load')
-    }
-
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = ${JSON.stringify(PDF_WORKER_URL)}
-
-    const pdf = await window.pdfjsLib.getDocument(${JSON.stringify(downloadHref)}).promise
-    statusEl.textContent = pdf.numPages + ' ページを読み込みました'
-
-    const outputScale = window.devicePixelRatio || 1
-    const containerWidth = pagesEl.clientWidth || 960
-    const MAX_CSS_SCALE = 2.0
-
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-      const page = await pdf.getPage(pageNumber)
-      const baseViewport = page.getViewport({ scale: 1 })
-      const cssScale = Math.min(containerWidth / baseViewport.width, MAX_CSS_SCALE)
-      const cssViewport = page.getViewport({ scale: cssScale })
-
-      const canvas = document.createElement('canvas')
-      const context = canvas.getContext('2d')
-
-      if (!context) {
-        throw new Error('Canvas rendering is unavailable')
-      }
-
-      canvas.width = Math.floor(cssViewport.width * outputScale)
-      canvas.height = Math.floor(cssViewport.height * outputScale)
-      canvas.style.width = Math.floor(cssViewport.width) + 'px'
-      canvas.style.height = Math.floor(cssViewport.height) + 'px'
-      canvas.className = 's3-preview-page__pdf-page'
-
-      const section = document.createElement('section')
-      section.className = 's3-preview-page__pdf-sheet'
-
-      const label = document.createElement('p')
-      label.className = 's3-preview-page__pdf-label'
-      label.textContent = 'Page ' + pageNumber
-
-      section.appendChild(label)
-      section.appendChild(canvas)
-      pagesEl.appendChild(section)
-
-      const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null
-      await page.render({ canvasContext: context, viewport: cssViewport, transform }).promise
-    }
-  } catch (error) {
-    statusEl.textContent =
-      (error && error.message) || 'PDF をプレビューできませんでした'
-    statusEl.classList.add('s3-preview-page__pdf-status--error')
-  }
-})
-`
-}
-
 export function Preview({
   bucket,
   objectKey,
@@ -105,8 +35,6 @@ export function Preview({
     ? `${bucketPath}?prefix=${encodeURIComponent(parent)}`
     : bucketPath
   const downloadHref = `${bucketPath}/download?key=${encodeURIComponent(objectKey)}`
-  const inlineScripts =
-    mode === "pdf" ? [makePdfPreviewScript(downloadHref)] : undefined
 
   return (
     <Layout
@@ -127,14 +55,9 @@ export function Preview({
         { label: objectKey.split("/").pop() ?? objectKey, href: "#" },
       ]}
       stylesheets={["/public/styles/views/s3/preview.css"]}
-      scripts={
-        mode === "pdf"
-          ? [{ src: PDF_JS_URL, integrity: PDF_JS_INTEGRITY, module: true }]
-          : undefined
-      }
-      inlineScripts={inlineScripts}
     >
-      <div class="s3-preview-page">
+      <div class="s3-preview-page" {...mountComponentAttrs("s3-preview")}>
+        <ClientProps props={{ downloadHref, mode }} />
         <section class="page-header page-header--row">
           <div>
             <h1 class="page-title">

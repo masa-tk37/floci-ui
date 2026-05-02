@@ -1,4 +1,5 @@
 import { Html } from "@elysiajs/html"
+import { mountComponentAttrs } from "../client"
 import { IconSearch, IconSettings } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
 import { ResourceRail } from "../resource-rail"
@@ -148,18 +149,10 @@ export function ItemList({
                             <button
                               type="button"
                               class="btn btn--danger-ghost btn--sm"
+                              data-floci-delete-trigger=""
                               data-resource-name={resourceName}
                               data-delete-url={itemPath}
                               data-on-success="remove-row"
-                              x-data
-                              {...{
-                                "x-on:click": `$dispatch('open-delete-modal', {
-                            resourceName: $el.dataset.resourceName,
-                            deleteUrl: $el.dataset.deleteUrl,
-                            onSuccess: $el.dataset.onSuccess,
-                            rowEl: $el.closest('tr')
-                          })`,
-                              }}
                             >
                               削除
                             </button>

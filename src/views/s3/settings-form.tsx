@@ -1,10 +1,8 @@
 import { Html } from "@elysiajs/html"
 
+import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout, type SidebarCounts } from "../layout"
-import {
-  makeS3SettingsAlpineState,
-  type S3SettingsInitial,
-} from "./settings-form-state"
+import type { S3SettingsInitial } from "./settings-form-state"
 
 interface S3SettingsFormProps {
   init: S3SettingsInitial
@@ -13,7 +11,6 @@ interface S3SettingsFormProps {
 
 export function S3SettingsForm({ init, sidebarCounts }: S3SettingsFormProps) {
   const bucketPath = `/s3/${encodeURIComponent(init.bucket)}`
-  const alpineState = makeS3SettingsAlpineState(init)
 
   return (
     <Layout
@@ -37,7 +34,11 @@ export function S3SettingsForm({ init, sidebarCounts }: S3SettingsFormProps) {
           </p>
         </section>
 
-        <div x-data={alpineState} class="s3-settings-page__form">
+        <div
+          {...mountComponentAttrs("s3-settings")}
+          class="s3-settings-page__form"
+        >
+          <ClientProps props={init} />
           <div class="query-form">
             <h2 class="section-title">バージョニング</h2>
             <div class="form-row radio-group">

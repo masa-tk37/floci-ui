@@ -1,10 +1,8 @@
 import { Html } from "@elysiajs/html"
 
+import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout, type SidebarCounts } from "../layout"
-import {
-  makeUserPoolFormAlpineState,
-  type UserPoolFormInitial,
-} from "./pool-form-state"
+import type { UserPoolFormInitial } from "./pool-form-state"
 
 interface UserPoolFormProps {
   init: UserPoolFormInitial
@@ -12,8 +10,6 @@ interface UserPoolFormProps {
 }
 
 export function UserPoolForm({ init, sidebarCounts }: UserPoolFormProps) {
-  const state = makeUserPoolFormAlpineState(init)
-
   return (
     <Layout
       title="User Pool を作成"
@@ -31,7 +27,8 @@ export function UserPoolForm({ init, sidebarCounts }: UserPoolFormProps) {
           <p class="page-subtitle">新しい Cognito User Pool を設定します。</p>
         </section>
 
-        <div x-data={state}>
+        <div {...mountComponentAttrs("user-pool-form")}>
+          <ClientProps props={init} />
           <div class="query-form">
             <h2 class="section-title">基本設定</h2>
             <div class="cognito-form-page__grid">

@@ -1,7 +1,7 @@
 import { Html } from "@elysiajs/html"
 
+import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout, type SidebarCounts } from "../layout"
-import { createQueueAlpineState } from "./create-form-state"
 
 interface CreateQueueFormProps {
   sidebarCounts?: SidebarCounts
@@ -25,7 +25,11 @@ export function CreateQueueForm({ sidebarCounts }: CreateQueueFormProps = {}) {
           <p class="page-subtitle">新しい SQS Queue を設定します。</p>
         </section>
 
-        <div x-data={createQueueAlpineState} class="sqs-create-page__form">
+        <div
+          {...mountComponentAttrs("sqs-create-queue")}
+          class="sqs-create-page__form"
+        >
+          <ClientProps props={{}} />
           <div class="query-form">
             <h2 class="section-title">Queue 基本設定</h2>
             <div class="form-row">

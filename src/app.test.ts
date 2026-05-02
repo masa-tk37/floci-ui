@@ -357,14 +357,18 @@ describe("createApp", () => {
     expect(loadDashboardDataMock).toHaveBeenCalledTimes(1)
   })
 
-  it("returns HTML fragments for SQS message list updates", async () => {
+  it("returns JSON for SQS message list updates", async () => {
     const response = await buildTestApp().handle(
-      new Request("http://localhost/sqs/demo/messages-fragment"),
+      new Request("http://localhost/sqs/demo/messages.json"),
     )
 
     expect(response.status).toBe(200)
-    expect(response.headers.get("content-type")).toContain("text/html")
-    expect(await response.text()).toContain("hello world")
+    expect(response.headers.get("content-type")).toContain("application/json")
+    const body = await response.json()
+    expect(body).toMatchObject({
+      ok: true,
+      data: { messages: [{ messageId: "msg-1", body: "hello world" }] },
+    })
     expect(getQueueMessagesMock).toHaveBeenCalledTimes(1)
   })
 

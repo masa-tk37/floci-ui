@@ -1,7 +1,7 @@
 import { Html } from "@elysiajs/html"
 
+import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout, type SidebarCounts } from "../layout"
-import { createBucketAlpineState } from "./create-form-state"
 
 interface CreateBucketFormProps {
   sidebarCounts?: SidebarCounts
@@ -27,7 +27,11 @@ export function CreateBucketForm({
           <p class="page-subtitle">新しい S3 Bucket を設定します。</p>
         </section>
 
-        <div x-data={createBucketAlpineState} class="s3-create-page__form">
+        <div
+          {...mountComponentAttrs("s3-create-bucket")}
+          class="s3-create-page__form"
+        >
+          <ClientProps props={{}} />
           <div class="query-form">
             <h2 class="section-title">Bucket 基本設定</h2>
             <div class="form-row">

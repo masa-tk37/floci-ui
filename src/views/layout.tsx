@@ -1,6 +1,7 @@
 import { Html } from "@elysiajs/html"
 
 import { Sidebar } from "./sidebar"
+import { mountComponentAttrs } from "./client"
 
 type Service =
   | "dashboard"
@@ -25,11 +26,6 @@ export interface SidebarCounts {
   userPools: number
 }
 
-/** A script tag specification. Use the object form to add SRI integrity or module type. */
-export type ScriptSpec =
-  | string
-  | { src: string; integrity?: string; module?: boolean }
-
 interface LayoutProps {
   title: string
   active?: Service
@@ -38,156 +34,8 @@ interface LayoutProps {
   mainClass?: string
   contentClass?: string
   stylesheets?: string[]
-  scripts?: ScriptSpec[]
-  /** Raw inline script bodies — strings MUST be static templates with no untrusted-data interpolation. */
-  inlineScripts?: string[]
   children: JSX.Element | JSX.Element[] | string
 }
-
-const flociClientScript = `
-function flociErrorMessage(error) {
-  if (!error) return 'ネットワークエラーが発生しました'
-  if (typeof error.message === 'string' && error.message) return error.message
-  return 'ネットワークエラーが発生しました'
-}
-
-async function flociRequestJson(url, options) {
-  const response = await fetch(url, options)
-  let payload = null
-
-  try {
-    payload = await response.json()
-  } catch (_) {
-    payload = null
-  }
-
-  if (response.ok && payload?.ok) {
-    return payload.data
-  }
-
-  const message = payload?.error?.message || ('エラーが発生しました (HTTP ' + response.status + ')')
-  const error = new Error(message)
-  error.code = payload?.error?.code || 'InternalServerError'
-  error.status = response.status
-  throw error
-}
-
-globalThis.floci = {
-  requestJson: flociRequestJson,
-  errorMessage: flociErrorMessage,
-}
-`
-
-const toastScript = `
-function toast() {
-  return {
-    items: [],
-    nextId: 1,
-    push({ kind, message, timeout }) {
-      const id = this.nextId++
-      this.items.push({ id, kind: kind || 'success', message: message || '' })
-      const ms = typeof timeout === 'number' ? timeout : 5000
-      if (ms > 0) {
-        setTimeout(() => this.dismiss(id), ms)
-      }
-    },
-    dismiss(id) {
-      this.items = this.items.filter((it) => it.id !== id)
-    },
-  }
-}
-`
-
-const deleteModalScript = `
-function deleteModal() {
-  return {
-    isOpen: false,
-    resourceName: '',
-    detailText: '',
-    deleteUrl: '',
-    method: 'DELETE',
-    body: '',
-    contentType: '',
-    onSuccess: 'reload',
-    redirectUrl: '',
-    rowEl: null,
-    loading: false,
-    error: '',
-
-    open({ resourceName, detailText, deleteUrl, method, body, contentType, onSuccess, redirectUrl, rowEl }) {
-      this.resourceName = resourceName
-      this.detailText = detailText || ''
-      this.deleteUrl = deleteUrl
-      this.method = method || 'DELETE'
-      this.body = body || ''
-      this.contentType = contentType || ''
-      this.onSuccess = onSuccess || 'reload'
-      this.redirectUrl = redirectUrl || ''
-      this.rowEl = rowEl || null
-      this.error = ''
-      this.loading = false
-      this.isOpen = true
-    },
-
-    cancel() {
-      if (this.loading) return
-      this.isOpen = false
-    },
-
-    async confirm() {
-      this.loading = true
-      this.error = ''
-      try {
-        const options = { method: this.method }
-        if (this.body) {
-          options.body = this.body
-          if (this.contentType) {
-            options.headers = { 'Content-Type': this.contentType }
-          }
-        }
-        await globalThis.floci.requestJson(this.deleteUrl, options)
-        this.isOpen = false
-        if (this.redirectUrl) {
-          location.href = this.redirectUrl
-        } else if (this.onSuccess === 'remove-row' && this.rowEl) {
-          this.rowEl.remove()
-        } else {
-          location.reload()
-        }
-      } catch (e) {
-        this.error = globalThis.floci.errorMessage(e)
-        this.loading = false
-      }
-    },
-  }
-}
-`
-
-const listFilterScript = `
-function listFilter() {
-  return {
-    query: '',
-    visibleCount: 0,
-    get normalizedQuery() {
-      return this.query.trim().toLowerCase()
-    },
-    get hasQuery() {
-      return this.normalizedQuery.length > 0
-    },
-    matches(value) {
-      if (!this.hasQuery) return true
-      return String(value || '').toLowerCase().includes(this.normalizedQuery)
-    },
-    update() {
-      const q = this.normalizedQuery
-      this.$nextTick(() => {
-        const rows = Array.from(this.$root.querySelectorAll('[data-filter-text]'))
-        this.visibleCount = rows.filter((row) => String(row.dataset.filterText || '').toLowerCase().includes(q)).length
-      })
-    },
-  }
-}
-`
 
 export function Layout({
   title,
@@ -197,8 +45,6 @@ export function Layout({
   mainClass,
   contentClass,
   stylesheets,
-  scripts,
-  inlineScripts,
   children,
 }: LayoutProps) {
   return (
@@ -217,27 +63,11 @@ export function Layout({
           href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap"
           rel="stylesheet"
         />
-        <link rel="stylesheet" href="/public/style.css" />
+        <link rel="stylesheet" href="/public/styles/app.css" />
         {stylesheets?.map((href) => (
           <link rel="stylesheet" href={href} />
         ))}
-        <script
-          defer
-          src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"
-        />
-        {scripts?.map((spec) => {
-          if (typeof spec === "string") {
-            return <script defer src={spec} />
-          }
-          const sri = spec.integrity
-            ? { integrity: spec.integrity, crossorigin: "anonymous" }
-            : {}
-          return spec.module ? (
-            <script type="module" src={spec.src} {...sri} />
-          ) : (
-            <script defer src={spec.src} {...sri} />
-          )
-        })}
+        <script type="module" src="/public/assets/app.js" />
       </head>
       <body class="app" data-service={active}>
         <Sidebar active={active} counts={sidebarCounts} />
@@ -263,7 +93,7 @@ export function Layout({
           </main>
         </div>
         <div
-          x-data="deleteModal()"
+          {...mountComponentAttrs("delete-modal")}
           {...{ "x-on:open-delete-modal.window": "open($event.detail)" }}
           x-cloak
         >
@@ -310,7 +140,7 @@ export function Layout({
         </div>
         <div
           class="toast-stack"
-          x-data="toast()"
+          {...mountComponentAttrs("toast")}
           {...{ "x-on:floci:toast.window": "push($event.detail)" }}
           x-cloak
         >
@@ -328,13 +158,6 @@ export function Layout({
             </div>
           </template>
         </div>
-        <script>{flociClientScript}</script>
-        <script>{toastScript}</script>
-        <script>{deleteModalScript}</script>
-        <script>{listFilterScript}</script>
-        {inlineScripts?.map((script) => (
-          <script>{script}</script>
-        ))}
       </body>
     </html>
   )

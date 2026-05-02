@@ -1,6 +1,7 @@
 import { Html } from "@elysiajs/html"
 
 import type { UserPoolSummary } from "../../services/cognito/cognito-service"
+import { mountComponentAttrs } from "../client"
 import { formatDate } from "../format"
 import { IconPlus, IconSearch, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
@@ -28,7 +29,7 @@ export function UserPoolList({ userPools, sidebarCounts }: UserPoolListProps) {
       {userPools.length === 0 ? (
         <p class="empty-state">まだ User Pool がありません</p>
       ) : (
-        <div x-data="listFilter()" x-init="update()" x-effect="update()">
+        <div {...mountComponentAttrs("list-filter")}>
           <div class="list-toolbar">
             <label class="list-filter">
               <span class="list-filter__icon">{IconSearch}</span>
@@ -73,13 +74,10 @@ export function UserPoolList({ userPools, sidebarCounts }: UserPoolListProps) {
                         <button
                           type="button"
                           class="btn btn--danger-ghost btn--sm"
+                          data-floci-delete-trigger=""
                           data-resource-name={pool.name}
                           data-delete-url={path}
-                          x-data
-                          {...{
-                            "x-on:click":
-                              "$dispatch('open-delete-modal', { resourceName: $el.dataset.resourceName, deleteUrl: $el.dataset.deleteUrl, onSuccess: 'reload' })",
-                          }}
+                          data-on-success="reload"
                         >
                           {IconTrash}削除
                         </button>

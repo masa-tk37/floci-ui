@@ -1,10 +1,8 @@
 import { Html } from "@elysiajs/html"
 
+import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout, type SidebarCounts } from "../layout"
-import {
-  makeSQSSettingsAlpineState,
-  type SQSSettingsInitial,
-} from "./settings-form-state"
+import type { SQSSettingsInitial } from "./settings-form-state"
 
 interface SQSSettingsFormProps {
   init: SQSSettingsInitial
@@ -13,7 +11,6 @@ interface SQSSettingsFormProps {
 
 export function SQSSettingsForm({ init, sidebarCounts }: SQSSettingsFormProps) {
   const queuePath = `/sqs/${encodeURIComponent(init.name)}`
-  const alpineState = makeSQSSettingsAlpineState(init)
 
   return (
     <Layout
@@ -37,7 +34,11 @@ export function SQSSettingsForm({ init, sidebarCounts }: SQSSettingsFormProps) {
           </p>
         </section>
 
-        <div x-data={alpineState} class="sqs-settings-page__form">
+        <div
+          {...mountComponentAttrs("sqs-settings")}
+          class="sqs-settings-page__form"
+        >
+          <ClientProps props={init} />
           {init.isFifo ? (
             <div class="query-form sqs-settings-page__info">
               <p class="sqs-settings-page__info-text">

@@ -1,4 +1,5 @@
 import { Html } from "@elysiajs/html"
+import { ClientProps, mountComponentAttrs } from "../client"
 import {
   IconFile,
   IconFolder,
@@ -9,7 +10,6 @@ import {
 import { Layout } from "../layout"
 import { ResourceRail } from "../resource-rail"
 import { formatDate } from "../format"
-import { makeS3ObjectListAlpineState } from "./object-list-state"
 
 interface S3Object {
   Key?: string
@@ -71,14 +71,10 @@ export function ObjectList({
 }: ObjectListProps) {
   const prefixCrumbs = buildPrefixCrumbs(prefix)
   const bucketPath = `/s3/${encodeURIComponent(bucket)}`
-  const alpineState = makeS3ObjectListAlpineState({
-    bucket,
-    prefix,
-    fileKeys: objects.map((object) => object.Key ?? "").filter(Boolean),
-    folderPrefixes: folders
-      .map((folder) => folder.Prefix ?? "")
-      .filter(Boolean),
-  })
+  const fileKeys = objects.map((object) => object.Key ?? "").filter(Boolean)
+  const folderPrefixes = folders
+    .map((folder) => folder.Prefix ?? "")
+    .filter(Boolean)
 
   const layoutCrumbs = [
     { label: "S3", href: "/s3" },
@@ -107,7 +103,11 @@ export function ObjectList({
       contentClass="content--resource-workspace"
       stylesheets={["/public/styles/views/s3/object-list.css"]}
     >
-      <div class="s3-object-list-page" x-data={alpineState}>
+      <div
+        class="s3-object-list-page"
+        {...mountComponentAttrs("s3-object-list")}
+      >
+        <ClientProps props={{ bucket, prefix, fileKeys, folderPrefixes }} />
         <div class="resource-workspace s3-object-list-page__workspace">
           {buckets.length > 0 ? (
             <ResourceRail

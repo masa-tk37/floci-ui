@@ -1,0 +1,304 @@
+/* ============================================================
+   Utilities
+   ============================================================ */
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.row--end {
+  justify-content: flex-end;
+}
+
+.row--between {
+  justify-content: space-between;
+}
+
+.stack > * + * {
+  margin-top: 0.75rem;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+
+@media (max-width: 800px) {
+  .resource-workspace {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+
+  .resource-rail {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .resource-main {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .sidebar {
+    width: 180px;
+    min-width: 180px;
+  }
+
+  .content {
+    padding: 1.5rem 1rem;
+  }
+
+  .page-title {
+    font-size: 1.3rem;
+  }
+
+  .dashboard-title {
+    font-size: 1.5rem;
+  }
+
+  .stat-value {
+    font-size: 2rem;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .attr-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .inline-form {
+    flex-direction: column;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .sidebar {
+    display: none;
+  }
+
+  .app {
+    flex-direction: column;
+  }
+}
+
+/* ============================================================
+   Modal
+   ============================================================ */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-xl);
+  padding: 2rem;
+  max-width: 440px;
+  width: 90%;
+  box-shadow: var(--shadow-lift);
+}
+
+.modal__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  color: var(--color-text);
+}
+
+.modal__body {
+  font-size: 0.925rem;
+  color: var(--color-text-muted);
+  margin: 0 0 1.25rem;
+  line-height: 1.6;
+}
+
+.modal__error {
+  margin-bottom: 1rem;
+}
+
+.modal__actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.modal--wide {
+  max-width: 640px;
+}
+
+/* ============================================================
+   Sidebar badge
+   ============================================================ */
+
+.sidebar__badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-pill);
+  line-height: 1.6;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.sidebar__badge--dynamodb {
+  background: var(--color-dynamodb-soft);
+  color: #7a3014;
+}
+
+.sidebar__badge--s3 {
+  background: var(--color-s3-soft);
+  color: #1a5c3a;
+}
+
+.sidebar__badge--sqs {
+  background: var(--color-sqs-soft);
+  color: #4a3070;
+}
+
+.sidebar__badge--ssm {
+  background: var(--color-ssm-soft);
+  color: #6c5818;
+}
+
+.sidebar__badge--secrets {
+  background: var(--color-secrets-soft);
+  color: #84445d;
+}
+
+.sidebar__badge--cognito {
+  background: var(--color-cognito-soft);
+  color: #245570;
+}
+
+/* ============================================================
+   Alpine cloak
+   ============================================================ */
+
+[x-cloak] {
+  display: none !important;
+}
+
+/* ============================================================
+   Toast notifications
+   ============================================================ */
+
+.toast-stack {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  min-width: 260px;
+  max-width: 420px;
+  pointer-events: auto;
+  overflow: hidden;
+  animation: toast-slide-in 0.2s ease-out;
+}
+
+.toast::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  animation: toast-progress 5s linear forwards;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toast-progress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.toast--success {
+  background: #eaf6ef;
+  border: 1px solid #a8dbb9;
+  color: #3f7b56;
+}
+
+.toast--success::after {
+  background: #5cb87a;
+}
+
+.toast--error {
+  background: #fdecea;
+  border: 1px solid #f0a8a0;
+  color: #a03030;
+}
+
+.toast--error::after {
+  background: #d9604e;
+}
+
+.toast__message {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.toast__close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.5;
+  font-size: 0.875rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  transition:
+    opacity 0.15s,
+    background 0.15s;
+}
+
+.toast__close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
+}

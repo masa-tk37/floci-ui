@@ -1,7 +1,7 @@
 import { Html } from "@elysiajs/html"
 
+import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout, type SidebarCounts } from "../layout"
-import { makeQueryBuilderAlpineState } from "./query-builder-state"
 
 interface QueryBuilderProps {
   tableName: string
@@ -10,7 +10,6 @@ interface QueryBuilderProps {
 
 export function QueryBuilder({ tableName, sidebarCounts }: QueryBuilderProps) {
   const tablePath = `/dynamodb/${encodeURIComponent(tableName)}`
-  const alpineState = makeQueryBuilderAlpineState(tableName)
 
   return (
     <Layout
@@ -33,7 +32,8 @@ export function QueryBuilder({ tableName, sidebarCounts }: QueryBuilderProps) {
         </p>
       </section>
 
-      <div x-data={alpineState}>
+      <div {...mountComponentAttrs("ddb-query-builder")}>
+        <ClientProps props={{ tableName }} />
         <form class="query-form" {...{ "@submit.prevent": "submit()" }}>
           <div class="form-row">
             <label class="form-label">モード</label>
