@@ -4,7 +4,7 @@ import {
   decodeResourceName,
   encodeResourceName,
 } from "../infrastructure/resource-name-codec"
-import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
+import { loadSidebarSafe } from "../services/sidebar-service"
 import {
   createParameter,
   deleteParameter,
@@ -15,7 +15,7 @@ import {
 import { ParameterDetail } from "../views/ssm/parameter-detail"
 import { ParameterForm } from "../views/ssm/parameter-form"
 import { ParameterList } from "../views/ssm/parameter-list"
-import { jsonData, jsonOk, respondWithError } from "./route-utils"
+import { loadPageData, loadSidebarPage, runJsonAction } from "./route-utils"
 
 const parameterTagSchema = t.Object({
   key: t.String(),
@@ -75,20 +75,15 @@ export function createSsmRoutes(deps: SsmRouteDeps = defaultSsmRouteDeps) {
   return new Elysia({ prefix: "/ssm" })
     .use(html())
     .get("/", async () => {
-      const [parameters, sidebarData] = await Promise.all([
+      const { data: parameters, sidebarCounts } = await loadPageData(deps, () =>
         deps.listParameters(),
-        deps.loadSidebarSafe(),
-      ])
-
+      )
       return (
-        <ParameterList
-          parameters={parameters}
-          sidebarCounts={toSidebarCounts(sidebarData)}
-        />
+        <ParameterList parameters={parameters} sidebarCounts={sidebarCounts} />
       )
     })
     .get("/new", async () => {
-      const sidebarData = await deps.loadSidebarSafe()
+      const { sidebarCounts } = await loadSidebarPage(deps)
       return (
         <ParameterForm
           init={{
@@ -102,41 +97,29 @@ export function createSsmRoutes(deps: SsmRouteDeps = defaultSsmRouteDeps) {
             keyId: "",
             tags: [],
           }}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })
     .post(
       "/",
-      async ({ body, set }) => {
-        try {
+      async ({ body, set }) =>
+        runJsonAction(set, async () => {
           await deps.createParameter(body)
-          return jsonData({ id: encodeResourceName(body.name.trim()) })
-        } catch (error) {
-          return respondWithError(error, set)
-        }
-      },
+          return { id: encodeResourceName(body.name.trim()) }
+        }),
       { body: createParameterSchema },
     )
     .get("/:id", async ({ params }) => {
-      const [detail, sidebarData] = await Promise.all([
+      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
         deps.getParameterDetail(decodeResourceName(params.id)),
-        deps.loadSidebarSafe(),
-      ])
-
-      return (
-        <ParameterDetail
-          detail={detail}
-          sidebarCounts={toSidebarCounts(sidebarData)}
-        />
       )
+      return <ParameterDetail detail={detail} sidebarCounts={sidebarCounts} />
     })
     .get("/:id/edit", async ({ params }) => {
-      const [detail, sidebarData] = await Promise.all([
+      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
         deps.getParameterDetail(decodeResourceName(params.id)),
-        deps.loadSidebarSafe(),
-      ])
-
+      )
       return (
         <ParameterForm
           init={{
@@ -150,30 +133,24 @@ export function createSsmRoutes(deps: SsmRouteDeps = defaultSsmRouteDeps) {
             keyId: detail.keyId,
             tags: detail.tags,
           }}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })
     .post(
       "/:id",
-      async ({ params, body, set }) => {
-        try {
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
           await deps.updateParameter(decodeResourceName(params.id), body)
-          return jsonData({ id: params.id })
-        } catch (error) {
-          return respondWithError(error, set)
-        }
-      },
+          return { id: params.id }
+        }),
       { body: updateParameterSchema },
     )
-    .delete("/:id", async ({ params, set }) => {
-      try {
+    .delete("/:id", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.deleteParameter(decodeResourceName(params.id))
-        return jsonOk()
-      } catch (error) {
-        return respondWithError(error, set)
-      }
-    })
+      }),
+    )
 }
 
 export const ssmRoutes = createSsmRoutes()

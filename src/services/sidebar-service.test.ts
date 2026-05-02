@@ -1,50 +1,75 @@
-import { describe, expect, it, mock } from "bun:test"
+import { beforeEach, describe, expect, it, mock } from "bun:test"
+import {
+  loadSidebar,
+  loadSidebarSafe,
+  toSidebarCounts,
+} from "./sidebar-service"
 
-mock.module("../infrastructure/floci-clients", () => ({
-  dynamodb: {
-    send: mock(() => Promise.resolve({ TableNames: ["table-a", "table-b"] })),
-  },
-  s3: {
-    send: mock(() => Promise.resolve({ Buckets: [{ Name: "bucket-1" }] })),
-  },
-  sqs: {
-    send: mock(() =>
-      Promise.resolve({
-        QueueUrls: ["http://localhost:4566/000000000000/queue-1"],
-      }),
-    ),
-  },
-  ssm: {
-    send: mock(() =>
-      Promise.resolve({
-        Parameters: [{ Name: "/app/config" }],
-      }),
-    ),
-  },
-  secretsManager: {
-    send: mock(() =>
-      Promise.resolve({
-        SecretList: [{ Name: "app/dev/db" }],
-      }),
-    ),
-  },
-  cognitoIdentityProvider: {
-    send: mock(() =>
-      Promise.resolve({
-        UserPools: [{ Name: "local-dev-users" }],
-      }),
-    ),
-  },
-  FLOCI_ENDPOINT: "http://localhost:4566",
-  FLOCI_REGION: "us-east-1",
-  FLOCI_ACCOUNT_ID: "000000000000",
-}))
+const listTablesMock = mock(() => Promise.resolve(["table-a", "table-b"]))
+const listBucketsMock = mock(() => Promise.resolve([{ name: "bucket-1" }]))
+const listQueueNamesMock = mock(() => Promise.resolve(["queue-1"]))
+const listParametersMock = mock(() =>
+  Promise.resolve([
+    {
+      name: "/app/config",
+      type: "String" as const,
+      tier: "Standard" as const,
+      description: "",
+      keyId: "",
+    },
+  ]),
+)
+const listSecretsMock = mock(() =>
+  Promise.resolve([
+    { name: "app/dev/db", arn: "", description: "", kmsKeyId: "" },
+  ]),
+)
+const listUserPoolsMock = mock(() =>
+  Promise.resolve([{ id: "pool-123", name: "local-dev-users" }]),
+)
 
-const { loadSidebarSafe, toSidebarCounts } = await import("./sidebar-service")
+const defaultLoaders = {
+  listTables: listTablesMock,
+  listBuckets: listBucketsMock,
+  listQueueNames: listQueueNamesMock,
+  listParameters: listParametersMock,
+  listSecrets: listSecretsMock,
+  listUserPools: listUserPoolsMock,
+}
+
+beforeEach(() => {
+  listTablesMock.mockClear()
+  listBucketsMock.mockClear()
+  listQueueNamesMock.mockClear()
+  listParametersMock.mockClear()
+  listSecretsMock.mockClear()
+  listUserPoolsMock.mockClear()
+})
+
+describe("loadSidebar", () => {
+  it("returns SidebarData when all services succeed", async () => {
+    const result = await loadSidebar(defaultLoaders)
+    expect(result).toEqual({
+      tables: ["table-a", "table-b"],
+      buckets: ["bucket-1"],
+      queues: ["queue-1"],
+      parameters: ["/app/config"],
+      secrets: ["app/dev/db"],
+      userPools: ["local-dev-users"],
+    })
+  })
+
+  it("returns empty array for a failed service", async () => {
+    listBucketsMock.mockRejectedValueOnce(new Error("connection refused"))
+    const result = await loadSidebar(defaultLoaders)
+    expect(result.buckets).toEqual([])
+    expect(result.tables).toEqual(["table-a", "table-b"])
+  })
+})
 
 describe("loadSidebarSafe", () => {
   it("returns SidebarData when loadSidebar succeeds", async () => {
-    const result = await loadSidebarSafe()
+    const result = await loadSidebarSafe(defaultLoaders)
     expect(result).toBeDefined()
     expect(result?.tables).toBeArray()
     expect(result?.buckets).toBeArray()
@@ -52,21 +77,6 @@ describe("loadSidebarSafe", () => {
     expect(result?.parameters).toBeArray()
     expect(result?.secrets).toBeArray()
     expect(result?.userPools).toBeArray()
-  })
-
-  it("does not throw even if loadSidebar throws", async () => {
-    const throwingFn = async () => {
-      throw new Error("total failure")
-    }
-    const safe = async () => {
-      try {
-        return await throwingFn()
-      } catch {
-        return undefined
-      }
-    }
-    const result = await safe()
-    expect(result).toBeUndefined()
   })
 })
 

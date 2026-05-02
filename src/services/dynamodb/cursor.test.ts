@@ -21,6 +21,7 @@ describe("encodeCursor", () => {
     }
     const encoded = encodeCursor(key)
     expect(encoded).toBeTruthy()
+    // biome-ignore lint/style/noNonNullAssertion: asserted truthy on the line above
     const decoded = Buffer.from(encoded!, "base64").toString("utf-8")
     expect(JSON.parse(decoded)).toEqual(key)
   })

@@ -16,15 +16,14 @@ import {
   listUserPoolClients,
   listUserPools,
   listUsers,
-  type SetUserPasswordInput,
   setUserPassword,
 } from "../services/cognito/cognito-service"
-import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
+import { loadSidebarSafe } from "../services/sidebar-service"
 import { UserPoolDetail } from "../views/cognito/pool-detail"
 import { UserPoolForm } from "../views/cognito/pool-form"
 import { UserPoolList } from "../views/cognito/pool-list"
 import { CognitoUserDetail } from "../views/cognito/user-detail"
-import { jsonData, jsonOk, respondWithError } from "./route-utils"
+import { loadPageData, loadSidebarPage, runJsonAction } from "./route-utils"
 
 const cognitoVerifiedAttributeSchema = t.Union([
   t.Literal("email"),
@@ -104,20 +103,15 @@ export function createCognitoRoutes(
   return new Elysia({ prefix: "/cognito" })
     .use(html())
     .get("/", async () => {
-      const [userPools, sidebarData] = await Promise.all([
+      const { data: userPools, sidebarCounts } = await loadPageData(deps, () =>
         deps.listUserPools(),
-        deps.loadSidebarSafe(),
-      ])
-
+      )
       return (
-        <UserPoolList
-          userPools={userPools}
-          sidebarCounts={toSidebarCounts(sidebarData)}
-        />
+        <UserPoolList userPools={userPools} sidebarCounts={sidebarCounts} />
       )
     })
     .get("/new", async () => {
-      const sidebarData = await deps.loadSidebarSafe()
+      const { sidebarCounts } = await loadSidebarPage(deps)
       return (
         <UserPoolForm
           init={{
@@ -127,154 +121,118 @@ export function createCognitoRoutes(
             autoVerifiedAttributes: [],
             mfaConfiguration: "OFF",
           }}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })
     .post(
       "/",
-      async ({ body, set }) => {
-        try {
-          const id = await deps.createUserPool(body)
-          return jsonData({ id })
-        } catch (error) {
-          return respondWithError(error, set)
-        }
-      },
+      async ({ body, set }) =>
+        runJsonAction(set, async () => ({
+          id: await deps.createUserPool(body),
+        })),
       { body: createUserPoolSchema },
     )
     .get("/:poolId", async ({ params }) => {
-      const [pool, appClients, users, sidebarData] = await Promise.all([
+      const [pool, appClients, users, { sidebarCounts }] = await Promise.all([
         deps.getUserPoolDetail(params.poolId),
         deps.listUserPoolClients(params.poolId),
         deps.listUsers(params.poolId),
-        deps.loadSidebarSafe(),
+        loadSidebarPage(deps),
       ])
-
       return (
         <UserPoolDetail
           pool={pool}
           appClients={appClients}
           users={users}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })
-    .delete("/:poolId", async ({ params, set }) => {
-      try {
+    .delete("/:poolId", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.deleteUserPool(params.poolId)
-        return jsonOk()
-      } catch (error) {
-        return respondWithError(error, set)
-      }
-    })
+      }),
+    )
     .post(
       "/:poolId/clients",
-      async ({ params, body, set }) => {
-        try {
-          const clientId = await deps.createUserPoolClient(params.poolId, body)
-          return jsonData({ clientId })
-        } catch (error) {
-          return respondWithError(error, set)
-        }
-      },
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => ({
+          clientId: await deps.createUserPoolClient(params.poolId, body),
+        })),
       { body: createAppClientSchema },
     )
-    .delete("/:poolId/clients/:clientId", async ({ params, set }) => {
-      try {
+    .delete("/:poolId/clients/:clientId", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.deleteUserPoolClient(params.poolId, params.clientId)
-        return jsonOk()
-      } catch (error) {
-        return respondWithError(error, set)
-      }
-    })
+      }),
+    )
     .post(
       "/:poolId/users",
-      async ({ params, body, set }) => {
-        try {
-          const username = await deps.createUser(params.poolId, body)
-          return jsonData({ username })
-        } catch (error) {
-          return respondWithError(error, set)
-        }
-      },
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => ({
+          username: await deps.createUser(params.poolId, body),
+        })),
       { body: createUserSchema },
     )
     .get("/:poolId/users/:username", async ({ params }) => {
       const username = decodeResourceName(params.username)
-      const [user, pool, sidebarData] = await Promise.all([
+      const [user, pool, { sidebarCounts }] = await Promise.all([
         deps.getUserDetail(params.poolId, username),
         deps.getUserPoolDetail(params.poolId),
-        deps.loadSidebarSafe(),
+        loadSidebarPage(deps),
       ])
-
       return (
         <CognitoUserDetail
           poolId={params.poolId}
           poolName={pool.name}
           detail={user}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })
-    .delete("/:poolId/users/:username", async ({ params, set }) => {
-      try {
+    .delete("/:poolId/users/:username", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.deleteUser(
           params.poolId,
           decodeResourceName(params.username),
         )
-        return jsonOk()
-      } catch (error) {
-        return respondWithError(error, set)
-      }
-    })
-    .post("/:poolId/users/:username/enable", async ({ params, set }) => {
-      try {
+      }),
+    )
+    .post("/:poolId/users/:username/enable", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.enableUser(
           params.poolId,
           decodeResourceName(params.username),
         )
-        return jsonOk()
-      } catch (error) {
-        return respondWithError(error, set)
-      }
-    })
-    .post("/:poolId/users/:username/disable", async ({ params, set }) => {
-      try {
+      }),
+    )
+    .post("/:poolId/users/:username/disable", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.disableUser(
           params.poolId,
           decodeResourceName(params.username),
         )
-        return jsonOk()
-      } catch (error) {
-        return respondWithError(error, set)
-      }
-    })
-    .post("/:poolId/users/:username/confirm", async ({ params, set }) => {
-      try {
+      }),
+    )
+    .post("/:poolId/users/:username/confirm", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.confirmUserSignUp(
           params.poolId,
           decodeResourceName(params.username),
         )
-        return jsonOk()
-      } catch (error) {
-        return respondWithError(error, set)
-      }
-    })
+      }),
+    )
     .post(
       "/:poolId/users/:username/password",
-      async ({ params, body, set }) => {
-        try {
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
           await deps.setUserPassword(
             params.poolId,
             decodeResourceName(params.username),
             body,
           )
-          return jsonOk()
-        } catch (error) {
-          return respondWithError(error, set)
-        }
-      },
+        }),
       { body: setPasswordSchema },
     )
 }

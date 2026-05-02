@@ -56,9 +56,13 @@ export interface QueueDetailData {
   messages: PeekedMessage[]
 }
 
-export async function listQueues(): Promise<QueueSummary[]> {
+export async function listQueueNames(): Promise<string[]> {
   const { QueueUrls } = await sqs.send(new ListQueuesCommand({}))
-  const urls = QueueUrls ?? []
+  return (QueueUrls ?? []).map(queueNameFromUrl)
+}
+
+export async function listQueues(): Promise<QueueSummary[]> {
+  const urls = (await sqs.send(new ListQueuesCommand({}))).QueueUrls ?? []
   return Promise.all(
     urls.map(async (url): Promise<QueueSummary> => {
       const name = queueNameFromUrl(url)

@@ -362,7 +362,10 @@ export function QueueDetail({
               >
                 <div
                   class="modal"
-                  {...{ "@click.stop": "", "@keydown.escape.window": "closePurge()" }}
+                  {...{
+                    "@click.stop": "",
+                    "@keydown.escape.window": "closePurge()",
+                  }}
                 >
                   <h2 class="modal__title">キューをパージ</h2>
                   <p class="sqs-queue-detail-page__purge-desc">

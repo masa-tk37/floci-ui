@@ -20,7 +20,7 @@ import {
   uploadObjects,
 } from "../services/s3/bucket-service"
 import { buildAttachmentContentDisposition } from "../services/s3/content-disposition"
-import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
+import { loadSidebarSafe } from "../services/sidebar-service"
 import { BucketList } from "../views/s3/bucket-list"
 import { CreateBucketForm } from "../views/s3/create-form"
 import { ObjectList } from "../views/s3/object-list"
@@ -29,9 +29,11 @@ import { S3SettingsForm } from "../views/s3/settings-form"
 import {
   jsonData,
   jsonError,
-  jsonOk,
+  loadPageData,
+  loadSidebarPage,
   respondWithError,
   respondWithFrameworkError,
+  runJsonAction,
 } from "./route-utils"
 
 const s3TagSchema = t.Object({
@@ -175,25 +177,24 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
   return new Elysia({ prefix: "/s3" })
     .use(html())
     .get("/", async () => {
-      const [buckets, sidebarData] = await Promise.all([
+      const { data: buckets, sidebarCounts } = await loadPageData(deps, () =>
         deps.listBuckets(),
-        deps.loadSidebarSafe(),
-      ])
+      )
       return (
         <BucketList
           buckets={buckets.map((bucket) => ({ Name: bucket.name }))}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })
     .get("/new", async () => {
-      const sidebarData = await deps.loadSidebarSafe()
-      return <CreateBucketForm sidebarCounts={toSidebarCounts(sidebarData)} />
+      const { sidebarCounts } = await loadSidebarPage(deps)
+      return <CreateBucketForm sidebarCounts={sidebarCounts} />
     })
     .post(
       "/bucket",
-      async ({ body, set }) => {
-        try {
+      async ({ body, set }) =>
+        runJsonAction(set, async () => {
           const result = await deps.createBucket(body.name, {
             versioning: body.versioning ?? undefined,
             encryption: body.encryption ?? null,
@@ -201,45 +202,30 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
             publicAccessBlock: body.publicAccessBlock,
             tags: body.tags,
           })
-          return jsonData({ warnings: result.warnings })
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+          return { warnings: result.warnings }
+        }),
       { body: createBucketSchema },
     )
     .get("/:bucket/settings", async ({ params }) => {
-      const [init, sidebarData] = await Promise.all([
+      const { data: init, sidebarCounts } = await loadPageData(deps, () =>
         deps.getBucketSettings(params.bucket),
-        deps.loadSidebarSafe(),
-      ])
-      return (
-        <S3SettingsForm
-          init={init}
-          sidebarCounts={toSidebarCounts(sidebarData)}
-        />
       )
+      return <S3SettingsForm init={init} sidebarCounts={sidebarCounts} />
     })
     .post(
       "/:bucket/settings",
-      async ({ params, body, set }) => {
-        try {
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
           const result = await deps.updateBucketSettings(params.bucket, body)
-          return jsonData({ warnings: result.warnings })
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+          return { warnings: result.warnings }
+        }),
       { body: bucketSettingsSchema },
     )
-    .delete("/:bucket", async ({ params, set }) => {
-      try {
+    .delete("/:bucket", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.deleteBucket(params.bucket)
-        return jsonOk()
-      } catch (e) {
-        return respondWithError(e, set)
-      }
-    })
+      }),
+    )
     .get("/:bucket/download", async ({ params, query }) => {
       const key = query.key
       if (!key) return new Response("Missing key", { status: 400 })
@@ -270,26 +256,19 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
           400,
         )
       }
-      try {
-        return jsonData(await deps.getObjectDetails(params.bucket, key))
-      } catch (e) {
-        return respondWithError(e, set)
-      }
+      return runJsonAction(set, () => deps.getObjectDetails(params.bucket, key))
     })
     .post(
       "/:bucket/folder",
-      async ({ params, body, set }) => {
-        try {
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
           const result = await deps.createFolderObject(
             params.bucket,
             body.prefix ?? "",
             body.folderName,
           )
-          return jsonData({ key: result.key })
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+          return { key: result.key }
+        }),
       { body: createFolderSchema },
     )
     .post("/:bucket/upload", async ({ params, request, set }) => {
@@ -315,18 +294,15 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
     })
     .post(
       "/:bucket/rename-object",
-      async ({ params, body, set }) => {
-        try {
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
           const result = await deps.renameObject(
             params.bucket,
             body.fromKey,
             body.toKey,
           )
-          return jsonData({ key: result.key })
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+          return { key: result.key }
+        }),
       { body: renameObjectSchema },
     )
     .post(
@@ -358,20 +334,12 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
     )
     .post(
       "/:bucket/object-properties",
-      async ({ params, body, set }) => {
-        try {
-          const result = await deps.updateObjectProperties(
-            params.bucket,
-            body.key,
-            {
-              contentType: body.contentType,
-            },
-          )
-          return jsonData({ object: result })
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => ({
+          object: await deps.updateObjectProperties(params.bucket, body.key, {
+            contentType: body.contentType,
+          }),
+        })),
       { body: updateObjectPropertiesSchema },
     )
     .delete("/:bucket/object", async ({ params, query, set }) => {
@@ -384,12 +352,9 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
           400,
         )
       }
-      try {
+      return runJsonAction(set, async () => {
         await deps.deleteObject(params.bucket, key)
-        return jsonOk()
-      } catch (e) {
-        return respondWithError(e, set)
-      }
+      })
     })
     .post(
       "/:bucket/delete-objects",
@@ -414,10 +379,9 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
       const key = query.key
       if (!key) return new Response("Missing key", { status: 400 })
       try {
-        const [result, sidebarData] = await Promise.all([
+        const { data: result, sidebarCounts } = await loadPageData(deps, () =>
           deps.getObjectPreview(params.bucket, key),
-          deps.loadSidebarSafe(),
-        ])
+        )
         return (
           <Preview
             bucket={params.bucket}
@@ -426,7 +390,7 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
             mode={result.mode}
             text={result.text}
             truncated={result.truncated}
-            sidebarCounts={toSidebarCounts(sidebarData)}
+            sidebarCounts={sidebarCounts}
           />
         )
       } catch (e) {
@@ -438,13 +402,14 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
     })
     .get("/:bucket", async ({ params, query }) => {
       const prefix = query.prefix ?? ""
-      const [result, sidebarData] = await Promise.all([
+      const {
+        data: result,
+        sidebar,
+        sidebarCounts,
+      } = await loadPageData(deps, () =>
         deps.listObjects(params.bucket, prefix),
-        deps.loadSidebarSafe(),
-      ])
-      const buckets = (sidebarData?.buckets ?? []).map((name) => ({
-        Name: name,
-      }))
+      )
+      const buckets = (sidebar?.buckets ?? []).map((name) => ({ Name: name }))
       return (
         <ObjectList
           bucket={params.bucket}
@@ -456,7 +421,7 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
             LastModified: object.lastModified,
           }))}
           folders={result.folders.map((folder) => ({ Prefix: folder.prefix }))}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })

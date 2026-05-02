@@ -3,6 +3,7 @@ export type AlpineComponentFactory<Props = unknown> = (
   props: Props,
 ) => Record<string, unknown>
 
+// biome-ignore lint/suspicious/noExplicitAny: heterogeneous Props registry requires variance escape
 export type AlpineRegistry = Record<string, AlpineComponentFactory<any>>
 
 export function readComponentProps<Props>(el: HTMLElement): Props {

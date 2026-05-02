@@ -1,6 +1,6 @@
 import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
-import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
+import { loadSidebarSafe } from "../services/sidebar-service"
 import {
   createQueue,
   deleteMessage,
@@ -15,7 +15,12 @@ import {
   sendMessage,
   updateQueueSettings,
 } from "../services/sqs/queue-service"
-import { jsonData, jsonOk, respondWithError } from "./route-utils"
+import {
+  jsonData,
+  loadPageData,
+  loadSidebarPage,
+  runJsonAction,
+} from "./route-utils"
 import { CreateQueueForm } from "../views/sqs/create-form"
 import { QueueDetail } from "../views/sqs/queue-detail"
 import { QueueList } from "../views/sqs/queue-list"
@@ -70,73 +75,50 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
   return new Elysia({ prefix: "/sqs" })
     .use(html())
     .get("/", async () => {
-      const [queues, sidebarData] = await Promise.all([
+      const { data: queues, sidebarCounts } = await loadPageData(deps, () =>
         deps.listQueues(),
-        deps.loadSidebarSafe(),
-      ])
-      return (
-        <QueueList
-          queues={queues}
-          sidebarCounts={toSidebarCounts(sidebarData)}
-        />
       )
+      return <QueueList queues={queues} sidebarCounts={sidebarCounts} />
     })
     .get("/new", async () => {
-      const sidebarData = await deps.loadSidebarSafe()
-      return <CreateQueueForm sidebarCounts={toSidebarCounts(sidebarData)} />
+      const { sidebarCounts } = await loadSidebarPage(deps)
+      return <CreateQueueForm sidebarCounts={sidebarCounts} />
     })
     .post(
       "/",
-      async ({ body, set }) => {
-        try {
+      async ({ body, set }) =>
+        runJsonAction(set, async () => {
           await deps.createQueue(body.name, body.attributes, body.tags)
-          return jsonOk()
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+        }),
       { body: createQueueSchema },
     )
-    .delete("/:queue", async ({ params, set }) => {
-      try {
+    .delete("/:queue", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.deleteQueue(params.queue)
-        return jsonOk()
-      } catch (e) {
-        return respondWithError(e, set)
-      }
-    })
+      }),
+    )
     .get("/:queue/settings", async ({ params }) => {
-      const [init, sidebarData] = await Promise.all([
+      const { data: init, sidebarCounts } = await loadPageData(deps, () =>
         deps.getQueueSettings(params.queue),
-        deps.loadSidebarSafe(),
-      ])
-      return (
-        <SQSSettingsForm
-          init={init}
-          sidebarCounts={toSidebarCounts(sidebarData)}
-        />
       )
+      return <SQSSettingsForm init={init} sidebarCounts={sidebarCounts} />
     })
     .post(
       "/:queue/settings",
-      async ({ params, body, set }) => {
-        try {
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
           await deps.updateQueueSettings(
             params.queue,
             body.attributes ?? {},
             body.tags ?? {},
           )
-          return jsonOk()
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+        }),
       { body: updateQueueSettingsSchema },
     )
     .get("/:queue", async ({ params }) => {
-      const [detail, sidebarData, queues] = await Promise.all([
+      const [detail, { sidebarCounts }, queues] = await Promise.all([
         deps.getQueueDetail(params.queue),
-        deps.loadSidebarSafe(),
+        loadSidebarPage(deps),
         deps.listQueues(),
       ])
       return (
@@ -145,25 +127,21 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
           queues={queues}
           attributes={detail.attributes}
           messages={detail.messages}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })
     .post(
       "/:queue/send",
-      async ({ params, body, set }) => {
-        try {
-          const messageId = await deps.sendMessage(
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => ({
+          messageId: await deps.sendMessage(
             params.queue,
             body.body,
             body.groupId,
             body.messageDeduplicationId,
-          )
-          return jsonData({ messageId })
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+          ),
+        })),
       {
         body: t.Object({
           body: t.String({ minLength: 1 }),
@@ -182,35 +160,22 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
     })
     .delete(
       "/:queue/message",
-      async ({ params, body, set }) => {
-        try {
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
           await deps.deleteMessage(params.queue, body.receipt)
-          return jsonOk()
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+        }),
       { body: t.Object({ receipt: t.String({ minLength: 1 }) }) },
     )
-    .delete("/:queue/messages", async ({ params, set }) => {
-      try {
+    .delete("/:queue/messages", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.purgeQueue(params.queue)
-        return jsonOk()
-      } catch (e) {
-        return respondWithError(e, set)
-      }
-    })
-    .get("/:queue/messages/:messageId/body", async ({ params, set }) => {
-      try {
-        const body = await deps.getQueueMessageBody(
-          params.queue,
-          params.messageId,
-        )
-        return jsonData({ body })
-      } catch (e) {
-        return respondWithError(e, set)
-      }
-    })
+      }),
+    )
+    .get("/:queue/messages/:messageId/body", async ({ params, set }) =>
+      runJsonAction(set, async () => ({
+        body: await deps.getQueueMessageBody(params.queue, params.messageId),
+      })),
+    )
 }
 
 export const sqsRoutes = createSqsRoutes()

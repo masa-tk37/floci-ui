@@ -1,5 +1,6 @@
 import type { ServiceErrorCode } from "../errors"
 import { httpStatusFor, ServiceError } from "../errors"
+import { type SidebarData, toSidebarCounts } from "../services/sidebar-service"
 
 export interface JsonError {
   code: ServiceErrorCode | "InternalServerError"
@@ -55,6 +56,50 @@ export function respondWithError(
 
   set.status = 500
   return jsonError("InternalServerError", "Internal server error")
+}
+
+export interface PageData<T> {
+  data: T
+  sidebar: SidebarData | undefined
+  sidebarCounts: ReturnType<typeof toSidebarCounts>
+}
+
+export async function loadPageData<T>(
+  deps: { loadSidebarSafe: () => Promise<SidebarData | undefined> },
+  loader: () => Promise<T>,
+): Promise<PageData<T>> {
+  const [data, sidebar] = await Promise.all([loader(), deps.loadSidebarSafe()])
+  return { data, sidebar, sidebarCounts: toSidebarCounts(sidebar) }
+}
+
+export async function loadSidebarPage(deps: {
+  loadSidebarSafe: () => Promise<SidebarData | undefined>
+}): Promise<{
+  sidebar: SidebarData | undefined
+  sidebarCounts: ReturnType<typeof toSidebarCounts>
+}> {
+  const sidebar = await deps.loadSidebarSafe()
+  return { sidebar, sidebarCounts: toSidebarCounts(sidebar) }
+}
+
+export async function runJsonAction(
+  set: { status?: number | string },
+  action: () => Promise<undefined | null>,
+): Promise<JsonSuccessResponse<null> | JsonErrorResponse>
+export async function runJsonAction<T>(
+  set: { status?: number | string },
+  action: () => Promise<T>,
+): Promise<JsonSuccessResponse<T> | JsonErrorResponse>
+export async function runJsonAction<T>(
+  set: { status?: number | string },
+  action: () => Promise<T | undefined | null>,
+): Promise<JsonSuccessResponse<T | null> | JsonErrorResponse> {
+  try {
+    const result = await action()
+    return result == null ? jsonOk() : jsonData(result)
+  } catch (error) {
+    return respondWithError(error, set)
+  }
 }
 
 const GET_JSON_API_PATTERNS = [

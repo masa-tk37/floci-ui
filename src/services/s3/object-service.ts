@@ -503,6 +503,7 @@ export async function deleteSelectedObjects(
       }
     } else {
       errors.push({
+        // biome-ignore lint/style/noNonNullAssertion: index is bounded by folderPrefixes.length
         target: folderPrefixes[index]!,
         message:
           result.reason instanceof Error

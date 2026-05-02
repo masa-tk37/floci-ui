@@ -11,11 +11,11 @@ import {
   listSecrets,
   updateSecret,
 } from "../services/secrets/secret-service"
-import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
+import { loadSidebarSafe } from "../services/sidebar-service"
 import { SecretDetail } from "../views/secrets/secret-detail"
 import { SecretForm } from "../views/secrets/secret-form"
 import { SecretList } from "../views/secrets/secret-list"
-import { jsonData, jsonOk, respondWithError } from "./route-utils"
+import { loadPageData, loadSidebarPage, runJsonAction } from "./route-utils"
 
 const secretTagSchema = t.Object({
   key: t.String(),
@@ -61,20 +61,13 @@ export function createSecretsRoutes(
   return new Elysia({ prefix: "/secrets" })
     .use(html())
     .get("/", async () => {
-      const [secrets, sidebarData] = await Promise.all([
+      const { data: secrets, sidebarCounts } = await loadPageData(deps, () =>
         deps.listSecrets(),
-        deps.loadSidebarSafe(),
-      ])
-
-      return (
-        <SecretList
-          secrets={secrets}
-          sidebarCounts={toSidebarCounts(sidebarData)}
-        />
       )
+      return <SecretList secrets={secrets} sidebarCounts={sidebarCounts} />
     })
     .get("/new", async () => {
-      const sidebarData = await deps.loadSidebarSafe()
+      const { sidebarCounts } = await loadSidebarPage(deps)
       return (
         <SecretForm
           init={{
@@ -87,41 +80,29 @@ export function createSecretsRoutes(
             tags: [],
             isBinary: false,
           }}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })
     .post(
       "/",
-      async ({ body, set }) => {
-        try {
+      async ({ body, set }) =>
+        runJsonAction(set, async () => {
           await deps.createSecret(body)
-          return jsonData({ id: encodeResourceName(body.name.trim()) })
-        } catch (error) {
-          return respondWithError(error, set)
-        }
-      },
+          return { id: encodeResourceName(body.name.trim()) }
+        }),
       { body: createSecretSchema },
     )
     .get("/:id", async ({ params }) => {
-      const [detail, sidebarData] = await Promise.all([
+      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
         deps.getSecretDetail(decodeResourceName(params.id)),
-        deps.loadSidebarSafe(),
-      ])
-
-      return (
-        <SecretDetail
-          detail={detail}
-          sidebarCounts={toSidebarCounts(sidebarData)}
-        />
       )
+      return <SecretDetail detail={detail} sidebarCounts={sidebarCounts} />
     })
     .get("/:id/edit", async ({ params }) => {
-      const [detail, sidebarData] = await Promise.all([
+      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
         deps.getSecretDetail(decodeResourceName(params.id)),
-        deps.loadSidebarSafe(),
-      ])
-
+      )
       return (
         <SecretForm
           init={{
@@ -134,30 +115,24 @@ export function createSecretsRoutes(
             tags: detail.tags,
             isBinary: detail.isBinary,
           }}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })
     .post(
       "/:id",
-      async ({ params, body, set }) => {
-        try {
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
           await deps.updateSecret(decodeResourceName(params.id), body)
-          return jsonData({ id: params.id })
-        } catch (error) {
-          return respondWithError(error, set)
-        }
-      },
+          return { id: params.id }
+        }),
       { body: updateSecretSchema },
     )
-    .delete("/:id", async ({ params, set }) => {
-      try {
+    .delete("/:id", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.deleteSecret(decodeResourceName(params.id))
-        return jsonOk()
-      } catch (error) {
-        return respondWithError(error, set)
-      }
-    })
+      }),
+    )
 }
 
 export const secretsRoutes = createSecretsRoutes()

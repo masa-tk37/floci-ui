@@ -1,7 +1,7 @@
+import { ServiceError } from "../errors"
 import type { BillingMode, StreamViewType } from "@aws-sdk/client-dynamodb"
 import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
-import { ServiceError } from "../errors"
 import {
   createTable,
   deleteItem,
@@ -14,22 +14,35 @@ import {
   scanItems,
   updateTable,
 } from "../services/dynamodb/table-service"
-import { loadSidebarSafe, toSidebarCounts } from "../services/sidebar-service"
+import { loadSidebarSafe } from "../services/sidebar-service"
 import { CreateTableForm } from "../views/dynamodb/create-form"
 import { ItemEditForm } from "../views/dynamodb/item-edit-form"
 import { ItemList } from "../views/dynamodb/item-list"
 import { QueryBuilder } from "../views/dynamodb/query-builder"
 import { TableList } from "../views/dynamodb/table-list"
 import { UpdateTableForm } from "../views/dynamodb/update-form"
-import {
-  jsonData,
-  jsonOk,
-  respondWithError,
-  respondWithFrameworkError,
-} from "./route-utils"
+import { loadPageData, loadSidebarPage, runJsonAction } from "./route-utils"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+function parseItemJson(itemJson: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(itemJson) as unknown
+    if (!isRecord(parsed)) {
+      throw new ServiceError("InvalidInput", "Item JSON must be an object")
+    }
+    return parsed
+  } catch (error) {
+    if (error instanceof ServiceError) {
+      throw error
+    }
+
+    const detail =
+      error instanceof SyntaxError ? error.message : "Unable to parse JSON"
+    throw new ServiceError("InvalidInput", `Invalid JSON: ${detail}`)
+  }
 }
 
 const dynamodbAttributeTypeSchema = t.Union([
@@ -152,46 +165,32 @@ export function createDynamodbRoutes(
   return new Elysia({ prefix: "/dynamodb" })
     .use(html())
     .get("/", async () => {
-      const [tables, sidebarData] = await Promise.all([
+      const { data: tables, sidebarCounts } = await loadPageData(deps, () =>
         deps.listTables(),
-        deps.loadSidebarSafe(),
-      ])
-      return (
-        <TableList
-          tables={tables}
-          sidebarCounts={toSidebarCounts(sidebarData)}
-        />
       )
+      return <TableList tables={tables} sidebarCounts={sidebarCounts} />
     })
     .get("/new", async () => {
-      const sidebarData = await deps.loadSidebarSafe()
-      return <CreateTableForm sidebarCounts={toSidebarCounts(sidebarData)} />
+      const { sidebarCounts } = await loadSidebarPage(deps)
+      return <CreateTableForm sidebarCounts={sidebarCounts} />
     })
     .post(
       "/tables",
-      async ({ body, set }) => {
-        try {
+      async ({ body, set }) =>
+        runJsonAction(set, async () => {
           await deps.createTable(body)
-          return jsonOk()
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+        }),
       { body: createTableSchema },
     )
-    .delete("/:table", async ({ params, set }) => {
-      try {
+    .delete("/:table", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.deleteTable(params.table)
-        return jsonOk()
-      } catch (e) {
-        return respondWithError(e, set)
-      }
-    })
+      }),
+    )
     .get("/:table/edit", async ({ params }) => {
-      const [detail, sidebarData] = await Promise.all([
+      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
         deps.getTableDetail(params.table),
-        deps.loadSidebarSafe(),
-      ])
+      )
       return (
         <UpdateTableForm
           init={{
@@ -205,14 +204,14 @@ export function createDynamodbRoutes(
             ttlAttr: detail.ttlAttr,
             deletionProtection: detail.deletionProtection,
           }}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })
     .post(
       "/tables/:table/update",
-      async ({ params, body, set }) => {
-        try {
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
           await deps.updateTable(params.table, {
             billingMode: body.billingMode as BillingMode,
             rcu: body.rcu,
@@ -223,31 +222,30 @@ export function createDynamodbRoutes(
             ttlAttr: body.ttlAttr,
             deletionProtection: body.deletionProtection,
           })
-          return jsonOk()
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+        }),
       { body: updateTableSchema },
     )
     .get(
       "/:table",
       async ({ params, query }) => {
-        const [result, sidebarData] = await Promise.all([
+        const {
+          data: result,
+          sidebar,
+          sidebarCounts,
+        } = await loadPageData(deps, () =>
           deps.scanItems(params.table, query.cursor),
-          deps.loadSidebarSafe(),
-        ])
+        )
         return (
           <ItemList
             tableName={params.table}
-            tables={sidebarData?.tables ?? []}
+            tables={sidebar?.tables ?? []}
             items={result.items}
             hashKey={result.hashKey}
             sortKey={result.sortKey}
             cursor={query.cursor}
             nextCursor={result.nextCursor}
             tableArn={result.tableArn}
-            sidebarCounts={toSidebarCounts(sidebarData)}
+            sidebarCounts={sidebarCounts}
           />
         )
       },
@@ -256,19 +254,15 @@ export function createDynamodbRoutes(
       },
     )
     .get("/:table/query", async ({ params }) => {
-      const sidebarData = await deps.loadSidebarSafe()
+      const { sidebarCounts } = await loadSidebarPage(deps)
       return (
-        <QueryBuilder
-          tableName={params.table}
-          sidebarCounts={toSidebarCounts(sidebarData)}
-        />
+        <QueryBuilder tableName={params.table} sidebarCounts={sidebarCounts} />
       )
     })
     .get("/:table/:pk/edit", async ({ params }) => {
-      const [detail, sidebarData] = await Promise.all([
+      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
         deps.getItem(params.table, params.pk),
-        deps.loadSidebarSafe(),
-      ])
+      )
       return (
         <ItemEditForm
           init={{
@@ -279,15 +273,14 @@ export function createDynamodbRoutes(
             sortKey: detail.sortKey,
             tableArn: detail.tableArn,
           }}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })
     .get("/:table/:pk/:sk/edit", async ({ params }) => {
-      const [detail, sidebarData] = await Promise.all([
+      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
         deps.getItem(params.table, params.pk, params.sk),
-        deps.loadSidebarSafe(),
-      ])
+      )
       return (
         <ItemEditForm
           init={{
@@ -299,14 +292,14 @@ export function createDynamodbRoutes(
             sortKey: detail.sortKey,
             tableArn: detail.tableArn,
           }}
-          sidebarCounts={toSidebarCounts(sidebarData)}
+          sidebarCounts={sidebarCounts}
         />
       )
     })
     .post(
       "/:table/query",
-      async ({ params, body, set }) => {
-        try {
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
           const result = await deps.queryItems(params.table, {
             mode: body.mode,
             keyConditionExpression: body.keyConditionExpression,
@@ -315,11 +308,8 @@ export function createDynamodbRoutes(
             indexName: body.indexName || undefined,
             cursor: body.cursor,
           })
-          return jsonData({ items: result.items, cursor: result.cursor })
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+          return { items: result.items, cursor: result.cursor }
+        }),
       {
         body: t.Object({
           mode: t.Union([t.Literal("query"), t.Literal("scan")]),
@@ -333,28 +323,14 @@ export function createDynamodbRoutes(
     )
     .post(
       "/:table/:pk/edit",
-      async ({ params, body, set }) => {
-        try {
-          const parsed = JSON.parse(body.itemJson) as unknown
-          if (!isRecord(parsed)) {
-            throw new ServiceError(
-              "InvalidInput",
-              "Item JSON must be an object",
-            )
-          }
-          await deps.saveItem(params.table, params.pk, parsed)
-          return jsonOk()
-        } catch (e) {
-          if (e instanceof SyntaxError) {
-            return respondWithFrameworkError(
-              "InvalidInput",
-              `Invalid JSON: ${e.message}`,
-              set,
-            )
-          }
-          return respondWithError(e, set)
-        }
-      },
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
+          await deps.saveItem(
+            params.table,
+            params.pk,
+            parseItemJson(body.itemJson),
+          )
+        }),
       {
         body: t.Object({
           itemJson: t.String({ minLength: 2 }),
@@ -363,50 +339,31 @@ export function createDynamodbRoutes(
     )
     .post(
       "/:table/:pk/:sk/edit",
-      async ({ params, body, set }) => {
-        try {
-          const parsed = JSON.parse(body.itemJson) as unknown
-          if (!isRecord(parsed)) {
-            throw new ServiceError(
-              "InvalidInput",
-              "Item JSON must be an object",
-            )
-          }
-          await deps.saveItem(params.table, params.pk, parsed, params.sk)
-          return jsonOk()
-        } catch (e) {
-          if (e instanceof SyntaxError) {
-            return respondWithFrameworkError(
-              "InvalidInput",
-              `Invalid JSON: ${e.message}`,
-              set,
-            )
-          }
-          return respondWithError(e, set)
-        }
-      },
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
+          await deps.saveItem(
+            params.table,
+            params.pk,
+            parseItemJson(body.itemJson),
+            params.sk,
+          )
+        }),
       {
         body: t.Object({
           itemJson: t.String({ minLength: 2 }),
         }),
       },
     )
-    .delete("/:table/:pk", async ({ params, set }) => {
-      try {
+    .delete("/:table/:pk", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.deleteItem(params.table, params.pk)
-        return jsonOk()
-      } catch (e) {
-        return respondWithError(e, set)
-      }
-    })
-    .delete("/:table/:pk/:sk", async ({ params, set }) => {
-      try {
+      }),
+    )
+    .delete("/:table/:pk/:sk", async ({ params, set }) =>
+      runJsonAction(set, async () => {
         await deps.deleteItem(params.table, params.pk, params.sk)
-        return jsonOk()
-      } catch (e) {
-        return respondWithError(e, set)
-      }
-    })
+      }),
+    )
 }
 
 export const dynamodbRoutes = createDynamodbRoutes()

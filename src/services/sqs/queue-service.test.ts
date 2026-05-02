@@ -19,6 +19,7 @@ import {
   getQueueMessageBody,
   getQueueMessages,
   getQueueSettings,
+  listQueueNames,
   listQueues,
   purgeQueue,
   sendMessage,
@@ -79,6 +80,20 @@ describe("listQueues", () => {
       })
     const result = await listQueues()
     expect(result[0].dlqName).toBe("dead-letter-queue")
+  })
+})
+
+describe("listQueueNames", () => {
+  it("returns queue names without loading per-queue attributes", async () => {
+    mockSend.mockResolvedValueOnce({
+      QueueUrls: [
+        "http://localhost:4566/000000000000/queue1",
+        "http://localhost:4566/000000000000/queue2",
+      ],
+    })
+
+    await expect(listQueueNames()).resolves.toEqual(["queue1", "queue2"])
+    expect(mockSend).toHaveBeenCalledTimes(1)
   })
 })
 
