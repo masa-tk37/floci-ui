@@ -32,6 +32,8 @@ COPY package.json bun.lock tsconfig.json ./
 COPY src ./src
 COPY public ./public
 
+RUN chown -R bun:bun /app
+
 USER bun
 
 CMD ["bun", "run", "start"]
