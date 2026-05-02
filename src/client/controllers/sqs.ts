@@ -230,7 +230,9 @@ export function createSqsQueueDetailController(
     bodyError: "",
     deleting: false,
     deleteError: "",
-    purgeConfirming: false,
+    purgeOpen: false,
+    purging: false,
+    purgeError: "",
     isFifo: props.isFifo,
     requiresDeduplicationId: props.requiresDeduplicationId,
     messages: props.initialMessages,
@@ -287,12 +289,26 @@ export function createSqsQueueDetailController(
       }
     },
 
+    openPurge() {
+      this.purgeError = ""
+      this.purgeOpen = true
+    },
+
+    closePurge() {
+      if (this.purging) return
+      this.purgeOpen = false
+      this.purgeError = ""
+    },
+
     async confirmPurge() {
+      this.purging = true
+      this.purgeError = ""
       try {
         await requestJson(`${props.queuePath}/messages`, { method: "DELETE" })
         location.reload()
       } catch (error) {
-        dispatchToast({ kind: "error", message: errorMessage(error) })
+        this.purgeError = errorMessage(error)
+        this.purging = false
       }
     },
 

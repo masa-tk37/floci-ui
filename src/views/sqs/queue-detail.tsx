@@ -170,37 +170,13 @@ export function QueueDetail({
                     >
                       {IconPlus}送信
                     </button>
-                    <span>
-                      <button
-                        type="button"
-                        x-show="!purgeConfirming"
-                        {...{ "@click": "purgeConfirming = true" }}
-                        class="btn btn--danger-ghost btn--sm"
-                      >
-                        キューをパージ
-                      </button>
-                      <template x-if="purgeConfirming">
-                        <span class="confirm-inline">
-                          <span class="confirm-inline__text">
-                            全メッセージを削除しますか？
-                          </span>
-                          <button
-                            type="button"
-                            class="btn btn--danger btn--sm"
-                            {...{ "@click": "confirmPurge()" }}
-                          >
-                            パージ
-                          </button>
-                          <button
-                            type="button"
-                            class="btn btn--ghost btn--sm"
-                            {...{ "@click": "purgeConfirming = false" }}
-                          >
-                            キャンセル
-                          </button>
-                        </span>
-                      </template>
-                    </span>
+                    <button
+                      type="button"
+                      {...{ "@click": "openPurge()" }}
+                      class="btn btn--danger-ghost btn--sm"
+                    >
+                      キューをパージ
+                    </button>
                   </div>
                 </div>
                 <div id="messages-list-inner">
@@ -377,6 +353,46 @@ export function QueueDetail({
                   </div>
                 </div>
               </template>
+
+              <div
+                x-show="purgeOpen"
+                class="modal-overlay"
+                x-cloak
+                {...{ "@click.self": "closePurge()" }}
+              >
+                <div
+                  class="modal"
+                  {...{ "@click.stop": "", "@keydown.escape.window": "closePurge()" }}
+                >
+                  <h2 class="modal__title">キューをパージ</h2>
+                  <p class="sqs-queue-detail-page__purge-desc">
+                    キュー内の全メッセージを削除します。この操作は取り消せません。
+                  </p>
+                  <div class="error-inline" x-show="purgeError" x-cloak>
+                    <strong>エラー:</strong> <span x-text="purgeError" />
+                  </div>
+                  <div class="modal__actions">
+                    <button
+                      type="button"
+                      class="btn btn--danger"
+                      {...{
+                        "@click": "confirmPurge()",
+                        ":disabled": "purging",
+                      }}
+                    >
+                      <span x-show="!purging">パージ</span>
+                      <span x-show="purging">パージ中…</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn--ghost"
+                      {...{ "@click": "closePurge()", ":disabled": "purging" }}
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

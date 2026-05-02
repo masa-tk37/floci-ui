@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "sh -c 'bun run dev:client & bun run dev:server'",
-    "dev:client": "bun build ./src/client/app.ts --outfile ./public/assets/app.js --target browser --format esm --sourcemap --watch & bun run copy:pdf-worker",
+    "dev:client": "bun build ./src/client/app.ts --outdir ./public/assets --target browser --format esm --sourcemap --watch & bun run copy:pdf-worker",
     "dev:server": "bun run --watch src/index.ts",
     "build:client": "bun build ./src/client/app.ts --outfile ./public/assets/app.js --target browser --format esm && bun run copy:pdf-worker",
     "copy:pdf-worker": "cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/assets/pdf.worker.min.mjs",
