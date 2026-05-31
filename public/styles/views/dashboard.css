@@ -87,3 +87,75 @@
   color: var(--color-theme-hover);
   text-decoration: none;
 }
+
+.recent-card--dynamodb {
+  box-shadow:
+    inset 3px 0 0 var(--color-dynamodb),
+    var(--shadow-whisper);
+}
+
+.recent-card--dynamodb:hover {
+  box-shadow:
+    inset 3px 0 0 var(--color-dynamodb),
+    var(--shadow-lift);
+}
+
+.recent-card--s3 {
+  box-shadow:
+    inset 3px 0 0 var(--color-s3),
+    var(--shadow-whisper);
+}
+
+.recent-card--s3:hover {
+  box-shadow:
+    inset 3px 0 0 var(--color-s3),
+    var(--shadow-lift);
+}
+
+.recent-card--sqs {
+  box-shadow:
+    inset 3px 0 0 var(--color-sqs),
+    var(--shadow-whisper);
+}
+
+.recent-card--sqs:hover {
+  box-shadow:
+    inset 3px 0 0 var(--color-sqs),
+    var(--shadow-lift);
+}
+
+.recent-card--ssm {
+  box-shadow:
+    inset 3px 0 0 var(--color-ssm),
+    var(--shadow-whisper);
+}
+
+.recent-card--ssm:hover {
+  box-shadow:
+    inset 3px 0 0 var(--color-ssm),
+    var(--shadow-lift);
+}
+
+.recent-card--secrets {
+  box-shadow:
+    inset 3px 0 0 var(--color-secrets),
+    var(--shadow-whisper);
+}
+
+.recent-card--secrets:hover {
+  box-shadow:
+    inset 3px 0 0 var(--color-secrets),
+    var(--shadow-lift);
+}
+
+.recent-card--cognito {
+  box-shadow:
+    inset 3px 0 0 var(--color-cognito),
+    var(--shadow-whisper);
+}
+
+.recent-card--cognito:hover {
+  box-shadow:
+    inset 3px 0 0 var(--color-cognito),
+    var(--shadow-lift);
+}

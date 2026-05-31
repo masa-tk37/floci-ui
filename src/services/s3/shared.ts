@@ -28,6 +28,21 @@ export interface FolderSummary {
 export interface ObjectListResult {
   objects: ObjectSummary[]
   folders: FolderSummary[]
+  nextCursor?: string
+}
+
+export interface ObjectVersionSummary {
+  key: string
+  versionId: string | undefined
+  size: number
+  lastModified: Date | undefined
+  isLatest: boolean
+  isDeleteMarker: boolean
+  eTag: string | undefined
+}
+
+export interface VersionListResult {
+  versions: ObjectVersionSummary[]
 }
 
 export interface DownloadResult {
@@ -75,6 +90,14 @@ export interface RenameFolderResult {
 
 export interface UpdateObjectPropertiesInput {
   contentType: string
+}
+
+export interface ObjectTagsResult {
+  tags: { key: string; value: string }[]
+}
+
+export interface UpdateObjectTagsInput {
+  tags: { key: string; value: string }[]
 }
 
 export interface BucketSettingsInput {

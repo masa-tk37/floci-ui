@@ -131,6 +131,11 @@
   line-height: 1.6;
 }
 
+.modal__body--muted {
+  color: var(--color-text-dim);
+  font-size: 0.875rem;
+}
+
 .modal__error {
   margin-bottom: 1rem;
 }

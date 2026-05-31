@@ -80,6 +80,22 @@
   padding-left: 1.25rem;
 }
 
+.cors-tag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cors-tag-item {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.cors-tag-item .input--sm {
+  flex: 1;
+}
+
 @media (max-width: 700px) {
   .s3-settings-page__tag-grid {
     grid-template-columns: 1fr;

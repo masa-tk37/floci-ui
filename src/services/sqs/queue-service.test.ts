@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test"
+import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
 
 const mockSend = mock(() => Promise.resolve({}))
 mock.module("../../infrastructure/floci-clients", () => ({
@@ -10,25 +10,38 @@ mock.module("../../infrastructure/floci-clients", () => ({
   FLOCI_ACCOUNT_ID: "000000000000",
 }))
 
+const emptyMessagesResponse = { messages: [] }
+const mockFetch = spyOn(globalThis, "fetch").mockResolvedValue(
+  new Response(JSON.stringify(emptyMessagesResponse), {
+    headers: { "Content-Type": "application/json" },
+  }),
+)
+
 import {
   createQueue,
   deleteMessage,
+  deleteMessageById,
   deleteQueue,
   getQueueAttributes,
   getQueueDetail,
-  getQueueMessageBody,
   getQueueMessages,
   getQueueSettings,
   listQueueNames,
   listQueues,
   purgeQueue,
   sendMessage,
+  sendMessageBatch,
   updateQueueSettings,
 } from "./queue-service"
 import { queueNameFromUrl } from "./queue-utils"
 
 beforeEach(() => {
   mockSend.mockClear()
+  mockFetch.mockResolvedValue(
+    new Response(JSON.stringify(emptyMessagesResponse), {
+      headers: { "Content-Type": "application/json" },
+    }),
+  )
 })
 
 describe("listQueues", () => {
@@ -134,33 +147,42 @@ describe("deleteQueue", () => {
 
 describe("getQueueDetail", () => {
   it("should return queue detail with attributes and messages", async () => {
-    mockSend
-      .mockResolvedValueOnce({
-        Attributes: {
-          ApproximateNumberOfMessages: "3",
-          ApproximateNumberOfMessagesNotVisible: "1",
-          ApproximateNumberOfMessagesDelayed: "0",
-          VisibilityTimeout: "30",
-          MessageRetentionPeriod: "345600",
-          ContentBasedDeduplication: "false",
-          RedrivePolicy: undefined,
-        },
-      })
-      .mockResolvedValueOnce({
-        Messages: [
-          {
-            MessageId: "msg-1",
-            Body: "hello",
-            Attributes: { SentTimestamp: "1700000000000" },
-          },
-        ],
-      })
+    mockSend.mockResolvedValueOnce({
+      Attributes: {
+        ApproximateNumberOfMessages: "3",
+        ApproximateNumberOfMessagesNotVisible: "1",
+        ApproximateNumberOfMessagesDelayed: "0",
+        VisibilityTimeout: "30",
+        MessageRetentionPeriod: "345600",
+        ContentBasedDeduplication: "false",
+        RedrivePolicy: undefined,
+      },
+    })
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          messages: [
+            {
+              MessageId: "msg-1",
+              Body: "hello",
+              ReceiptHandle: null,
+              Attributes: {
+                SentTimestamp: "1700000000000",
+                ApproximateReceiveCount: "2",
+              },
+            },
+          ],
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      ),
+    )
     const result = await getQueueDetail("my-queue")
     expect(result.attributes.depth).toBe(3)
     expect(result.attributes.inFlight).toBe(1)
     expect(result.attributes.contentBasedDeduplication).toBe(false)
     expect(result.messages).toHaveLength(1)
     expect(result.messages[0].messageId).toBe("msg-1")
+    expect(result.messages[0].receiveCount).toBe(2)
   })
 })
 
@@ -188,7 +210,11 @@ describe("getQueueSettings", () => {
 
 describe("updateQueueSettings", () => {
   it("should update attributes and tags", async () => {
-    mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({})
+    // ListQueueTagsCommand (existing tags fetch) + SetQueueAttributesCommand + TagQueueCommand
+    mockSend
+      .mockResolvedValueOnce({ Tags: {} })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
     await expect(
       updateQueueSettings(
         "my-queue",
@@ -196,15 +222,16 @@ describe("updateQueueSettings", () => {
         { env: "prod" },
       ),
     ).resolves.toBeUndefined()
-    expect(mockSend).toHaveBeenCalledTimes(2)
+    expect(mockSend).toHaveBeenCalledTimes(3)
   })
 
   it("should skip tag update when tags is empty", async () => {
-    mockSend.mockResolvedValueOnce({})
+    // ListQueueTagsCommand (existing tags fetch) + SetQueueAttributesCommand
+    mockSend.mockResolvedValueOnce({ Tags: {} }).mockResolvedValueOnce({})
     await expect(
       updateQueueSettings("my-queue", { VisibilityTimeout: "60" }, {}),
     ).resolves.toBeUndefined()
-    expect(mockSend).toHaveBeenCalledTimes(1)
+    expect(mockSend).toHaveBeenCalledTimes(2)
   })
 })
 
@@ -236,17 +263,25 @@ describe("purgeQueue", () => {
 })
 
 describe("getQueueMessages", () => {
-  it("returns mapped messages", async () => {
-    mockSend.mockResolvedValueOnce({
-      Messages: [
-        {
-          MessageId: "msg-1",
-          ReceiptHandle: "rh-1",
-          Body: "hello",
-          Attributes: { SentTimestamp: "1700000000000" },
-        },
-      ],
-    })
+  it("returns mapped messages with receiveCount", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          messages: [
+            {
+              MessageId: "msg-1",
+              ReceiptHandle: "rh-1",
+              Body: "hello",
+              Attributes: {
+                SentTimestamp: "1700000000000",
+                ApproximateReceiveCount: "3",
+              },
+            },
+          ],
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      ),
+    )
     const result = await getQueueMessages("my-queue")
     expect(result).toHaveLength(1)
     expect(result[0]).toEqual({
@@ -254,11 +289,32 @@ describe("getQueueMessages", () => {
       receiptHandle: "rh-1",
       body: "hello",
       sentTimestamp: 1700000000000,
+      receiveCount: 3,
     })
   })
 
+  it("returns receiveCount null when ApproximateReceiveCount is absent", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          messages: [
+            {
+              MessageId: "msg-2",
+              ReceiptHandle: "rh-2",
+              Body: "world",
+              Attributes: { SentTimestamp: "1700000000000" },
+            },
+          ],
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      ),
+    )
+    const result = await getQueueMessages("my-queue")
+    expect(result[0].receiveCount).toBeNull()
+  })
+
   it("returns empty array when no messages", async () => {
-    mockSend.mockResolvedValueOnce({ Messages: undefined })
+    // mockFetch already returns empty messages by default in beforeEach
     const result = await getQueueMessages("my-queue")
     expect(result).toEqual([])
   })
@@ -309,26 +365,85 @@ describe("deleteMessage", () => {
   })
 })
 
-describe("getQueueMessageBody", () => {
-  it("returns the body of a matching message", async () => {
-    mockSend.mockResolvedValueOnce({
-      Messages: [
-        {
-          MessageId: "msg-1",
-          ReceiptHandle: "rh-1",
-          Body: '{"key":"value"}',
-          Attributes: {},
-        },
-      ],
+describe("deleteMessageById", () => {
+  it("receives messages, finds target by id, then deletes by receipt handle", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        Messages: [
+          { MessageId: "msg-1", ReceiptHandle: "rh-1", Body: "hello" },
+          { MessageId: "msg-2", ReceiptHandle: "rh-2", Body: "world" },
+        ],
+      })
+      .mockResolvedValueOnce({})
+    await expect(
+      deleteMessageById("my-queue", "msg-1"),
+    ).resolves.toBeUndefined()
+    const calls = mockSend.mock.calls as unknown[][]
+    expect((calls[1]?.[0] as { input?: unknown })?.input).toMatchObject({
+      ReceiptHandle: "rh-1",
     })
-    const body = await getQueueMessageBody("my-queue", "msg-1")
-    expect(body).toBe('{"key":"value"}')
   })
 
-  it("throws NotFound when message id is not in peek results", async () => {
+  it("throws NotFound when messageId is not in received messages", async () => {
     mockSend.mockResolvedValueOnce({ Messages: [] })
     await expect(
-      getQueueMessageBody("my-queue", "missing-id"),
-    ).rejects.toMatchObject({ code: "NotFound" })
+      deleteMessageById("my-queue", "missing-id"),
+    ).rejects.toMatchObject({
+      code: "NotFound",
+    })
+  })
+
+  it("throws OperationFailed on receive error", async () => {
+    mockSend.mockRejectedValueOnce(new Error("receive failed"))
+    await expect(deleteMessageById("my-queue", "msg-1")).rejects.toMatchObject({
+      code: "OperationFailed",
+    })
+  })
+})
+
+describe("sendMessageBatch", () => {
+  it("returns successful results when all entries succeed", async () => {
+    mockSend.mockResolvedValueOnce({
+      Successful: [
+        { Id: "msg-0", MessageId: "mid-a" },
+        { Id: "msg-1", MessageId: "mid-b" },
+      ],
+      Failed: [],
+    })
+    const result = await sendMessageBatch("my-queue", [
+      { id: "msg-0", body: "hello" },
+      { id: "msg-1", body: "world" },
+    ])
+    expect(result.successful).toHaveLength(2)
+    expect(result.successful[0]).toEqual({ id: "msg-0", messageId: "mid-a" })
+    expect(result.successful[1]).toEqual({ id: "msg-1", messageId: "mid-b" })
+    expect(result.failed).toHaveLength(0)
+  })
+
+  it("returns partial failure when some entries fail", async () => {
+    mockSend.mockResolvedValueOnce({
+      Successful: [{ Id: "msg-0", MessageId: "mid-a" }],
+      Failed: [
+        { Id: "msg-1", Code: "InvalidMessageContents", Message: "bad content" },
+      ],
+    })
+    const result = await sendMessageBatch("my-queue", [
+      { id: "msg-0", body: "hello" },
+      { id: "msg-1", body: "" },
+    ])
+    expect(result.successful).toHaveLength(1)
+    expect(result.failed).toHaveLength(1)
+    expect(result.failed[0]).toEqual({
+      id: "msg-1",
+      code: "InvalidMessageContents",
+      message: "bad content",
+    })
+  })
+
+  it("throws OperationFailed when SDK throws", async () => {
+    mockSend.mockRejectedValueOnce(new Error("network error"))
+    await expect(
+      sendMessageBatch("my-queue", [{ id: "msg-0", body: "hello" }]),
+    ).rejects.toMatchObject({ code: "OperationFailed" })
   })
 })

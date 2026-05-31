@@ -5,9 +5,9 @@ import {
   errorMessage,
   openDeleteModal,
   requestJson,
-  splitCommaList,
   tagMixin,
 } from "../lib/floci"
+import { PLACEHOLDER } from "../../views/format"
 
 function buildEncryptionPayload(encryption: string, kmsKeyId: string) {
   if (encryption === "none") return null
@@ -89,9 +89,7 @@ export function createS3CreateBucketController(
 
         if (data.warnings?.length) {
           this.warnings = data.warnings
-          setTimeout(() => {
-            window.location.href = "/s3"
-          }, 2000)
+          this.submitting = false
           return
         }
 
@@ -128,11 +126,29 @@ export function createS3SettingsController(
     ...tagMixin,
     addCors() {
       this.corsRules.push({
-        allowedMethods: "GET",
-        allowedOrigins: "*",
-        allowedHeaders: "",
+        allowedMethods: ["GET"],
+        allowedOrigins: ["*"],
+        allowedHeaders: [],
         maxAge: 0,
       })
+    },
+    addCorsMethod(ruleIndex: number) {
+      this.corsRules[ruleIndex].allowedMethods.push("")
+    },
+    removeCorsMethod(ruleIndex: number, methodIndex: number) {
+      this.corsRules[ruleIndex].allowedMethods.splice(methodIndex, 1)
+    },
+    addCorsOrigin(ruleIndex: number) {
+      this.corsRules[ruleIndex].allowedOrigins.push("")
+    },
+    removeCorsOrigin(ruleIndex: number, originIndex: number) {
+      this.corsRules[ruleIndex].allowedOrigins.splice(originIndex, 1)
+    },
+    addCorsHeader(ruleIndex: number) {
+      this.corsRules[ruleIndex].allowedHeaders.push("")
+    },
+    removeCorsHeader(ruleIndex: number, headerIndex: number) {
+      this.corsRules[ruleIndex].allowedHeaders.splice(headerIndex, 1)
     },
     removeCors(index: number) {
       this.corsRules.splice(index, 1)
@@ -157,11 +173,9 @@ export function createS3SettingsController(
         },
         tags: buildS3TagsPayload(this.tags),
         corsRules: this.corsRules.map((rule) => ({
-          allowedMethods: splitCommaList(rule.allowedMethods),
-          allowedOrigins: splitCommaList(rule.allowedOrigins),
-          allowedHeaders: rule.allowedHeaders
-            ? splitCommaList(rule.allowedHeaders)
-            : [],
+          allowedMethods: rule.allowedMethods.filter(Boolean),
+          allowedOrigins: rule.allowedOrigins.filter(Boolean),
+          allowedHeaders: rule.allowedHeaders.filter(Boolean),
           maxAge: Number(rule.maxAge) || 0,
         })),
         lifecycleRules: this.lifecycleRules
@@ -208,6 +222,7 @@ export function createS3ObjectListController(
 ) {
   const bucketPath = `/s3/${encodeURIComponent(props.bucket)}`
   const objectDetailsPath = `${bucketPath}/object-details`
+  const objectTagsPath = `${bucketPath}/object-tags`
   const renameObjectPath = `${bucketPath}/rename-object`
   const renameFolderPath = `${bucketPath}/rename-folder`
   const objectPropertiesPath = `${bucketPath}/object-properties`
@@ -250,6 +265,7 @@ export function createS3ObjectListController(
     propertyLastModified: "",
     propertyETag: "",
     propertyMetadata: "",
+    propertyTags: [] as { key: string; value: string }[],
 
     actionMenuOpen: false,
     actionMenuKind: "",
@@ -267,7 +283,7 @@ export function createS3ObjectListController(
     actionMenuY: 0,
 
     formatBytes(bytes: number | undefined | null) {
-      if (bytes === undefined || bytes === null) return "—"
+      if (bytes === undefined || bytes === null) return PLACEHOLDER
       if (bytes < 1024) return `${bytes} B`
       if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
       if (bytes < 1024 * 1024 * 1024) {
@@ -494,32 +510,51 @@ export function createS3ObjectListController(
       this.propertyLastModified = ""
       this.propertyETag = ""
       this.propertyMetadata = ""
+      this.propertyTags = []
       this.isPropertyModalOpen = true
 
       try {
-        const data = await requestJson<{
-          contentType: string
-          size: number
-          lastModified?: string
-          eTag?: string
-          metadata?: Record<string, string>
-        }>(`${objectDetailsPath}?key=${encodeURIComponent(key)}`)
+        const [data, tagsData] = await Promise.allSettled([
+          requestJson<{
+            contentType: string
+            size: number
+            lastModified?: string
+            eTag?: string
+            metadata?: Record<string, string>
+          }>(`${objectDetailsPath}?key=${encodeURIComponent(key)}`),
+          requestJson<{ tags: { key: string; value: string }[] }>(
+            `${objectTagsPath}?key=${encodeURIComponent(key)}`,
+          ),
+        ])
+
+        if (data.status === "rejected") {
+          throw data.reason
+        }
+
         this.propertyContentType =
-          data.contentType || "application/octet-stream"
-        this.propertySize = data.size || 0
-        this.propertyLastModified = data.lastModified
-          ? new Date(data.lastModified)
+          data.value.contentType || "application/octet-stream"
+        this.propertySize = data.value.size || 0
+        this.propertyLastModified = data.value.lastModified
+          ? new Date(data.value.lastModified)
               .toISOString()
               .slice(0, 19)
               .replace("T", " ")
           : ""
-        this.propertyETag = data.eTag
-          ? String(data.eTag).replace(/^"|"$/g, "")
+        this.propertyETag = data.value.eTag
+          ? String(data.value.eTag).replace(/^"|"$/g, "")
           : ""
         this.propertyMetadata =
-          data.metadata && Object.keys(data.metadata).length > 0
-            ? JSON.stringify(data.metadata, null, 2)
+          data.value.metadata && Object.keys(data.value.metadata).length > 0
+            ? JSON.stringify(data.value.metadata, null, 2)
             : ""
+
+        if (tagsData.status === "fulfilled") {
+          this.propertyTags = [...tagsData.value.tags]
+        } else {
+          this.propertyError = errorMessage(tagsData.reason)
+          this.propertyTags = []
+        }
+
         this.propertyLoading = false
         setTimeout(() => {
           const propInput = (this as unknown as AlpineMagic).$refs
@@ -546,6 +581,13 @@ export function createS3ObjectListController(
       this.propertyLastModified = ""
       this.propertyETag = ""
       this.propertyMetadata = ""
+      this.propertyTags = []
+    },
+    addPropertyTag() {
+      this.propertyTags.push({ key: "", value: "" })
+    },
+    removePropertyTag(index: number) {
+      this.propertyTags.splice(index, 1)
     },
     async saveProperties() {
       const contentType = this.propertyContentType.trim()
@@ -556,11 +598,21 @@ export function createS3ObjectListController(
       this.propertySubmitting = true
       this.propertyError = ""
       try {
-        await requestJson(objectPropertiesPath, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: this.propertyKey, contentType }),
-        })
+        await Promise.all([
+          requestJson(objectPropertiesPath, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: this.propertyKey, contentType }),
+          }),
+          requestJson(objectTagsPath, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              key: this.propertyKey,
+              tags: this.propertyTags.filter((t) => t.key.trim()),
+            }),
+          }),
+        ])
         this.propertySubmitting = false
         this.closePropertyModal()
         window.location.reload()

@@ -246,11 +246,15 @@ export function createDynamodbRoutes(
             nextCursor={result.nextCursor}
             tableArn={result.tableArn}
             sidebarCounts={sidebarCounts}
+            stack={query.stack}
           />
         )
       },
       {
-        query: t.Object({ cursor: t.Optional(t.String()) }),
+        query: t.Object({
+          cursor: t.Optional(t.String()),
+          stack: t.Optional(t.String()),
+        }),
       },
     )
     .get("/:table/query", async ({ params }) => {
@@ -305,6 +309,7 @@ export function createDynamodbRoutes(
             keyConditionExpression: body.keyConditionExpression,
             filterExpression: body.filterExpression || undefined,
             expressionAttributeValuesJson: body.expressionAttributeValues,
+            expressionAttributeNamesJson: body.expressionAttributeNames,
             indexName: body.indexName || undefined,
             cursor: body.cursor,
           })
@@ -316,6 +321,7 @@ export function createDynamodbRoutes(
           keyConditionExpression: t.Optional(t.String()),
           filterExpression: t.Optional(t.String()),
           expressionAttributeValues: t.Optional(t.String()),
+          expressionAttributeNames: t.Optional(t.String()),
           indexName: t.Optional(t.String()),
           cursor: t.Optional(t.String()),
         }),

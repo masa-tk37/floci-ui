@@ -1,21 +1,28 @@
 import {
+  AdminAddUserToGroupCommand,
   AdminConfirmSignUpCommand,
   AdminCreateUserCommand,
   AdminDeleteUserCommand,
   AdminDisableUserCommand,
   AdminEnableUserCommand,
   AdminGetUserCommand,
+  AdminRemoveUserFromGroupCommand,
   AdminSetUserPasswordCommand,
   type AttributeType,
+  CreateGroupCommand,
   CreateUserPoolClientCommand,
   CreateUserPoolCommand,
+  DeleteGroupCommand,
   DeleteUserPoolClientCommand,
   DeleteUserPoolCommand,
   DescribeUserPoolCommand,
   type ExplicitAuthFlowsType,
+  type GroupType,
+  ListGroupsCommand,
   ListUserPoolClientsCommand,
   ListUserPoolsCommand,
   ListUsersCommand,
+  ListUsersInGroupCommand,
   type UsernameAttributeType,
   type UserPoolClientDescription,
   type UserPoolDescriptionType,
@@ -99,6 +106,18 @@ export interface CreateUserInput {
 export interface SetUserPasswordInput {
   password: string
   permanent: boolean
+}
+
+export interface GroupSummary {
+  name: string
+  description: string
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+export interface CreateGroupInput {
+  name: string
+  description?: string
 }
 
 function normalizeRequired(value: string, label: string): string {
@@ -215,6 +234,16 @@ function mapClientSummary(
   }
 }
 
+function mapGroupSummary(group: GroupType): GroupSummary | null {
+  if (!group.GroupName) return null
+  return {
+    name: group.GroupName,
+    description: group.Description ?? "",
+    createdAt: group.CreationDate,
+    updatedAt: group.LastModifiedDate,
+  }
+}
+
 function mapUserSummary(user: UserType): UserSummary | null {
   if (!user.Username) return null
   const attributes = toAttributeMap(user.Attributes)
@@ -283,7 +312,8 @@ function toCognitoError(
 
     if (
       error.name === "UsernameExistsException" ||
-      error.name === "ResourceConflictException"
+      error.name === "ResourceConflictException" ||
+      error.name === "GroupExistsException"
     ) {
       throw new ServiceError(
         "AlreadyExists",
@@ -295,7 +325,8 @@ function toCognitoError(
     if (
       error.name === "InvalidPasswordException" ||
       error.name === "InvalidParameterException" ||
-      error.name === "AliasExistsException"
+      error.name === "AliasExistsException" ||
+      error.name === "NotAuthorizedException"
     ) {
       throw new ServiceError("InvalidInput", error.message, error)
     }
@@ -596,7 +627,7 @@ export async function createUser(
   }
 
   try {
-    await cognitoIdentityProvider.send(
+    const result = await cognitoIdentityProvider.send(
       new AdminCreateUserCommand({
         UserPoolId: normalizedPoolId,
         Username: username,
@@ -606,7 +637,7 @@ export async function createUser(
       }),
     )
 
-    return username
+    return result.User?.Username ?? username
   } catch (error) {
     toCognitoError(error, {
       notFound: `User pool ${normalizedPoolId} not found`,
@@ -715,6 +746,170 @@ export async function setUserPassword(
         Username: normalizedUsername,
         Password: password,
         Permanent: input.permanent,
+      }),
+    )
+  } catch (error) {
+    toCognitoError(error, {
+      notFound: `User ${normalizedUsername} not found`,
+    })
+  }
+}
+
+export async function listGroups(poolId: string): Promise<GroupSummary[]> {
+  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
+  const groups: GroupSummary[] = []
+  let nextToken: string | undefined
+
+  try {
+    do {
+      const result = await cognitoIdentityProvider.send(
+        new ListGroupsCommand({
+          UserPoolId: normalizedPoolId,
+          Limit: 60,
+          NextToken: nextToken,
+        }),
+      )
+
+      for (const group of result.Groups ?? []) {
+        const mapped = mapGroupSummary(group)
+        if (mapped) groups.push(mapped)
+      }
+
+      nextToken = result.NextToken
+    } while (nextToken)
+
+    return groups.sort((left, right) => left.name.localeCompare(right.name))
+  } catch (error) {
+    toCognitoError(error, {
+      notFound: `User pool ${normalizedPoolId} not found`,
+    })
+  }
+}
+
+export async function createGroup(
+  poolId: string,
+  input: CreateGroupInput,
+): Promise<string> {
+  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
+  const name = normalizeRequired(input.name, "Group name")
+  const description = normalizeOptional(input.description)
+
+  try {
+    await cognitoIdentityProvider.send(
+      new CreateGroupCommand({
+        UserPoolId: normalizedPoolId,
+        GroupName: name,
+        Description: description,
+      }),
+    )
+
+    return name
+  } catch (error) {
+    toCognitoError(error, {
+      notFound: `User pool ${normalizedPoolId} not found`,
+      alreadyExists: `Group ${name} already exists`,
+    })
+  }
+}
+
+export async function deleteGroup(
+  poolId: string,
+  groupName: string,
+): Promise<void> {
+  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
+  const normalizedGroupName = normalizeRequired(groupName, "Group name")
+
+  try {
+    await cognitoIdentityProvider.send(
+      new DeleteGroupCommand({
+        UserPoolId: normalizedPoolId,
+        GroupName: normalizedGroupName,
+      }),
+    )
+  } catch (error) {
+    toCognitoError(error, {
+      notFound: `Group ${normalizedGroupName} not found`,
+    })
+  }
+}
+
+export async function listUsersInGroup(
+  poolId: string,
+  groupName: string,
+): Promise<UserSummary[]> {
+  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
+  const normalizedGroupName = normalizeRequired(groupName, "Group name")
+  const users: UserSummary[] = []
+  let nextToken: string | undefined
+
+  try {
+    do {
+      const result = await cognitoIdentityProvider.send(
+        new ListUsersInGroupCommand({
+          UserPoolId: normalizedPoolId,
+          GroupName: normalizedGroupName,
+          Limit: 60,
+          NextToken: nextToken,
+        }),
+      )
+
+      for (const user of result.Users ?? []) {
+        const mapped = mapUserSummary(user)
+        if (mapped) users.push(mapped)
+      }
+
+      nextToken = result.NextToken
+    } while (nextToken)
+
+    return users.sort((left, right) =>
+      left.username.localeCompare(right.username),
+    )
+  } catch (error) {
+    toCognitoError(error, {
+      notFound: `Group ${normalizedGroupName} not found`,
+    })
+  }
+}
+
+export async function addUserToGroup(
+  poolId: string,
+  groupName: string,
+  username: string,
+): Promise<void> {
+  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
+  const normalizedGroupName = normalizeRequired(groupName, "Group name")
+  const normalizedUsername = normalizeRequired(username, "Username")
+
+  try {
+    await cognitoIdentityProvider.send(
+      new AdminAddUserToGroupCommand({
+        UserPoolId: normalizedPoolId,
+        GroupName: normalizedGroupName,
+        Username: normalizedUsername,
+      }),
+    )
+  } catch (error) {
+    toCognitoError(error, {
+      notFound: `User ${normalizedUsername} not found`,
+    })
+  }
+}
+
+export async function removeUserFromGroup(
+  poolId: string,
+  groupName: string,
+  username: string,
+): Promise<void> {
+  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
+  const normalizedGroupName = normalizeRequired(groupName, "Group name")
+  const normalizedUsername = normalizeRequired(username, "Username")
+
+  try {
+    await cognitoIdentityProvider.send(
+      new AdminRemoveUserFromGroupCommand({
+        UserPoolId: normalizedPoolId,
+        GroupName: normalizedGroupName,
+        Username: normalizedUsername,
       }),
     )
   } catch (error) {

@@ -166,42 +166,103 @@ export function S3SettingsForm({ init, sidebarCounts }: S3SettingsFormProps) {
                   </button>
                 </div>
                 <div class="form-row">
-                  <label class="form-label">
-                    許可メソッド{" "}
-                    <span class="form-label__hint">（カンマ区切り）</span>
-                  </label>
-                  <input
-                    type="text"
-                    class="input"
-                    x-model="r.allowedMethods"
-                    placeholder="GET, PUT, HEAD"
-                  />
+                  <label class="form-label">許可メソッド</label>
+                  <div class="cors-tag-list">
+                    <template
+                      x-for="(m, mi) in r.allowedMethods"
+                      {...{ ":key": "mi" }}
+                    >
+                      <div class="cors-tag-item">
+                        <input
+                          type="text"
+                          class="input input--sm"
+                          {...{ "x-model": "r.allowedMethods[mi]" }}
+                          placeholder="GET"
+                        />
+                        <button
+                          type="button"
+                          class="btn btn--danger-ghost btn--xs"
+                          {...{ "@click": `removeCorsMethod(i, mi)` }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </template>
+                    <button
+                      type="button"
+                      class="btn btn--sm"
+                      {...{ "@click": `addCorsMethod(i)` }}
+                    >
+                      + メソッド
+                    </button>
+                  </div>
                 </div>
                 <div class="form-row">
-                  <label class="form-label">
-                    許可オリジン{" "}
-                    <span class="form-label__hint">（カンマ区切り）</span>
-                  </label>
-                  <input
-                    type="text"
-                    class="input"
-                    x-model="r.allowedOrigins"
-                    placeholder="*"
-                  />
+                  <label class="form-label">許可オリジン</label>
+                  <div class="cors-tag-list">
+                    <template
+                      x-for="(o, oi) in r.allowedOrigins"
+                      {...{ ":key": "oi" }}
+                    >
+                      <div class="cors-tag-item">
+                        <input
+                          type="text"
+                          class="input input--sm"
+                          {...{ "x-model": "r.allowedOrigins[oi]" }}
+                          placeholder="*"
+                        />
+                        <button
+                          type="button"
+                          class="btn btn--danger-ghost btn--xs"
+                          {...{ "@click": `removeCorsOrigin(i, oi)` }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </template>
+                    <button
+                      type="button"
+                      class="btn btn--sm"
+                      {...{ "@click": `addCorsOrigin(i)` }}
+                    >
+                      + オリジン
+                    </button>
+                  </div>
                 </div>
                 <div class="form-row">
                   <label class="form-label">
                     許可ヘッダー{" "}
-                    <span class="form-label__hint">
-                      （省略可・カンマ区切り）
-                    </span>
+                    <span class="form-label__hint">（省略可）</span>
                   </label>
-                  <input
-                    type="text"
-                    class="input"
-                    x-model="r.allowedHeaders"
-                    placeholder="Content-Type, Authorization"
-                  />
+                  <div class="cors-tag-list">
+                    <template
+                      x-for="(h, hi) in r.allowedHeaders"
+                      {...{ ":key": "hi" }}
+                    >
+                      <div class="cors-tag-item">
+                        <input
+                          type="text"
+                          class="input input--sm"
+                          {...{ "x-model": "r.allowedHeaders[hi]" }}
+                          placeholder="Content-Type"
+                        />
+                        <button
+                          type="button"
+                          class="btn btn--danger-ghost btn--xs"
+                          {...{ "@click": `removeCorsHeader(i, hi)` }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </template>
+                    <button
+                      type="button"
+                      class="btn btn--sm"
+                      {...{ "@click": `addCorsHeader(i)` }}
+                    >
+                      + ヘッダー
+                    </button>
+                  </div>
                 </div>
                 <div class="form-row s3-settings-page__form-row--compact">
                   <label class="form-label">最大エージ（秒）</label>

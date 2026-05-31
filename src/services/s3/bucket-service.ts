@@ -9,15 +9,20 @@ export {
   createFolderObject,
   deleteObject,
   deleteSelectedObjects,
+  getBucketVersioningEnabled,
   getObjectDetails,
   getObjectForDownload,
   getObjectPreview,
+  getObjectTags,
+  listObjectVersions,
   listObjects,
+  putObjectTags,
   renameFolder,
   renameObject,
   updateObjectProperties,
   uploadObjects,
 } from "./object-service"
+export type { VersionListResult, ObjectVersionSummary } from "./shared"
 export type {
   BucketSettingsInput,
   BucketSummary,
@@ -28,9 +33,11 @@ export type {
   ObjectDetailsResult,
   ObjectListResult,
   ObjectSummary,
+  ObjectTagsResult,
   PreviewResult,
   RenameFolderResult,
   UpdateObjectPropertiesInput,
+  UpdateObjectTagsInput,
   UpdateSettingsResult,
   UploadObjectsResult,
 } from "./shared"

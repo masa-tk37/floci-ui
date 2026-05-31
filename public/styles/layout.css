@@ -31,7 +31,9 @@ body {
 }
 
 .sidebar__brand {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-weight: 700;
   font-size: 1rem;
   color: var(--color-text);
@@ -104,6 +106,9 @@ body {
 .sidebar__dot--cognito {
   background: var(--color-cognito);
 }
+.sidebar__dot--dashboard {
+  background: var(--color-accent);
+}
 
 .sidebar__section-label {
   flex: 1;
@@ -138,6 +143,11 @@ body {
   top: 0;
   z-index: 40;
   min-height: 46px;
+}
+
+/* アクティブサービスのアクセントライン — data-service が設定されているページのみ */
+[data-service] .toolbar {
+  box-shadow: inset 0 -3px 0 var(--color-theme);
 }
 
 .toolbar__breadcrumb {

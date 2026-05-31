@@ -185,9 +185,9 @@ function toCorsRules(
     | undefined,
 ) {
   return (rules ?? []).map((rule) => ({
-    allowedMethods: (rule.AllowedMethods ?? []).join(", "),
-    allowedOrigins: (rule.AllowedOrigins ?? []).join(", "),
-    allowedHeaders: (rule.AllowedHeaders ?? []).join(", "),
+    allowedMethods: rule.AllowedMethods ?? [],
+    allowedOrigins: rule.AllowedOrigins ?? [],
+    allowedHeaders: rule.AllowedHeaders ?? [],
     maxAge: rule.MaxAgeSeconds ?? 0,
   }))
 }

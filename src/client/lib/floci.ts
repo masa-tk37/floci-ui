@@ -29,6 +29,16 @@ export function errorMessage(error: unknown): string {
     typeof error.message === "string" &&
     error.message
   ) {
+    // fetch() がネットワーク層で失敗した場合（"fetch failed" / "Failed to fetch" / "Load failed"）
+    if (
+      "name" in error &&
+      error.name === "TypeError" &&
+      /fetch failed|Failed to fetch|Load failed|NetworkError/i.test(
+        error.message,
+      )
+    ) {
+      return "floci-ui サーバーに接続できません"
+    }
     return error.message
   }
   return "ネットワークエラーが発生しました"

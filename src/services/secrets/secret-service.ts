@@ -159,7 +159,9 @@ async function listSecretSummaries(): Promise<SecretSummary[]> {
     nextToken = result.NextToken
   } while (nextToken)
 
-  return secrets.sort((left, right) => left.name.localeCompare(right.name))
+  secrets.sort((left, right) => left.name.localeCompare(right.name))
+
+  return secrets
 }
 
 async function describeSecret(
@@ -308,9 +310,14 @@ export async function updateSecret(
         KmsKeyId: kmsKeyId,
       }),
     )
-    await syncSecretTags(normalizedName, tags)
   } catch (error) {
     toSecretError(error, normalizedName)
+  }
+
+  try {
+    await syncSecretTags(normalizedName, tags)
+  } catch (error) {
+    console.warn(`[Secrets] Tag sync failed for ${normalizedName}:`, error)
   }
 }
 

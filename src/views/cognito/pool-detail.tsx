@@ -1,20 +1,23 @@
 import { Html } from "@elysiajs/html"
+import { escapeHtml } from "@kitajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import type {
   AppClientSummary,
+  GroupSummary,
   UserPoolDetail as UserPoolDetailData,
   UserSummary,
 } from "../../services/cognito/cognito-service"
 import { ClientProps, mountComponentAttrs } from "../client"
-import { formatDate } from "../format"
-import { IconPlus, IconTrash } from "../icons"
+import { formatDate, PLACEHOLDER } from "../format"
+import { IconPlus, IconSearch, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
 import { CognitoStatusBadge, EnabledBadge } from "./status-badge"
 
 interface UserPoolDetailProps {
   pool: UserPoolDetailData
   appClients: AppClientSummary[]
+  groups: GroupSummary[]
   users: UserSummary[]
   sidebarCounts?: SidebarCounts
 }
@@ -39,7 +42,7 @@ function renderSignInMode(mode: UserPoolDetailData["signInMode"]) {
 }
 
 function renderVerifiedAttributes(values: string[]) {
-  if (values.length === 0) return "—"
+  if (values.length === 0) return PLACEHOLDER
 
   return values.map((value, index) => (
     <>
@@ -52,6 +55,7 @@ function renderVerifiedAttributes(values: string[]) {
 export function UserPoolDetail({
   pool,
   appClients,
+  groups,
   users,
   sidebarCounts,
 }: UserPoolDetailProps) {
@@ -81,13 +85,54 @@ export function UserPoolDetail({
             <p class="page-subtitle mono" safe>
               {pool.id}
             </p>
+            <button
+              type="button"
+              class="btn btn--ghost btn--sm"
+              x-data="{ copied: false }"
+              {...{
+                "@click":
+                  "navigator.clipboard.writeText($el.previousElementSibling.textContent); copied = true; setTimeout(() => copied = false, 1500)",
+              }}
+            >
+              <span x-show="!copied">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              </span>
+              <span x-show="copied" x-cloak>
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </span>
+            </button>
           </div>
           <div class="page-header__actions">
             <button
               type="button"
               class="btn btn--danger-ghost btn--sm"
               data-floci-delete-trigger=""
-              data-resource-name={pool.name}
+              data-resource-name={escapeHtml(pool.name)}
               data-delete-url={poolPath}
               data-redirect-url="/cognito"
             >
@@ -169,7 +214,7 @@ export function UserPoolDetail({
                             type="button"
                             class="btn btn--danger-ghost btn--sm"
                             data-floci-delete-trigger=""
-                            data-resource-name={client.name}
+                            data-resource-name={escapeHtml(client.name)}
                             data-delete-url={`${poolPath}/clients/${encodeURIComponent(client.id)}`}
                             data-on-success="reload"
                           >
@@ -250,6 +295,251 @@ export function UserPoolDetail({
 
         <section class="panel">
           <div class="panel__header">
+            <h2 class="panel__title">Groups</h2>
+            <div class="panel__actions">
+              <button
+                type="button"
+                class="btn btn--cognito btn--sm"
+                {...{ "@click": "createGroup.open = true" }}
+              >
+                {IconPlus}追加
+              </button>
+            </div>
+          </div>
+          <div class="cognito-panel__body">
+            {groups.length === 0 ? (
+              <p class="empty-state empty-state--plain">
+                まだ Group がありません
+              </p>
+            ) : (
+              <div class="data-table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Description</th>
+                      <th>作成日時</th>
+                      <th class="data-table__actions">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groups.map((group) => (
+                      <tr>
+                        <td>
+                          <button
+                            type="button"
+                            class="btn btn--link"
+                            data-group-name={escapeHtml(group.name)}
+                            data-group-name-encoded={escapeHtml(
+                              encodeURIComponent(group.name),
+                            )}
+                            {...{
+                              "@click":
+                                "groupMembers.show($el.dataset.groupName, $el.dataset.groupNameEncoded)",
+                            }}
+                          >
+                            <span safe>{group.name}</span>
+                          </button>
+                        </td>
+                        <td safe>{group.description || PLACEHOLDER}</td>
+                        <td>{formatDate(group.createdAt)}</td>
+                        <td class="data-table__actions">
+                          <button
+                            type="button"
+                            class="btn btn--danger-ghost btn--sm"
+                            data-floci-delete-trigger=""
+                            data-resource-name={escapeHtml(group.name)}
+                            data-delete-url={`${poolPath}/groups/${encodeURIComponent(group.name)}`}
+                            data-on-success="reload"
+                          >
+                            {IconTrash}削除
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <div
+            x-show="createGroup.open"
+            class="modal-overlay"
+            x-cloak
+            {...{ "@click": "createGroup.close()" }}
+          >
+            <div
+              class="modal"
+              {...{
+                "@click.stop": "",
+                "@keydown.escape.window": "createGroup.close()",
+              }}
+            >
+              <h2 class="modal__title">Group を追加</h2>
+              <div class="form-row">
+                <label class="form-label" for="cognito-group-name">
+                  グループ名
+                </label>
+                <input
+                  id="cognito-group-name"
+                  type="text"
+                  class="input"
+                  x-model="createGroup.name"
+                  placeholder="admins"
+                />
+              </div>
+              <div class="form-row">
+                <label class="form-label" for="cognito-group-description">
+                  説明（任意）
+                </label>
+                <input
+                  id="cognito-group-description"
+                  type="text"
+                  class="input"
+                  x-model="createGroup.description"
+                  placeholder="管理者グループ"
+                />
+              </div>
+              <div class="error-inline" x-show="createGroup.error" x-cloak>
+                <span x-text="createGroup.error" />
+              </div>
+              <div class="modal__actions">
+                <button
+                  type="button"
+                  class="btn btn--cognito"
+                  {...{
+                    "@click":
+                      "createGroup.submit({ name: createGroup.name, description: createGroup.description })",
+                    ":disabled":
+                      "createGroup.submitting || !createGroup.name.trim()",
+                  }}
+                >
+                  <span x-show="!createGroup.submitting">追加</span>
+                  <span x-show="createGroup.submitting">追加中…</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  {...{
+                    "@click": "createGroup.close()",
+                    ":disabled": "createGroup.submitting",
+                  }}
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div
+          x-show="groupMembers.isOpen"
+          class="modal-overlay"
+          x-cloak
+          {...{ "@click": "groupMembers.close()" }}
+        >
+          <div
+            class="modal modal--wide"
+            {...{
+              "@click.stop": "",
+              "@keydown.escape.window":
+                "groupMembers.isOpen && groupMembers.close()",
+            }}
+          >
+            <h2 class="modal__title">
+              Group メンバー: <span x-text="groupMembers.groupName" />
+            </h2>
+            <div class="form-row">
+              <label class="form-label" for="cognito-group-member-username">
+                Username を追加
+              </label>
+              <div class="input-with-btn">
+                <input
+                  id="cognito-group-member-username"
+                  type="text"
+                  class="input"
+                  x-model="groupMembers.newUsername"
+                  placeholder="alice"
+                  {...{ "@keydown.enter": "groupMembers.addMember()" }}
+                />
+                <button
+                  type="button"
+                  class="btn btn--cognito btn--sm"
+                  {...{
+                    "@click": "groupMembers.addMember()",
+                    ":disabled":
+                      "groupMembers.adding || !groupMembers.newUsername.trim()",
+                  }}
+                >
+                  <span x-show="!groupMembers.adding">追加</span>
+                  <span x-show="groupMembers.adding">追加中…</span>
+                </button>
+              </div>
+            </div>
+            <div class="error-inline" x-show="groupMembers.error" x-cloak>
+              <span x-text="groupMembers.error" />
+            </div>
+            <div class="cognito-panel__body">
+              <template x-if="groupMembers.loading">
+                <p class="empty-state empty-state--plain">読み込み中…</p>
+              </template>
+              <template x-if="!groupMembers.loading && groupMembers.users.length === 0">
+                <p class="empty-state empty-state--plain">メンバーがいません</p>
+              </template>
+              <template x-if="!groupMembers.loading && groupMembers.users.length > 0">
+                <div class="data-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th class="data-table__actions">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template
+                        x-for="user in groupMembers.users"
+                        {...{ ":key": "user.username" }}
+                      >
+                        <tr>
+                          <td x-text="user.username" />
+                          <td x-text="user.email || '—'" />
+                          <td x-text="user.status" />
+                          <td class="data-table__actions">
+                            <button
+                              type="button"
+                              class="btn btn--danger-ghost btn--sm"
+                              {...{
+                                "@click":
+                                  "groupMembers.removeMember(user.username)",
+                                ":disabled": "groupMembers.removing",
+                              }}
+                            >
+                              {IconTrash}削除
+                            </button>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </div>
+            <div class="modal__actions">
+              <button
+                type="button"
+                class="btn btn--ghost"
+                {...{ "@click": "groupMembers.close()" }}
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel__header">
             <h2 class="panel__title">Users</h2>
             <div class="panel__actions">
               <button
@@ -267,52 +557,73 @@ export function UserPoolDetail({
                 まだ User がありません
               </p>
             ) : (
-              <div class="data-table-wrap">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Username</th>
-                      <th>Email</th>
-                      <th>Status</th>
-                      <th>Enabled</th>
-                      <th class="data-table__actions">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((user) => {
-                      const userPath = `${poolPath}/users/${encodeResourceName(user.username)}`
+              <div {...mountComponentAttrs("list-filter")}>
+                <div class="list-toolbar">
+                  <label class="list-filter">
+                    <span class="list-filter__icon">{IconSearch}</span>
+                    <input
+                      type="search"
+                      class="input list-filter__input"
+                      placeholder="User を検索"
+                      {...{ "x-model.debounce.120ms": "query" }}
+                    />
+                  </label>
+                </div>
+                <div class="data-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Enabled</th>
+                        <th class="data-table__actions">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((user) => {
+                        const userPath = `${poolPath}/users/${encodeResourceName(user.username)}`
 
-                      return (
-                        <tr>
-                          <td>
-                            <a href={userPath} safe>
-                              {user.username}
-                            </a>
-                          </td>
-                          <td safe>{user.email || "—"}</td>
-                          <td>
-                            <CognitoStatusBadge status={user.status} />
-                          </td>
-                          <td>
-                            <EnabledBadge enabled={user.enabled} />
-                          </td>
-                          <td class="data-table__actions">
-                            <button
-                              type="button"
-                              class="btn btn--danger-ghost btn--sm"
-                              data-floci-delete-trigger=""
-                              data-resource-name={user.username}
-                              data-delete-url={userPath}
-                              data-on-success="reload"
-                            >
-                              {IconTrash}削除
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                        return (
+                          <tr
+                            data-filter-text={`${escapeHtml(user.username)} ${escapeHtml(user.email ?? "")}`}
+                            x-show="matches($el.dataset.filterText)"
+                          >
+                            <td>
+                              <a href={userPath} safe>
+                                {user.username}
+                              </a>
+                            </td>
+                            <td safe>{user.email || PLACEHOLDER}</td>
+                            <td>
+                              <CognitoStatusBadge status={user.status} />
+                            </td>
+                            <td>
+                              <EnabledBadge enabled={user.enabled} />
+                            </td>
+                            <td class="data-table__actions">
+                              <button
+                                type="button"
+                                class="btn btn--danger-ghost btn--sm"
+                                data-floci-delete-trigger=""
+                                data-resource-name={escapeHtml(user.username)}
+                                data-delete-url={userPath}
+                                data-on-success="reload"
+                              >
+                                {IconTrash}削除
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                      <tr x-show="hasQuery && visibleCount === 0" x-cloak>
+                        <td colspan={5} class="data-table__empty">
+                          一致する User がありません
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>

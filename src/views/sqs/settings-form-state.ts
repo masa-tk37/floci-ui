@@ -11,5 +11,7 @@ export interface SQSSettingsInitial {
   dlqMaxReceiveCount: number
   kmsEnabled: boolean
   kmsMasterKeyId: string
+  deduplicationScope?: "queue" | "messageGroup"
+  fifoThroughputLimit?: "perQueue" | "perMessageGroupId"
   tags: { key: string; value: string }[]
 }

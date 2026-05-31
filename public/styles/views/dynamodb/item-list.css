@@ -1,0 +1,32 @@
+.ddb-item-list__cell--complex {
+  cursor: pointer;
+  color: var(--color-dynamodb);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.ddb-item-list__cell--complex:hover {
+  background: var(--color-dynamodb-soft);
+  color: var(--color-primary-ink);
+}
+
+.ddb-item-list__json-preview {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  background: var(--color-warm-sand);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  overflow: auto;
+  max-height: 400px;
+  white-space: pre;
+  word-break: break-all;
+  color: var(--color-text-muted);
+  margin: 0 0 1.25rem;
+}
+
+.modal__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}

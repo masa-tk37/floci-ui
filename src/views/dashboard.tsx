@@ -30,10 +30,10 @@ function ServiceHealth({ error }: { error?: string }) {
   return (
     <span
       class={`status-pill ${error ? "status-pill--danger" : "status-pill--success"}`}
-      title={error ?? "Service is available"}
+      title={error ?? "利用可能"}
     >
       <span class="status-pill__dot" />
-      {error ? "Error" : "OK"}
+      {error ? "エラー" : "OK"}
     </span>
   )
 }
@@ -83,7 +83,7 @@ export function Dashboard({
 
         <h2 class="section-heading">最近のリソース</h2>
         <div class="recent-grid">
-          <div class="recent-card">
+          <div class="recent-card recent-card--dynamodb">
             <div class="recent-card__header">
               <h3 class="recent-card__title">DynamoDB Tables</h3>
               <div class="recent-card__actions">
@@ -96,7 +96,7 @@ export function Dashboard({
                 {dynamodb.error}
               </p>
             ) : dynamodb.items.length === 0 ? (
-              <p class="dashboard-page__note muted">No tables yet.</p>
+              <p class="dashboard-page__note muted">まだテーブルがありません</p>
             ) : (
               <div>
                 {dynamodb.items.map((name) => (
@@ -119,7 +119,7 @@ export function Dashboard({
             )}
           </div>
 
-          <div class="recent-card">
+          <div class="recent-card recent-card--s3">
             <div class="recent-card__header">
               <h3 class="recent-card__title">S3 Buckets</h3>
               <div class="recent-card__actions">
@@ -132,7 +132,7 @@ export function Dashboard({
                 {s3.error}
               </p>
             ) : s3.items.length === 0 ? (
-              <p class="dashboard-page__note muted">No buckets yet.</p>
+              <p class="dashboard-page__note muted">まだ Bucket がありません</p>
             ) : (
               <div>
                 {s3.items.map((name) => (
@@ -155,7 +155,7 @@ export function Dashboard({
             )}
           </div>
 
-          <div class="recent-card">
+          <div class="recent-card recent-card--sqs">
             <div class="recent-card__header">
               <h3 class="recent-card__title">SQS Queues</h3>
               <div class="recent-card__actions">
@@ -168,7 +168,7 @@ export function Dashboard({
                 {sqs.error}
               </p>
             ) : sqs.items.length === 0 ? (
-              <p class="dashboard-page__note muted">No queues yet.</p>
+              <p class="dashboard-page__note muted">まだ Queue がありません</p>
             ) : (
               <div>
                 {sqs.items.map((name) => (
@@ -191,7 +191,7 @@ export function Dashboard({
             )}
           </div>
 
-          <div class="recent-card">
+          <div class="recent-card recent-card--ssm">
             <div class="recent-card__header">
               <h3 class="recent-card__title">SSM Parameters</h3>
               <div class="recent-card__actions">
@@ -204,7 +204,9 @@ export function Dashboard({
                 {ssm.error}
               </p>
             ) : ssm.items.length === 0 ? (
-              <p class="dashboard-page__note muted">No parameters yet.</p>
+              <p class="dashboard-page__note muted">
+                まだ Parameter がありません
+              </p>
             ) : (
               <div>
                 {ssm.items.map((name) => (
@@ -227,7 +229,7 @@ export function Dashboard({
             )}
           </div>
 
-          <div class="recent-card">
+          <div class="recent-card recent-card--secrets">
             <div class="recent-card__header">
               <h3 class="recent-card__title">Secrets Manager</h3>
               <div class="recent-card__actions">
@@ -240,7 +242,7 @@ export function Dashboard({
                 {secrets.error}
               </p>
             ) : secrets.items.length === 0 ? (
-              <p class="dashboard-page__note muted">No secrets yet.</p>
+              <p class="dashboard-page__note muted">まだ Secret がありません</p>
             ) : (
               <div>
                 {secrets.items.map((name) => (
@@ -263,7 +265,7 @@ export function Dashboard({
             )}
           </div>
 
-          <div class="recent-card">
+          <div class="recent-card recent-card--cognito">
             <div class="recent-card__header">
               <h3 class="recent-card__title">Cognito User Pools</h3>
               <div class="recent-card__actions">
@@ -276,7 +278,9 @@ export function Dashboard({
                 {cognito.error}
               </p>
             ) : cognito.items.length === 0 ? (
-              <p class="dashboard-page__note muted">No user pools yet.</p>
+              <p class="dashboard-page__note muted">
+                まだ User Pool がありません
+              </p>
             ) : (
               <div>
                 {cognito.items.map((pool) => (

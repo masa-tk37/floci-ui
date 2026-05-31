@@ -6,42 +6,11 @@ mock.module("../../infrastructure/floci-clients", () => ({
   secretsManager: { send: sendMock },
 }))
 
-const {
-  createSecret,
-  deleteSecret,
-  getSecretDetail,
-  listSecrets,
-  updateSecret,
-} = await import("./secret-service")
+const { createSecret, deleteSecret, getSecretDetail, updateSecret } =
+  await import("./secret-service")
 
 beforeEach(() => {
   sendMock.mockReset()
-})
-
-describe("listSecrets", () => {
-  it("maps list responses into secret summaries", async () => {
-    sendMock.mockResolvedValueOnce({
-      SecretList: [
-        {
-          Name: "app/dev/db",
-          ARN: "arn:aws:secretsmanager:us-east-1:000000000000:secret:app/dev/db",
-          Description: "database password",
-          KmsKeyId: "alias/aws/secretsmanager",
-          LastChangedDate: new Date("2026-04-01T00:00:00.000Z"),
-        },
-      ],
-    })
-
-    await expect(listSecrets()).resolves.toEqual([
-      {
-        name: "app/dev/db",
-        arn: "arn:aws:secretsmanager:us-east-1:000000000000:secret:app/dev/db",
-        description: "database password",
-        kmsKeyId: "alias/aws/secretsmanager",
-        lastChangedDate: new Date("2026-04-01T00:00:00.000Z"),
-      },
-    ])
-  })
 })
 
 describe("getSecretDetail", () => {

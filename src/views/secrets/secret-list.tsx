@@ -1,9 +1,10 @@
 import { Html } from "@elysiajs/html"
+import { escapeHtml } from "@kitajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import type { SecretSummary } from "../../services/secrets/secret-service"
 import { mountComponentAttrs } from "../client"
-import { formatDate } from "../format"
+import { formatDate, PLACEHOLDER } from "../format"
 import { IconEdit, IconPlus, IconSearch, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
 
@@ -61,7 +62,7 @@ export function SecretList({ secrets, sidebarCounts }: SecretListProps) {
 
                   return (
                     <tr
-                      data-filter-text={`${secret.name} ${secret.description ?? ""} ${secret.kmsKeyId ?? ""}`}
+                      data-filter-text={`${escapeHtml(secret.name)} ${escapeHtml(secret.description ?? "")} ${escapeHtml(secret.kmsKeyId ?? "")}`}
                       x-show="matches($el.dataset.filterText)"
                     >
                       <td>
@@ -69,9 +70,9 @@ export function SecretList({ secrets, sidebarCounts }: SecretListProps) {
                           {secret.name}
                         </a>
                       </td>
-                      <td safe>{secret.description || "—"}</td>
+                      <td safe>{secret.description || PLACEHOLDER}</td>
                       <td class="mono" safe>
-                        {secret.kmsKeyId || "—"}
+                        {secret.kmsKeyId || PLACEHOLDER}
                       </td>
                       <td>{formatDate(secret.lastChangedDate)}</td>
                       <td class="data-table__actions">
@@ -82,7 +83,7 @@ export function SecretList({ secrets, sidebarCounts }: SecretListProps) {
                           type="button"
                           class="btn btn--danger-ghost btn--sm"
                           data-floci-delete-trigger=""
-                          data-resource-name={secret.name}
+                          data-resource-name={escapeHtml(secret.name)}
                           data-delete-url={path}
                           data-on-success="reload"
                         >

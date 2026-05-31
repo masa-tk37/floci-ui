@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 
-import { requestJson } from "./floci"
+import { errorMessage, requestJson } from "./floci"
 
 function mockFetch(response: Response) {
   globalThis.fetch = (async () => response) as unknown as typeof fetch
@@ -81,5 +81,37 @@ describe("requestJson", () => {
       code: "InternalServerError",
       status: 500,
     })
+  })
+})
+
+describe("errorMessage", () => {
+  it("returns Japanese message for TypeError with fetch network failure message", () => {
+    const error = new TypeError("fetch failed")
+    expect(errorMessage(error)).toBe("floci-ui サーバーに接続できません")
+  })
+
+  it("returns Japanese message for TypeError with 'Failed to fetch' message", () => {
+    const error = new TypeError("Failed to fetch")
+    expect(errorMessage(error)).toBe("floci-ui サーバーに接続できません")
+  })
+
+  it("passes through non-network TypeError messages unchanged", () => {
+    const error = new TypeError("Cannot read properties of null")
+    expect(errorMessage(error)).toBe("Cannot read properties of null")
+  })
+
+  it("passes through server error messages unchanged (ECONNREFUSED is server-side, wrapped as InternalServerError)", () => {
+    const error = new Error("Internal server error")
+    expect(errorMessage(error)).toBe("Internal server error")
+  })
+
+  it("passes through app-level error messages unchanged", () => {
+    const error = new Error("テーブルが見つかりません")
+    expect(errorMessage(error)).toBe("テーブルが見つかりません")
+  })
+
+  it("returns fallback for null/undefined", () => {
+    expect(errorMessage(null)).toBe("ネットワークエラーが発生しました")
+    expect(errorMessage(undefined)).toBe("ネットワークエラーが発生しました")
   })
 })

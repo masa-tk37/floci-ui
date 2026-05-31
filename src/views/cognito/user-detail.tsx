@@ -1,9 +1,10 @@
 import { Html } from "@elysiajs/html"
+import { escapeHtml } from "@kitajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import type { UserDetail as UserDetailData } from "../../services/cognito/cognito-service"
 import { ClientProps, mountComponentAttrs } from "../client"
-import { formatDate } from "../format"
+import { formatDate, PLACEHOLDER } from "../format"
 import { IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
 import { CognitoStatusBadge, EnabledBadge } from "./status-badge"
@@ -53,13 +54,56 @@ export function CognitoUserDetail({
                 {detail.sub}
               </p>
             ) : null}
+            {detail.sub ? (
+              <button
+                type="button"
+                class="btn btn--ghost btn--sm"
+                x-data="{ copied: false }"
+                {...{
+                  "@click":
+                    "navigator.clipboard.writeText($el.previousElementSibling.textContent); copied = true; setTimeout(() => copied = false, 1500)",
+                }}
+              >
+                <span x-show="!copied">
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </span>
+                <span x-show="copied" x-cloak>
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </span>
+              </button>
+            ) : null}
           </div>
           <div class="page-header__actions">
             <button
               type="button"
               class="btn btn--danger-ghost btn--sm"
               data-floci-delete-trigger=""
-              data-resource-name={detail.username}
+              data-resource-name={escapeHtml(detail.username)}
               data-delete-url={userPath}
               data-redirect-url={poolPath}
             >
@@ -84,13 +128,13 @@ export function CognitoUserDetail({
           <div class="attr-card">
             <span class="attr-card__label">Email</span>
             <span class="cognito-user-detail-page__meta-value" safe>
-              {detail.email || "—"}
+              {detail.email || PLACEHOLDER}
             </span>
           </div>
           <div class="attr-card">
             <span class="attr-card__label">Phone Number</span>
             <span class="cognito-user-detail-page__meta-value" safe>
-              {detail.phoneNumber || "—"}
+              {detail.phoneNumber || PLACEHOLDER}
             </span>
           </div>
           <div class="attr-card">
@@ -108,7 +152,7 @@ export function CognitoUserDetail({
           <div class="attr-card">
             <span class="attr-card__label">Preferred MFA</span>
             <span class="cognito-user-detail-page__meta-value" safe>
-              {detail.preferredMfaSetting || "—"}
+              {detail.preferredMfaSetting || PLACEHOLDER}
             </span>
           </div>
           <div class="attr-card">
@@ -116,7 +160,7 @@ export function CognitoUserDetail({
             <span class="cognito-user-detail-page__meta-value" safe>
               {detail.userMfaSettings.length > 0
                 ? detail.userMfaSettings.join(", ")
-                : "—"}
+                : PLACEHOLDER}
             </span>
           </div>
         </section>
@@ -216,7 +260,7 @@ export function CognitoUserDetail({
                           {attribute.name}
                         </code>
                       </td>
-                      <td safe>{attribute.value || "—"}</td>
+                      <td safe>{attribute.value || PLACEHOLDER}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -1,4 +1,6 @@
 import { Html } from "@elysiajs/html"
+import { escapeHtml } from "@kitajs/html"
+import { PLACEHOLDER } from "../format"
 import { mountComponentAttrs } from "../client"
 import { IconPlus, IconSearch, IconSettings, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
@@ -58,7 +60,7 @@ export function QueueList({ queues, sidebarCounts }: QueueListProps) {
               <tbody>
                 {queues.map((queue) => (
                   <tr
-                    data-filter-text={`${queue.name} ${queue.dlqName ?? ""}`}
+                    data-filter-text={`${escapeHtml(queue.name)} ${escapeHtml(queue.dlqName ?? "")}`}
                     x-show="matches($el.dataset.filterText)"
                   >
                     <td>
@@ -76,7 +78,7 @@ export function QueueList({ queues, sidebarCounts }: QueueListProps) {
                           {queue.dlqName}
                         </a>
                       ) : (
-                        "—"
+                        PLACEHOLDER
                       )}
                     </td>
                     <td class="data-table__actions">
@@ -90,7 +92,7 @@ export function QueueList({ queues, sidebarCounts }: QueueListProps) {
                         type="button"
                         class="btn btn--danger-ghost btn--sm"
                         data-floci-delete-trigger=""
-                        data-resource-name={queue.name}
+                        data-resource-name={escapeHtml(queue.name)}
                         data-delete-url={`/sqs/${encodeURIComponent(queue.name)}`}
                         data-on-success="reload"
                       >

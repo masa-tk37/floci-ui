@@ -24,14 +24,14 @@ const secretTagSchema = t.Object({
 
 const createSecretSchema = t.Object({
   name: t.String({ minLength: 1 }),
-  secretString: t.String(),
+  secretString: t.String({ minLength: 1 }),
   description: t.Optional(t.String()),
   kmsKeyId: t.Optional(t.String()),
   tags: t.Optional(t.Array(secretTagSchema)),
 })
 
 const updateSecretSchema = t.Object({
-  secretString: t.String(),
+  secretString: t.String({ minLength: 1 }),
   description: t.Optional(t.String()),
   kmsKeyId: t.Optional(t.String()),
   tags: t.Optional(t.Array(secretTagSchema)),

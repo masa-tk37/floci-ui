@@ -8,11 +8,15 @@ import {
   deleteObject,
   deleteSelectedObjects,
   getBucketSettings,
+  getBucketVersioningEnabled,
   getObjectDetails,
   getObjectForDownload,
   getObjectPreview,
+  getObjectTags,
   listBuckets,
+  listObjectVersions,
   listObjects,
+  putObjectTags,
   renameFolder,
   renameObject,
   updateBucketSettings,
@@ -133,6 +137,16 @@ const deleteObjectsSchema = t.Object({
   folders: t.Optional(t.Array(t.String({ minLength: 1 }))),
 })
 
+const putObjectTagsSchema = t.Object({
+  key: t.String({ minLength: 1 }),
+  tags: t.Array(
+    t.Object({
+      key: t.String({ minLength: 1 }),
+      value: t.String(),
+    }),
+  ),
+})
+
 export interface S3RouteDeps {
   createBucket: typeof createBucket
   createFolderObject: typeof createFolderObject
@@ -140,12 +154,16 @@ export interface S3RouteDeps {
   deleteObject: typeof deleteObject
   deleteSelectedObjects: typeof deleteSelectedObjects
   getBucketSettings: typeof getBucketSettings
+  getBucketVersioningEnabled: typeof getBucketVersioningEnabled
   getObjectDetails: typeof getObjectDetails
   getObjectForDownload: typeof getObjectForDownload
   getObjectPreview: typeof getObjectPreview
+  getObjectTags: typeof getObjectTags
   listBuckets: typeof listBuckets
+  listObjectVersions: typeof listObjectVersions
   listObjects: typeof listObjects
   loadSidebarSafe: typeof loadSidebarSafe
+  putObjectTags: typeof putObjectTags
   renameFolder: typeof renameFolder
   renameObject: typeof renameObject
   updateBucketSettings: typeof updateBucketSettings
@@ -160,12 +178,16 @@ const defaultS3RouteDeps: S3RouteDeps = {
   deleteObject,
   deleteSelectedObjects,
   getBucketSettings,
+  getBucketVersioningEnabled,
   getObjectDetails,
   getObjectForDownload,
   getObjectPreview,
+  getObjectTags,
   listBuckets,
+  listObjectVersions,
   listObjects,
   loadSidebarSafe,
+  putObjectTags,
   renameFolder,
   renameObject,
   updateBucketSettings,
@@ -228,9 +250,14 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
     )
     .get("/:bucket/download", async ({ params, query }) => {
       const key = query.key
+      const versionId = query.versionId
       if (!key) return new Response("Missing key", { status: 400 })
       try {
-        const result = await deps.getObjectForDownload(params.bucket, key)
+        const result = await deps.getObjectForDownload(
+          params.bucket,
+          key,
+          versionId,
+        )
         return new Response(result.stream, {
           headers: {
             "Content-Type": result.contentType,
@@ -258,6 +285,28 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
       }
       return runJsonAction(set, () => deps.getObjectDetails(params.bucket, key))
     })
+    .get("/:bucket/object-tags", async ({ params, query, set }) => {
+      const key = query.key
+      if (!key) {
+        return respondWithFrameworkError(
+          "InvalidInput",
+          "Missing key",
+          set,
+          400,
+        )
+      }
+      return runJsonAction(set, () => deps.getObjectTags(params.bucket, key))
+    })
+    .post(
+      "/:bucket/object-tags",
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
+          await deps.putObjectTags(params.bucket, body.key, {
+            tags: body.tags,
+          })
+        }),
+      { body: putObjectTagsSchema },
+    )
     .post(
       "/:bucket/folder",
       async ({ params, body, set }) =>
@@ -344,6 +393,7 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
     )
     .delete("/:bucket/object", async ({ params, query, set }) => {
       const key = query.key
+      const versionId = query.versionId
       if (!key) {
         return respondWithFrameworkError(
           "InvalidInput",
@@ -353,7 +403,7 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
         )
       }
       return runJsonAction(set, async () => {
-        await deps.deleteObject(params.bucket, key)
+        await deps.deleteObject(params.bucket, key, versionId)
       })
     })
     .post(
@@ -402,13 +452,21 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
     })
     .get("/:bucket", async ({ params, query }) => {
       const prefix = query.prefix ?? ""
-      const {
-        data: result,
-        sidebar,
-        sidebarCounts,
-      } = await loadPageData(deps, () =>
-        deps.listObjects(params.bucket, prefix),
-      )
+      const cursor = query.cursor
+      const showVersions = query.versions === "1"
+      const [{ data: result, sidebar, sidebarCounts }, versioningEnabled] =
+        await Promise.all([
+          loadPageData(deps, () =>
+            deps.listObjects(params.bucket, prefix, cursor),
+          ),
+          deps.getBucketVersioningEnabled(params.bucket),
+        ])
+      let versionResult:
+        | Awaited<ReturnType<typeof deps.listObjectVersions>>
+        | undefined
+      if (showVersions && versioningEnabled) {
+        versionResult = await deps.listObjectVersions(params.bucket, prefix)
+      }
       const buckets = (sidebar?.buckets ?? []).map((name) => ({ Name: name }))
       return (
         <ObjectList
@@ -422,6 +480,10 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
           }))}
           folders={result.folders.map((folder) => ({ Prefix: folder.prefix }))}
           sidebarCounts={sidebarCounts}
+          nextCursor={result.nextCursor}
+          versioningEnabled={versioningEnabled}
+          showVersions={showVersions}
+          versions={versionResult?.versions}
         />
       )
     })

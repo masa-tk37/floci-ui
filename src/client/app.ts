@@ -6,6 +6,7 @@ import {
 import {
   createDynamoCreateTableController,
   createDynamoItemEditController,
+  createDynamoItemListController,
   createDynamoQueryBuilderController,
   createDynamoUpdateTableController,
 } from "./controllers/dynamodb"
@@ -45,6 +46,7 @@ const registry = {
   "ddb-create-table": createDynamoCreateTableController,
   "ddb-update-table": createDynamoUpdateTableController,
   "ddb-item-edit": createDynamoItemEditController,
+  "ddb-item-list": createDynamoItemListController,
   "ddb-query-builder": createDynamoQueryBuilderController,
   "s3-create-bucket": createS3CreateBucketController,
   "s3-settings": createS3SettingsController,

@@ -6,7 +6,9 @@ export function encodeResourceName(name: string): string {
 
 export function decodeResourceName(encoded: string): string {
   try {
-    const decoded = Buffer.from(encoded, "base64url").toString("utf8")
+    const decoded = new TextDecoder("utf-8", { fatal: true }).decode(
+      Buffer.from(encoded, "base64url"),
+    )
     if (!decoded) {
       throw new Error("Empty resource name")
     }

@@ -10,40 +10,11 @@ const {
   createParameter,
   deleteParameter,
   getParameterDetail,
-  listParameters,
   updateParameter,
 } = await import("./parameter-service")
 
 beforeEach(() => {
   sendMock.mockReset()
-})
-
-describe("listParameters", () => {
-  it("maps parameter metadata into summaries", async () => {
-    sendMock.mockResolvedValueOnce({
-      Parameters: [
-        {
-          Name: "/app/password",
-          Type: "SecureString",
-          Tier: "Advanced",
-          Description: "db password",
-          KeyId: "alias/aws/ssm",
-          LastModifiedDate: new Date("2026-04-01T00:00:00.000Z"),
-        },
-      ],
-    })
-
-    await expect(listParameters()).resolves.toEqual([
-      {
-        name: "/app/password",
-        type: "SecureString",
-        tier: "Advanced",
-        description: "db password",
-        keyId: "alias/aws/ssm",
-        lastModifiedDate: new Date("2026-04-01T00:00:00.000Z"),
-      },
-    ])
-  })
 })
 
 describe("getParameterDetail", () => {

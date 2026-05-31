@@ -1,4 +1,5 @@
 import { Html } from "@elysiajs/html"
+import { escapeHtml } from "@kitajs/html"
 import { mountComponentAttrs } from "../client"
 import { IconPlus, IconSearch, IconSettings, IconTrash } from "../icons"
 import { Layout, type SidebarCounts } from "../layout"
@@ -50,7 +51,7 @@ export function TableList({ tables, sidebarCounts }: TableListProps) {
               <tbody>
                 {tables.map((name) => (
                   <tr
-                    data-filter-text={name}
+                    data-filter-text={escapeHtml(name)}
                     x-show="matches($el.dataset.filterText)"
                   >
                     <td>
@@ -75,7 +76,7 @@ export function TableList({ tables, sidebarCounts }: TableListProps) {
                         type="button"
                         class="btn btn--danger-ghost btn--sm"
                         data-floci-delete-trigger=""
-                        data-resource-name={name}
+                        data-resource-name={escapeHtml(name)}
                         data-delete-url={`/dynamodb/${encodeURIComponent(name)}`}
                         data-on-success="reload"
                       >

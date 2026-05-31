@@ -7,10 +7,13 @@ mock.module("../../infrastructure/floci-clients", () => ({
 }))
 
 const {
+  addUserToGroup,
   confirmUserSignUp,
+  createGroup,
   createUser,
   createUserPool,
   createUserPoolClient,
+  deleteGroup,
   deleteUser,
   deleteUserPool,
   deleteUserPoolClient,
@@ -18,9 +21,12 @@ const {
   enableUser,
   getUserDetail,
   getUserPoolDetail,
+  listGroups,
   listUserPoolClients,
   listUserPools,
   listUsers,
+  listUsersInGroup,
+  removeUserFromGroup,
   setUserPassword,
 } = await import("./cognito-service")
 
@@ -404,5 +410,188 @@ describe("deleteUserPool", () => {
     await expect(deleteUserPool("pool-id")).rejects.toMatchObject({
       code: "NotFound",
     })
+  })
+})
+
+describe("listGroups", () => {
+  it("loads and sorts groups across pages", async () => {
+    sendMock
+      .mockResolvedValueOnce({
+        Groups: [
+          {
+            GroupName: "beta-testers",
+            Description: "Beta group",
+            CreationDate: new Date("2026-01-01T00:00:00.000Z"),
+            LastModifiedDate: new Date("2026-04-01T00:00:00.000Z"),
+          },
+          {
+            GroupName: "admins",
+            Description: "Admin group",
+          },
+        ],
+        NextToken: "next-page",
+      })
+      .mockResolvedValueOnce({
+        Groups: [{ GroupName: "gamma", Description: "" }],
+      })
+
+    const result = await listGroups("pool-id")
+    expect(result).toHaveLength(3)
+    expect(result[0]).toMatchObject({
+      name: "admins",
+      description: "Admin group",
+    })
+    expect(result[1]).toMatchObject({
+      name: "beta-testers",
+      description: "Beta group",
+    })
+    expect(result[2]).toMatchObject({ name: "gamma", description: "" })
+  })
+
+  it("maps ResourceNotFoundException to NotFound", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("missing"), {
+        name: "ResourceNotFoundException",
+      }),
+    )
+    await expect(listGroups("pool-id")).rejects.toMatchObject({
+      code: "NotFound",
+    })
+  })
+})
+
+describe("createGroup", () => {
+  it("creates a group and returns its name", async () => {
+    sendMock.mockResolvedValueOnce({})
+
+    await expect(
+      createGroup("pool-123", { name: " devs ", description: "Dev team" }),
+    ).resolves.toBe("devs")
+
+    expect(sendMock.mock.calls[0]?.[0]?.input).toMatchObject({
+      UserPoolId: "pool-123",
+      GroupName: "devs",
+      Description: "Dev team",
+    })
+  })
+
+  it("maps GroupExistsException to AlreadyExists", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("exists"), { name: "GroupExistsException" }),
+    )
+
+    await expect(
+      createGroup("pool-123", { name: "admins" }),
+    ).rejects.toMatchObject({
+      code: "AlreadyExists",
+    })
+  })
+})
+
+describe("deleteGroup", () => {
+  it("deletes a group successfully", async () => {
+    sendMock.mockResolvedValueOnce({})
+    await expect(deleteGroup("pool-id", "admins")).resolves.toBeUndefined()
+  })
+
+  it("maps ResourceNotFoundException to NotFound", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("missing"), {
+        name: "ResourceNotFoundException",
+      }),
+    )
+    await expect(deleteGroup("pool-id", "admins")).rejects.toMatchObject({
+      code: "NotFound",
+    })
+  })
+})
+
+describe("listUsersInGroup", () => {
+  it("maps user summaries from the group", async () => {
+    sendMock.mockResolvedValueOnce({
+      Users: [
+        {
+          Username: "alice",
+          Enabled: true,
+          UserStatus: "CONFIRMED",
+          UserCreateDate: new Date("2026-04-01T00:00:00.000Z"),
+          UserLastModifiedDate: new Date("2026-04-02T00:00:00.000Z"),
+          Attributes: [{ Name: "email", Value: "alice@example.com" }],
+        },
+      ],
+    })
+
+    await expect(listUsersInGroup("pool-123", "admins")).resolves.toEqual([
+      {
+        username: "alice",
+        status: "CONFIRMED",
+        enabled: true,
+        createdAt: new Date("2026-04-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-04-02T00:00:00.000Z"),
+        email: "alice@example.com",
+        phoneNumber: "",
+      },
+    ])
+  })
+
+  it("maps ResourceNotFoundException to NotFound", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("missing"), {
+        name: "ResourceNotFoundException",
+      }),
+    )
+    await expect(
+      listUsersInGroup("pool-id", "missing-group"),
+    ).rejects.toMatchObject({ code: "NotFound" })
+  })
+})
+
+describe("addUserToGroup", () => {
+  it("adds a user to a group successfully", async () => {
+    sendMock.mockResolvedValueOnce({})
+    await expect(
+      addUserToGroup("pool-123", "admins", "alice"),
+    ).resolves.toBeUndefined()
+
+    expect(sendMock.mock.calls[0]?.[0]?.input).toMatchObject({
+      UserPoolId: "pool-123",
+      GroupName: "admins",
+      Username: "alice",
+    })
+  })
+
+  it("maps UserNotFoundException to NotFound", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("not found"), { name: "UserNotFoundException" }),
+    )
+    await expect(
+      addUserToGroup("pool-123", "admins", "ghost"),
+    ).rejects.toMatchObject({ code: "NotFound" })
+  })
+})
+
+describe("removeUserFromGroup", () => {
+  it("removes a user from a group successfully", async () => {
+    sendMock.mockResolvedValueOnce({})
+    await expect(
+      removeUserFromGroup("pool-123", "admins", "alice"),
+    ).resolves.toBeUndefined()
+
+    expect(sendMock.mock.calls[0]?.[0]?.input).toMatchObject({
+      UserPoolId: "pool-123",
+      GroupName: "admins",
+      Username: "alice",
+    })
+  })
+
+  it("maps ResourceNotFoundException to NotFound", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("missing"), {
+        name: "ResourceNotFoundException",
+      }),
+    )
+    await expect(
+      removeUserFromGroup("pool-123", "admins", "alice"),
+    ).rejects.toMatchObject({ code: "NotFound" })
   })
 })

@@ -124,21 +124,23 @@ export async function loadDashboardData(
     ssm: statusFromResult(parametersResult),
     secrets: statusFromResult(secretsResult),
     cognito: namedStatusFromResult(userPoolsResult),
-    sidebarCounts:
-      tablesResult.status === "fulfilled" &&
-      bucketsResult.status === "fulfilled" &&
-      queuesResult.status === "fulfilled" &&
-      parametersResult.status === "fulfilled" &&
-      secretsResult.status === "fulfilled" &&
-      userPoolsResult.status === "fulfilled"
-        ? {
-            tables: tablesResult.value.length,
-            buckets: bucketsResult.value.length,
-            queues: queuesResult.value.length,
-            parameters: parametersResult.value.length,
-            secrets: secretsResult.value.length,
-            userPools: userPoolsResult.value.length,
-          }
-        : undefined,
+    sidebarCounts: {
+      tables:
+        tablesResult.status === "fulfilled" ? tablesResult.value.length : 0,
+      buckets:
+        bucketsResult.status === "fulfilled" ? bucketsResult.value.length : 0,
+      queues:
+        queuesResult.status === "fulfilled" ? queuesResult.value.length : 0,
+      parameters:
+        parametersResult.status === "fulfilled"
+          ? parametersResult.value.length
+          : 0,
+      secrets:
+        secretsResult.status === "fulfilled" ? secretsResult.value.length : 0,
+      userPools:
+        userPoolsResult.status === "fulfilled"
+          ? userPoolsResult.value.length
+          : 0,
+    },
   }
 }

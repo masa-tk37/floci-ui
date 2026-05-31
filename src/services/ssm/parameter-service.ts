@@ -179,7 +179,9 @@ async function listParameterMetadata(): Promise<ParameterSummary[]> {
     nextToken = result.NextToken
   } while (nextToken)
 
-  return parameters.sort((left, right) => left.name.localeCompare(right.name))
+  parameters.sort((left, right) => left.name.localeCompare(right.name))
+
+  return parameters
 }
 
 async function getParameterMetadata(name: string): Promise<ParameterSummary> {
@@ -188,8 +190,10 @@ async function getParameterMetadata(name: string): Promise<ParameterSummary> {
   try {
     const result = await ssm.send(
       new DescribeParametersCommand({
-        ParameterFilters: [{ Key: "Name", Values: [normalizedName] }],
-        MaxResults: 10,
+        ParameterFilters: [
+          { Key: "Name", Option: "Equals", Values: [normalizedName] },
+        ],
+        MaxResults: 1,
       }),
     )
 
@@ -236,7 +240,7 @@ async function listParameterTags(name: string): Promise<ParameterTag[]> {
       )
     }
 
-    return []
+    toParameterError(error, normalizedName)
   }
 }
 
@@ -380,9 +384,14 @@ export async function updateParameter(
         Overwrite: true,
       }),
     )
-    await syncParameterTags(normalizedName, tags)
   } catch (error) {
     toParameterError(error, normalizedName)
+  }
+
+  try {
+    await syncParameterTags(normalizedName, tags)
+  } catch (tagError) {
+    console.warn(`[SSM] Tag sync failed for ${normalizedName}:`, tagError)
   }
 }
 

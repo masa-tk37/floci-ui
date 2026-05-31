@@ -1,9 +1,17 @@
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
+  GetBucketVersioningCommand,
   GetObjectCommand,
+  GetObjectTaggingCommand,
+  ListObjectVersionsCommand,
   ListObjectsV2Command,
   PutObjectCommand,
+  PutObjectTaggingCommand,
+  type CommonPrefix,
+  type DeleteMarkerEntry,
+  type ObjectVersion,
+  type _Object,
 } from "@aws-sdk/client-s3"
 import { ServiceError } from "../../errors"
 import { s3 } from "../../infrastructure/floci-clients"
@@ -12,10 +20,14 @@ import type {
   DownloadResult,
   ObjectDetailsResult,
   ObjectListResult,
+  ObjectTagsResult,
+  ObjectVersionSummary,
   PreviewResult,
   RenameFolderResult,
   UpdateObjectPropertiesInput,
+  UpdateObjectTagsInput,
   UploadObjectsResult,
+  VersionListResult,
 } from "./shared"
 import {
   PREVIEW_TEXT_LIMIT,
@@ -39,25 +51,33 @@ import {
   uniqueNonEmpty,
 } from "./shared"
 
+const OBJECT_PAGE_SIZE = 100
+
 export async function listObjects(
   bucket: string,
   prefix: string,
+  cursor?: string,
 ): Promise<ObjectListResult> {
-  const { Contents, CommonPrefixes } = await s3.send(
+  const result = await s3.send(
     new ListObjectsV2Command({
       Bucket: bucket,
       Delimiter: "/",
       Prefix: prefix,
+      MaxKeys: OBJECT_PAGE_SIZE,
+      ContinuationToken: cursor,
     }),
   )
 
+  const contents = result.Contents ?? []
+  const commonPrefixes = result.CommonPrefixes ?? []
+
   const folderSet = new Set(
-    (CommonPrefixes ?? [])
+    commonPrefixes
       .map((item) => item.Prefix ?? "")
       .filter((folderPrefix) => folderPrefix && folderPrefix !== prefix),
   )
 
-  for (const object of Contents ?? []) {
+  for (const object of contents) {
     const key = object.Key ?? ""
     const folderPrefix = folderPrefixFromKey(key, prefix)
     if (folderPrefix && folderPrefix !== prefix) {
@@ -66,7 +86,7 @@ export async function listObjects(
   }
 
   return {
-    objects: (Contents ?? [])
+    objects: contents
       .filter((object) => {
         const key = object.Key ?? ""
         const remainder = directChildRemainder(key, prefix)
@@ -78,15 +98,88 @@ export async function listObjects(
         lastModified: object.LastModified,
       })),
     folders: [...folderSet].map((folderPrefix) => ({ prefix: folderPrefix })),
+    nextCursor: result.NextContinuationToken,
   }
+}
+
+export async function getBucketVersioningEnabled(
+  bucket: string,
+): Promise<boolean> {
+  try {
+    const result = await s3.send(
+      new GetBucketVersioningCommand({ Bucket: bucket }),
+    )
+    return result.Status === "Enabled"
+  } catch {
+    return false
+  }
+}
+
+export async function listObjectVersions(
+  bucket: string,
+  prefix: string,
+): Promise<VersionListResult> {
+  const allVersions: ObjectVersion[] = []
+  const allDeleteMarkers: DeleteMarkerEntry[] = []
+  let keyMarker: string | undefined
+  let versionIdMarker: string | undefined
+  let isTruncated: boolean
+
+  do {
+    const result = await s3.send(
+      new ListObjectVersionsCommand({
+        Bucket: bucket,
+        Prefix: prefix || undefined,
+        KeyMarker: keyMarker,
+        VersionIdMarker: versionIdMarker,
+      }),
+    )
+    allVersions.push(...(result.Versions ?? []))
+    allDeleteMarkers.push(...(result.DeleteMarkers ?? []))
+    isTruncated = result.IsTruncated ?? false
+    keyMarker = isTruncated ? result.NextKeyMarker : undefined
+    versionIdMarker = isTruncated ? result.NextVersionIdMarker : undefined
+  } while (isTruncated)
+
+  const versions: ObjectVersionSummary[] = [
+    ...allVersions.map((v) => ({
+      key: v.Key ?? "",
+      versionId: v.VersionId,
+      size: v.Size ?? 0,
+      lastModified: v.LastModified,
+      isLatest: v.IsLatest ?? false,
+      isDeleteMarker: false,
+      eTag: v.ETag,
+    })),
+    ...allDeleteMarkers.map((d) => ({
+      key: d.Key ?? "",
+      versionId: d.VersionId,
+      size: 0,
+      lastModified: d.LastModified,
+      isLatest: d.IsLatest ?? false,
+      isDeleteMarker: true,
+      eTag: undefined,
+    })),
+  ]
+  versions.sort((a, b) => {
+    if (a.key !== b.key) return a.key.localeCompare(b.key)
+    return (b.lastModified?.getTime() ?? 0) - (a.lastModified?.getTime() ?? 0)
+  })
+
+  return { versions }
 }
 
 export async function getObjectForDownload(
   bucket: string,
   key: string,
+  versionId?: string,
 ): Promise<DownloadResult> {
   const result = await s3.send(
-    new GetObjectCommand({ Bucket: bucket, Key: key }),
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      VersionId: versionId || undefined,
+    }),
   )
   if (!result.Body) {
     throw new ServiceError(
@@ -125,7 +218,7 @@ export async function getObjectPreview(
     new GetObjectCommand({
       Bucket: bucket,
       Key: key,
-      Range: `bytes=0-${PREVIEW_TEXT_LIMIT}`,
+      Range: `bytes=0-${PREVIEW_TEXT_LIMIT - 1}`,
     }),
   )
   if (!result.Body) {
@@ -144,9 +237,19 @@ export async function getObjectPreview(
   }
 }
 
-export async function deleteObject(bucket: string, key: string): Promise<void> {
+export async function deleteObject(
+  bucket: string,
+  key: string,
+  versionId?: string,
+): Promise<void> {
   try {
-    await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        VersionId: versionId || undefined,
+      }),
+    )
   } catch (error: unknown) {
     throw new ServiceError(
       "OperationFailed",
@@ -390,13 +493,12 @@ export async function updateObjectProperties(
   input: UpdateObjectPropertiesInput,
 ): Promise<ObjectDetailsResult> {
   const normalizedKey = normalizeObjectKey(key)
-  const requestedContentType = input.contentType.trim()
+  const requestedContentType = input.contentType.trim().toLowerCase()
 
   if (!requestedContentType) {
     throw new ServiceError("InvalidInput", "Content-Type is required")
   }
 
-  const normalizedContentType = sanitizeContentType(requestedContentType)
   const head = await getHeadObject(bucket, normalizedKey)
 
   try {
@@ -406,7 +508,7 @@ export async function updateObjectProperties(
         Key: normalizedKey,
         CopySource: copySource(bucket, normalizedKey),
         MetadataDirective: "REPLACE",
-        ContentType: normalizedContentType,
+        ContentType: requestedContentType,
         CacheControl: head.CacheControl,
         ContentDisposition: head.ContentDisposition,
         ContentEncoding: head.ContentEncoding,
@@ -426,11 +528,58 @@ export async function updateObjectProperties(
   const updatedHead = await getHeadObject(bucket, normalizedKey)
   return {
     key: normalizedKey,
-    contentType: normalizedContentType,
+    contentType: requestedContentType,
     size: updatedHead.ContentLength ?? 0,
     lastModified: updatedHead.LastModified,
     eTag: updatedHead.ETag,
     metadata: updatedHead.Metadata ?? {},
+  }
+}
+
+export async function getObjectTags(
+  bucket: string,
+  key: string,
+): Promise<ObjectTagsResult> {
+  try {
+    const result = await s3.send(
+      new GetObjectTaggingCommand({ Bucket: bucket, Key: key }),
+    )
+    return {
+      tags: (result.TagSet ?? []).map((tag) => ({
+        key: tag.Key ?? "",
+        value: tag.Value ?? "",
+      })),
+    }
+  } catch (error: unknown) {
+    throw new ServiceError(
+      "OperationFailed",
+      error instanceof Error ? error.message : String(error),
+      error,
+    )
+  }
+}
+
+export async function putObjectTags(
+  bucket: string,
+  key: string,
+  input: UpdateObjectTagsInput,
+): Promise<void> {
+  try {
+    await s3.send(
+      new PutObjectTaggingCommand({
+        Bucket: bucket,
+        Key: key,
+        Tagging: {
+          TagSet: input.tags.map((t) => ({ Key: t.key, Value: t.value })),
+        },
+      }),
+    )
+  } catch (error: unknown) {
+    throw new ServiceError(
+      "OperationFailed",
+      error instanceof Error ? error.message : String(error),
+      error,
+    )
   }
 }
 

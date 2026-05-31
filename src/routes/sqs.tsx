@@ -4,15 +4,16 @@ import { loadSidebarSafe } from "../services/sidebar-service"
 import {
   createQueue,
   deleteMessage,
+  deleteMessageById,
   deleteQueue,
   getQueueAttributes,
   getQueueDetail,
-  getQueueMessageBody,
   getQueueMessages,
   getQueueSettings,
   listQueues,
   purgeQueue,
   sendMessage,
+  sendMessageBatch,
   updateQueueSettings,
 } from "../services/sqs/queue-service"
 import {
@@ -42,32 +43,34 @@ const updateQueueSettingsSchema = t.Object({
 export interface SqsRouteDeps {
   createQueue: typeof createQueue
   deleteMessage: typeof deleteMessage
+  deleteMessageById: typeof deleteMessageById
   deleteQueue: typeof deleteQueue
   getQueueAttributes: typeof getQueueAttributes
   getQueueDetail: typeof getQueueDetail
-  getQueueMessageBody: typeof getQueueMessageBody
   getQueueMessages: typeof getQueueMessages
   getQueueSettings: typeof getQueueSettings
   listQueues: typeof listQueues
   loadSidebarSafe: typeof loadSidebarSafe
   purgeQueue: typeof purgeQueue
   sendMessage: typeof sendMessage
+  sendMessageBatch: typeof sendMessageBatch
   updateQueueSettings: typeof updateQueueSettings
 }
 
 const defaultSqsRouteDeps: SqsRouteDeps = {
   createQueue,
   deleteMessage,
+  deleteMessageById,
   deleteQueue,
   getQueueAttributes,
   getQueueDetail,
-  getQueueMessageBody,
   getQueueMessages,
   getQueueSettings,
   listQueues,
   loadSidebarSafe,
   purgeQueue,
   sendMessage,
+  sendMessageBatch,
   updateQueueSettings,
 }
 
@@ -150,6 +153,34 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
         }),
       },
     )
+    .post(
+      "/:queue/send-batch",
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => ({
+          result: await deps.sendMessageBatch(
+            params.queue,
+            body.entries.map((e, i) => ({
+              id: e.id ?? `msg-${i}`,
+              body: e.body,
+              messageGroupId: e.groupId,
+              messageDeduplicationId: e.messageDeduplicationId,
+            })),
+          ),
+        })),
+      {
+        body: t.Object({
+          entries: t.Array(
+            t.Object({
+              id: t.Optional(t.String()),
+              body: t.String({ minLength: 1 }),
+              groupId: t.Optional(t.String()),
+              messageDeduplicationId: t.Optional(t.String()),
+            }),
+            { minItems: 1, maxItems: 10 },
+          ),
+        }),
+      },
+    )
     .get("/:queue/messages.json", async ({ params }) => {
       const messages = await deps.getQueueMessages(params.queue)
       return jsonData({ messages })
@@ -162,19 +193,14 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
       "/:queue/message",
       async ({ params, body, set }) =>
         runJsonAction(set, async () => {
-          await deps.deleteMessage(params.queue, body.receipt)
+          await deps.deleteMessageById(params.queue, body.messageId)
         }),
-      { body: t.Object({ receipt: t.String({ minLength: 1 }) }) },
+      { body: t.Object({ messageId: t.String({ minLength: 1 }) }) },
     )
     .delete("/:queue/messages", async ({ params, set }) =>
       runJsonAction(set, async () => {
         await deps.purgeQueue(params.queue)
       }),
-    )
-    .get("/:queue/messages/:messageId/body", async ({ params, set }) =>
-      runJsonAction(set, async () => ({
-        body: await deps.getQueueMessageBody(params.queue, params.messageId),
-      })),
     )
 }
 

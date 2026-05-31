@@ -83,7 +83,8 @@ export function Preview({
           <>
             {truncated && (
               <p class="s3-preview-page__notice s3-preview-page__notice--warning">
-                File truncated to 50KB. Use Download for the full contents.
+                ファイルが 50KB
+                を超えているため先頭部分のみ表示しています。全内容はダウンロードしてご確認ください。
               </p>
             )}
             <pre
@@ -116,7 +117,7 @@ export function Preview({
 
         {mode === "binary" && (
           <div class="s3-preview-page__panel s3-preview-page__panel--binary">
-            <p>Binary file — no inline preview available.</p>
+            <p>バイナリファイルのため、プレビューできません。</p>
           </div>
         )}
       </div>

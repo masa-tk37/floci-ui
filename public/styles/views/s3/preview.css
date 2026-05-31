@@ -51,7 +51,13 @@
 }
 
 .s3-preview-page__pdf-status--error {
+  display: block;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1rem;
   color: var(--color-danger);
+  font-size: 0.875rem;
 }
 
 .s3-preview-page__pdf-pages {

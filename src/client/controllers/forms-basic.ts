@@ -28,7 +28,7 @@ export function createSecretFormController(
 
     buildPayload() {
       return {
-        name: this.name,
+        ...(this.mode === "create" ? { name: this.name } : {}),
         secretString: this.secretString,
         description: this.description,
         kmsKeyId: this.kmsKeyId,
@@ -94,7 +94,7 @@ export function createParameterFormController(
 
     buildPayload() {
       return {
-        name: this.name,
+        ...(this.mode === "create" ? { name: this.name } : {}),
         type: this.type,
         value: this.value,
         description: this.description,

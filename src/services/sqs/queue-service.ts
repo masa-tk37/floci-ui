@@ -7,9 +7,11 @@ import {
   ListQueueTagsCommand,
   PurgeQueueCommand,
   ReceiveMessageCommand,
+  SendMessageBatchCommand,
   SendMessageCommand,
   SetQueueAttributesCommand,
   TagQueueCommand,
+  UntagQueueCommand,
 } from "@aws-sdk/client-sqs"
 import { ServiceError, toOperationFailed } from "../../errors"
 import {
@@ -56,13 +58,26 @@ export interface QueueDetailData {
   messages: PeekedMessage[]
 }
 
+async function listQueueUrls(): Promise<string[]> {
+  const urls: string[] = []
+  let nextToken: string | undefined
+  do {
+    const result = await sqs.send(
+      new ListQueuesCommand({ NextToken: nextToken }),
+    )
+    for (const url of result.QueueUrls ?? []) urls.push(url)
+    nextToken = result.NextToken
+  } while (nextToken)
+  return urls
+}
+
 export async function listQueueNames(): Promise<string[]> {
-  const { QueueUrls } = await sqs.send(new ListQueuesCommand({}))
-  return (QueueUrls ?? []).map(queueNameFromUrl)
+  const urls = await listQueueUrls()
+  return urls.map(queueNameFromUrl)
 }
 
 export async function listQueues(): Promise<QueueSummary[]> {
-  const urls = (await sqs.send(new ListQueuesCommand({}))).QueueUrls ?? []
+  const urls = await listQueueUrls()
   return Promise.all(
     urls.map(async (url): Promise<QueueSummary> => {
       const name = queueNameFromUrl(url)
@@ -118,9 +133,39 @@ export async function deleteQueue(name: string): Promise<void> {
   }
 }
 
+interface RawSqsMessage {
+  MessageId: string
+  Body: string
+  ReceiptHandle: string | null
+  Attributes: { SentTimestamp?: string; ApproximateReceiveCount?: string }
+}
+
+async function fetchMessagesFromInspect(
+  queueUrl: string,
+): Promise<PeekedMessage[]> {
+  const res = await fetch(
+    `${FLOCI_ENDPOINT}/_aws/sqs/messages?QueueUrl=${encodeURIComponent(queueUrl)}`,
+  )
+  if (!res.ok) {
+    throw new ServiceError("OperationFailed", `SQS peek failed: ${res.status}`)
+  }
+  const { messages } = (await res.json()) as { messages: RawSqsMessage[] }
+  return messages.map((msg) => ({
+    messageId: msg.MessageId,
+    receiptHandle: msg.ReceiptHandle ?? undefined,
+    body: msg.Body,
+    sentTimestamp: msg.Attributes?.SentTimestamp
+      ? Number.parseInt(msg.Attributes.SentTimestamp, 10)
+      : null,
+    receiveCount: msg.Attributes?.ApproximateReceiveCount
+      ? Number.parseInt(msg.Attributes.ApproximateReceiveCount, 10)
+      : null,
+  }))
+}
+
 export async function getQueueDetail(name: string): Promise<QueueDetailData> {
   const queueUrl = queueUrlFor(name)
-  const [{ Attributes }, { Messages }] = await Promise.all([
+  const [{ Attributes }, messages] = await Promise.all([
     sqs.send(
       new GetQueueAttributesCommand({
         QueueUrl: queueUrl,
@@ -136,16 +181,7 @@ export async function getQueueDetail(name: string): Promise<QueueDetailData> {
         ],
       }),
     ),
-    sqs.send(
-      new ReceiveMessageCommand({
-        QueueUrl: queueUrl,
-        VisibilityTimeout: 0,
-        MaxNumberOfMessages: 10,
-        WaitTimeSeconds: 0,
-        AttributeNames: ["All"],
-        MessageAttributeNames: ["All"],
-      }),
-    ),
+    fetchMessagesFromInspect(queueUrl),
   ])
 
   const attributes: QueueAttributes = {
@@ -159,38 +195,12 @@ export async function getQueueDetail(name: string): Promise<QueueDetailData> {
     queueArn: Attributes?.QueueArn,
   }
 
-  const messages: PeekedMessage[] = (Messages ?? []).map((msg) => ({
-    messageId: msg.MessageId ?? "",
-    receiptHandle: msg.ReceiptHandle,
-    body: msg.Body ?? "",
-    sentTimestamp: msg.Attributes?.SentTimestamp
-      ? Number.parseInt(msg.Attributes.SentTimestamp, 10)
-      : null,
-  }))
-
   return { attributes, messages }
 }
 
 export async function getQueueMessages(name: string): Promise<PeekedMessage[]> {
   const queueUrl = queueUrlFor(name)
-  const { Messages } = await sqs.send(
-    new ReceiveMessageCommand({
-      QueueUrl: queueUrl,
-      VisibilityTimeout: 0,
-      MaxNumberOfMessages: 10,
-      WaitTimeSeconds: 0,
-      AttributeNames: ["All"],
-      MessageAttributeNames: ["All"],
-    }),
-  )
-  return (Messages ?? []).map((msg) => ({
-    messageId: msg.MessageId ?? "",
-    receiptHandle: msg.ReceiptHandle,
-    body: msg.Body ?? "",
-    sentTimestamp: msg.Attributes?.SentTimestamp
-      ? Number.parseInt(msg.Attributes.SentTimestamp, 10)
-      : null,
-  }))
+  return fetchMessagesFromInspect(queueUrl)
 }
 
 export async function getQueueAttributes(
@@ -275,6 +285,14 @@ export async function getQueueSettings(
     dlqMaxReceiveCount,
     kmsEnabled: !!attrs.KmsMasterKeyId,
     kmsMasterKeyId: attrs.KmsMasterKeyId ?? "",
+    deduplicationScope: attrs.DeduplicationScope as
+      | "queue"
+      | "messageGroup"
+      | undefined,
+    fifoThroughputLimit: attrs.FifoThroughputLimit as
+      | "perQueue"
+      | "perMessageGroupId"
+      | undefined,
     tags: Object.entries(rawTags).map(([key, value]) => ({
       key,
       value: String(value),
@@ -289,6 +307,13 @@ export async function updateQueueSettings(
 ): Promise<void> {
   const queueUrl = queueUrlFor(name)
   try {
+    const existingTagsResult = await sqs
+      .send(new ListQueueTagsCommand({ QueueUrl: queueUrl }))
+      .catch(() => ({ Tags: {} }))
+    const existingKeys = Object.keys(existingTagsResult.Tags ?? {})
+    const newKeys = new Set(Object.keys(tags))
+    const removedKeys = existingKeys.filter((k) => !newKeys.has(k))
+
     await Promise.all([
       Object.keys(attributes).length > 0
         ? sqs.send(
@@ -300,6 +325,11 @@ export async function updateQueueSettings(
         : Promise.resolve(),
       Object.keys(tags).length > 0
         ? sqs.send(new TagQueueCommand({ QueueUrl: queueUrl, Tags: tags }))
+        : Promise.resolve(),
+      removedKeys.length > 0
+        ? sqs.send(
+            new UntagQueueCommand({ QueueUrl: queueUrl, TagKeys: removedKeys }),
+          )
         : Promise.resolve(),
     ])
   } catch (e: unknown) {
@@ -344,6 +374,40 @@ export async function deleteMessage(
   }
 }
 
+export async function deleteMessageById(
+  name: string,
+  messageId: string,
+): Promise<void> {
+  const queueUrl = queueUrlFor(name)
+  try {
+    const { Messages } = await sqs.send(
+      new ReceiveMessageCommand({
+        QueueUrl: queueUrl,
+        VisibilityTimeout: 0,
+        MaxNumberOfMessages: 10,
+        MessageAttributeNames: ["All"],
+        AttributeNames: ["All"],
+      }),
+    )
+    const target = (Messages ?? []).find((m) => m.MessageId === messageId)
+    if (!target?.ReceiptHandle) {
+      throw new ServiceError(
+        "NotFound",
+        `Message ${messageId} not found or already deleted`,
+      )
+    }
+    await sqs.send(
+      new DeleteMessageCommand({
+        QueueUrl: queueUrl,
+        ReceiptHandle: target.ReceiptHandle,
+      }),
+    )
+  } catch (e: unknown) {
+    if (e instanceof ServiceError) throw e
+    toOperationFailed(e)
+  }
+}
+
 export async function purgeQueue(name: string): Promise<void> {
   try {
     await sqs.send(new PurgeQueueCommand({ QueueUrl: queueUrlFor(name) }))
@@ -352,13 +416,46 @@ export async function purgeQueue(name: string): Promise<void> {
   }
 }
 
-export async function getQueueMessageBody(
-  queueName: string,
-  messageId: string,
-): Promise<string> {
-  const messages = await getQueueMessages(queueName)
-  const found = messages.find((m) => m.messageId === messageId)
-  if (!found)
-    throw new ServiceError("NotFound", `Message ${messageId} not found`)
-  return found.body
+export interface BatchMessageEntry {
+  id: string
+  body: string
+  messageGroupId?: string
+  messageDeduplicationId?: string
+}
+
+export interface BatchSendResult {
+  successful: { id: string; messageId: string }[]
+  failed: { id: string; code: string; message?: string }[]
+}
+
+export async function sendMessageBatch(
+  name: string,
+  entries: BatchMessageEntry[],
+): Promise<BatchSendResult> {
+  try {
+    const result = await sqs.send(
+      new SendMessageBatchCommand({
+        QueueUrl: queueUrlFor(name),
+        Entries: entries.map((e) => ({
+          Id: e.id,
+          MessageBody: e.body,
+          MessageGroupId: e.messageGroupId,
+          MessageDeduplicationId: e.messageDeduplicationId,
+        })),
+      }),
+    )
+    return {
+      successful: (result.Successful ?? []).map((s) => ({
+        id: s.Id ?? "",
+        messageId: s.MessageId ?? "",
+      })),
+      failed: (result.Failed ?? []).map((f) => ({
+        id: f.Id ?? "",
+        code: f.Code ?? "",
+        message: f.Message,
+      })),
+    }
+  } catch (e: unknown) {
+    toOperationFailed(e)
+  }
 }

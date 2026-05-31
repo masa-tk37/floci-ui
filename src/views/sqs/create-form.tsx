@@ -227,7 +227,7 @@ export function CreateQueueForm({ sidebarCounts }: CreateQueueFormProps = {}) {
           </div>
 
           <div class="error-inline" x-show="error" x-cloak>
-            <strong>Error:</strong> <span x-text="error" />
+            <strong>エラー:</strong> <span x-text="error" />
           </div>
 
           <div class="form-actions">

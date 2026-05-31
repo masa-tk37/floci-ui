@@ -1,4 +1,5 @@
 import { Html } from "@elysiajs/html"
+import { PLACEHOLDER } from "../format"
 
 function statusTone(status: string | undefined): string {
   const normalized = (status ?? "").toLowerCase()
@@ -19,7 +20,7 @@ function statusTone(status: string | undefined): string {
 }
 
 export function CognitoStatusBadge({ status }: { status?: string }) {
-  const label = status || "—"
+  const label = status || PLACEHOLDER
   const tone = statusTone(status)
   return (
     <span class={`status-pill status-pill--${tone}`}>

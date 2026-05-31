@@ -20,8 +20,10 @@ import {
   getObjectDetails,
   getObjectForDownload,
   getObjectPreview,
+  getObjectTags,
   listBuckets,
   listObjects,
+  putObjectTags,
   renameFolder,
   renameObject,
   updateBucketSettings,
@@ -614,6 +616,68 @@ describe("uploadObjects", () => {
     expect(result.errors).toHaveLength(1)
     expect(result.errors[0]?.name).toBe("beta.json")
     expect(result.errors[0]?.message).toBe("S3 write error")
+  })
+})
+
+describe("getObjectTags", () => {
+  it("should return tags mapped from TagSet", async () => {
+    mockSend.mockResolvedValueOnce({
+      TagSet: [{ Key: "env", Value: "local" }],
+    })
+    const result = await getObjectTags("my-bucket", "file.txt")
+    expect(result).toEqual({ tags: [{ key: "env", value: "local" }] })
+  })
+
+  it("should return empty tags when TagSet is undefined", async () => {
+    mockSend.mockResolvedValueOnce({ TagSet: undefined })
+    const result = await getObjectTags("my-bucket", "file.txt")
+    expect(result).toEqual({ tags: [] })
+  })
+
+  it("should throw ServiceError OperationFailed on SDK error", async () => {
+    mockSend.mockRejectedValueOnce(new Error("Access denied"))
+    await expect(getObjectTags("my-bucket", "file.txt")).rejects.toMatchObject({
+      code: "OperationFailed",
+    })
+  })
+})
+
+describe("putObjectTags", () => {
+  it("should succeed when SDK returns successfully", async () => {
+    mockSend.mockResolvedValueOnce({})
+    await expect(
+      putObjectTags("my-bucket", "file.txt", {
+        tags: [{ key: "env", value: "local" }],
+      }),
+    ).resolves.toBeUndefined()
+    expect(mockSend).toHaveBeenCalledTimes(1)
+  })
+
+  it("should pass correct TagSet to PutObjectTaggingCommand", async () => {
+    mockSend.mockResolvedValueOnce({})
+    await putObjectTags("my-bucket", "file.txt", {
+      tags: [
+        { key: "env", value: "local" },
+        { key: "team", value: "dev" },
+      ],
+    })
+    const calls = mockSend.mock.calls as unknown[][]
+    expect(
+      (calls[0]?.[0] as { input?: { Tagging?: { TagSet?: unknown } } }).input
+        ?.Tagging?.TagSet,
+    ).toEqual([
+      { Key: "env", Value: "local" },
+      { Key: "team", Value: "dev" },
+    ])
+  })
+
+  it("should throw ServiceError OperationFailed on SDK error", async () => {
+    mockSend.mockRejectedValueOnce(new Error("Write failed"))
+    await expect(
+      putObjectTags("my-bucket", "file.txt", { tags: [] }),
+    ).rejects.toMatchObject({
+      code: "OperationFailed",
+    })
   })
 })
 

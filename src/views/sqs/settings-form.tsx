@@ -45,6 +45,34 @@ export function SQSSettingsForm({ init, sidebarCounts }: SQSSettingsFormProps) {
                 これは FIFO queue です。FIFO
                 タイプとコンテンツベース重複排除は作成後に変更できません。
               </p>
+              <div class="sqs-settings-page__message-grid">
+                <div class="form-row">
+                  <label class="form-label" for="sqs-deduplication-scope">
+                    Deduplication Scope
+                  </label>
+                  <select
+                    id="sqs-deduplication-scope"
+                    class="select"
+                    x-model="deduplicationScope"
+                  >
+                    <option value="queue">queue</option>
+                    <option value="messageGroup">messageGroup</option>
+                  </select>
+                </div>
+                <div class="form-row">
+                  <label class="form-label" for="sqs-fifo-throughput-limit">
+                    FIFO Throughput Limit
+                  </label>
+                  <select
+                    id="sqs-fifo-throughput-limit"
+                    class="select"
+                    x-model="fifoThroughputLimit"
+                  >
+                    <option value="perQueue">perQueue</option>
+                    <option value="perMessageGroupId">perMessageGroupId</option>
+                  </select>
+                </div>
+              </div>
             </div>
           ) : null}
 
@@ -238,7 +266,7 @@ export function SQSSettingsForm({ init, sidebarCounts }: SQSSettingsFormProps) {
           </div>
 
           <div class="error-inline" x-show="error" x-cloak>
-            <strong>Error:</strong> <span x-text="error" />
+            <strong>エラー:</strong> <span x-text="error" />
           </div>
 
           <div class="form-actions">

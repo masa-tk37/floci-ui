@@ -90,6 +90,20 @@ export function QueryBuilder({ tableName, sidebarCounts }: QueryBuilderProps) {
           </div>
 
           <div class="form-row">
+            <label class="form-label" for="expressionAttributeNames">
+              ExpressionAttributeNames{" "}
+              <span class="form-label__hint">(JSON, 省略可)</span>
+            </label>
+            <textarea
+              id="expressionAttributeNames"
+              class="textarea"
+              rows="3"
+              x-model="expressionAttributeNames"
+              placeholder={'{ "#s": "status", "#sz": "size" }'}
+            />
+          </div>
+
+          <div class="form-row">
             <label class="form-label" for="indexName">
               IndexName <span class="form-label__hint">(省略可)</span>
             </label>

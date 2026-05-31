@@ -1,4 +1,5 @@
 import { Html } from "@elysiajs/html"
+import { escapeHtml } from "@kitajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import type { ParameterSummary } from "../../services/ssm/parameter-service"
@@ -63,7 +64,7 @@ export function ParameterList({
                   const path = `/ssm/${id}`
                   return (
                     <tr
-                      data-filter-text={`${parameter.name} ${parameter.type} ${parameter.tier}`}
+                      data-filter-text={`${escapeHtml(parameter.name)} ${parameter.type} ${parameter.tier}`}
                       x-show="matches($el.dataset.filterText)"
                     >
                       <td>
@@ -82,7 +83,7 @@ export function ParameterList({
                           type="button"
                           class="btn btn--danger-ghost btn--sm"
                           data-floci-delete-trigger=""
-                          data-resource-name={parameter.name}
+                          data-resource-name={escapeHtml(parameter.name)}
                           data-delete-url={path}
                           data-on-success="reload"
                         >

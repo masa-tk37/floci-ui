@@ -58,15 +58,21 @@ const getParameterDetailMock = mock(async () => ({
 const listParametersMock = mock(async () => [])
 const updateParameterMock = mock(async () => undefined)
 
+const addUserToGroupMock = mock(async () => undefined)
+const createGroupMock = mock(async () => "group-1")
 const createUserPoolMock = mock(async () => "pool-1")
 const createUserPoolClientMock = mock(async () => "client-1")
 const createUserMock = mock(async () => "alice")
 const confirmUserSignUpMock = mock(async () => undefined)
+const deleteGroupMock = mock(async () => undefined)
 const deleteUserMock = mock(async () => undefined)
 const deleteUserPoolMock = mock(async () => undefined)
 const deleteUserPoolClientMock = mock(async () => undefined)
 const disableUserMock = mock(async () => undefined)
 const enableUserMock = mock(async () => undefined)
+const listGroupsMock = mock(async () => [])
+const listUsersInGroupMock = mock(async () => [])
+const removeUserFromGroupMock = mock(async () => undefined)
 const getUserDetailMock = mock(async () => ({
   username: "alice",
   status: "CONFIRMED",
@@ -97,6 +103,7 @@ const setUserPasswordMock = mock(async () => undefined)
 const createQueueMock = mock(async () => undefined)
 const deleteMessageMock = mock(async () => undefined)
 const deleteQueueMock = mock(async () => undefined)
+const sendMessageBatchMock = mock(async () => ({ successful: [], failed: [] }))
 const getQueueAttributesMock = mock(async () => ({
   depth: 1,
   inFlight: 0,
@@ -113,13 +120,13 @@ const getQueueMessagesMock = mock(async () => [
     receiptHandle: "receipt-1",
     body: "hello world",
     sentTimestamp: 1_714_960_000_000,
+    receiveCount: null,
   },
 ])
 const getQueueDetailMock = mock(async () => ({
   attributes: await getQueueAttributesMock(),
   messages: await getQueueMessagesMock(),
 }))
-const getQueueMessageBodyMock = mock(async () => "hello world")
 const getQueueSettingsMock = mock(async () => ({
   name: "demo",
   isFifo: false,
@@ -181,7 +188,9 @@ const getObjectPreviewMock = mock(async () => ({
   text: "preview",
   truncated: false,
 }))
+const getBucketVersioningEnabledMock = mock(async () => false)
 const listBucketsMock = mock(async () => [])
+const listObjectVersionsMock = mock(async () => ({ versions: [] }))
 const listObjectsMock = mock(async () => ({ objects: [], folders: [] }))
 const renameFolderMock = mock(async () => ({
   copiedCount: 1,
@@ -202,6 +211,8 @@ const updateObjectPropertiesMock = mock(async () => ({
   metadata: {},
 }))
 const uploadObjectsMock = mock(async () => ({ uploadedCount: 1, errors: [] }))
+const getObjectTagsMock = mock(async () => ({ tags: [] }))
+const putObjectTagsMock = mock(async () => undefined)
 
 const createTableMock = mock(async () => undefined)
 const deleteItemMock = mock(async () => undefined)
@@ -261,10 +272,13 @@ function buildTestApp() {
       updateParameter: updateParameterMock,
     },
     cognito: {
+      addUserToGroup: addUserToGroupMock,
       confirmUserSignUp: confirmUserSignUpMock,
+      createGroup: createGroupMock,
       createUser: createUserMock,
       createUserPool: createUserPoolMock,
       createUserPoolClient: createUserPoolClientMock,
+      deleteGroup: deleteGroupMock,
       deleteUser: deleteUserMock,
       deleteUserPool: deleteUserPoolMock,
       deleteUserPoolClient: deleteUserPoolClientMock,
@@ -272,25 +286,29 @@ function buildTestApp() {
       enableUser: enableUserMock,
       getUserDetail: getUserDetailMock,
       getUserPoolDetail: getUserPoolDetailMock,
+      listGroups: listGroupsMock,
       listUserPoolClients: listUserPoolClientsMock,
       listUserPools: listUserPoolsMock,
       listUsers: listUsersMock,
+      listUsersInGroup: listUsersInGroupMock,
       loadSidebarSafe: sidebarDataMock,
+      removeUserFromGroup: removeUserFromGroupMock,
       setUserPassword: setUserPasswordMock,
     },
     sqs: {
       createQueue: createQueueMock,
       deleteMessage: deleteMessageMock,
+      deleteMessageById: deleteMessageMock,
       deleteQueue: deleteQueueMock,
       getQueueAttributes: getQueueAttributesMock,
       getQueueDetail: getQueueDetailMock,
-      getQueueMessageBody: getQueueMessageBodyMock,
       getQueueMessages: getQueueMessagesMock,
       getQueueSettings: getQueueSettingsMock,
       listQueues: listQueuesMock,
       loadSidebarSafe: sidebarDataMock,
       purgeQueue: purgeQueueMock,
       sendMessage: sendMessageMock,
+      sendMessageBatch: sendMessageBatchMock,
       updateQueueSettings: updateQueueSettingsMock,
     },
     s3: {
@@ -300,12 +318,16 @@ function buildTestApp() {
       deleteObject: deleteObjectMock,
       deleteSelectedObjects: deleteSelectedObjectsMock,
       getBucketSettings: getBucketSettingsMock,
+      getBucketVersioningEnabled: getBucketVersioningEnabledMock,
       getObjectDetails: getObjectDetailsMock,
       getObjectForDownload: getObjectForDownloadMock,
       getObjectPreview: getObjectPreviewMock,
+      getObjectTags: getObjectTagsMock,
       listBuckets: listBucketsMock,
+      listObjectVersions: listObjectVersionsMock,
       listObjects: listObjectsMock,
       loadSidebarSafe: sidebarDataMock,
+      putObjectTags: putObjectTagsMock,
       renameFolder: renameFolderMock,
       renameObject: renameObjectMock,
       updateBucketSettings: updateBucketSettingsMock,

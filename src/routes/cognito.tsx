@@ -2,10 +2,13 @@ import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
 import { decodeResourceName } from "../infrastructure/resource-name-codec"
 import {
+  addUserToGroup,
   confirmUserSignUp,
+  createGroup,
   createUser,
   createUserPool,
   createUserPoolClient,
+  deleteGroup,
   deleteUser,
   deleteUserPool,
   deleteUserPoolClient,
@@ -13,9 +16,12 @@ import {
   enableUser,
   getUserDetail,
   getUserPoolDetail,
+  listGroups,
   listUserPoolClients,
   listUserPools,
   listUsers,
+  listUsersInGroup,
+  removeUserFromGroup,
   setUserPassword,
 } from "../services/cognito/cognito-service"
 import { loadSidebarSafe } from "../services/sidebar-service"
@@ -47,6 +53,15 @@ const createAppClientSchema = t.Object({
   name: t.String({ minLength: 1 }),
 })
 
+const createGroupSchema = t.Object({
+  name: t.String({ minLength: 1 }),
+  description: t.Optional(t.String()),
+})
+
+const addGroupMemberSchema = t.Object({
+  username: t.String({ minLength: 1 }),
+})
+
 const createUserSchema = t.Object({
   username: t.String({ minLength: 1 }),
   temporaryPassword: t.String({ minLength: 1 }),
@@ -60,10 +75,13 @@ const setPasswordSchema = t.Object({
 })
 
 export interface CognitoRouteDeps {
+  addUserToGroup: typeof addUserToGroup
   confirmUserSignUp: typeof confirmUserSignUp
+  createGroup: typeof createGroup
   createUser: typeof createUser
   createUserPool: typeof createUserPool
   createUserPoolClient: typeof createUserPoolClient
+  deleteGroup: typeof deleteGroup
   deleteUser: typeof deleteUser
   deleteUserPool: typeof deleteUserPool
   deleteUserPoolClient: typeof deleteUserPoolClient
@@ -71,18 +89,24 @@ export interface CognitoRouteDeps {
   enableUser: typeof enableUser
   getUserDetail: typeof getUserDetail
   getUserPoolDetail: typeof getUserPoolDetail
+  listGroups: typeof listGroups
   listUserPoolClients: typeof listUserPoolClients
   listUserPools: typeof listUserPools
   listUsers: typeof listUsers
+  listUsersInGroup: typeof listUsersInGroup
   loadSidebarSafe: typeof loadSidebarSafe
+  removeUserFromGroup: typeof removeUserFromGroup
   setUserPassword: typeof setUserPassword
 }
 
 const defaultCognitoRouteDeps: CognitoRouteDeps = {
+  addUserToGroup,
   confirmUserSignUp,
+  createGroup,
   createUser,
   createUserPool,
   createUserPoolClient,
+  deleteGroup,
   deleteUser,
   deleteUserPool,
   deleteUserPoolClient,
@@ -90,10 +114,13 @@ const defaultCognitoRouteDeps: CognitoRouteDeps = {
   enableUser,
   getUserDetail,
   getUserPoolDetail,
+  listGroups,
   listUserPoolClients,
   listUserPools,
   listUsers,
+  listUsersInGroup,
   loadSidebarSafe,
+  removeUserFromGroup,
   setUserPassword,
 }
 
@@ -134,17 +161,20 @@ export function createCognitoRoutes(
       { body: createUserPoolSchema },
     )
     .get("/:poolId", async ({ params }) => {
-      const [pool, appClients, users, { sidebarCounts }] = await Promise.all([
-        deps.getUserPoolDetail(params.poolId),
-        deps.listUserPoolClients(params.poolId),
-        deps.listUsers(params.poolId),
-        loadSidebarPage(deps),
-      ])
+      const [pool, appClients, users, groups, { sidebarCounts }] =
+        await Promise.all([
+          deps.getUserPoolDetail(params.poolId),
+          deps.listUserPoolClients(params.poolId),
+          deps.listUsers(params.poolId),
+          deps.listGroups(params.poolId),
+          loadSidebarPage(deps),
+        ])
       return (
         <UserPoolDetail
           pool={pool}
           appClients={appClients}
           users={users}
+          groups={groups}
           sidebarCounts={sidebarCounts}
         />
       )
@@ -153,6 +183,53 @@ export function createCognitoRoutes(
       runJsonAction(set, async () => {
         await deps.deleteUserPool(params.poolId)
       }),
+    )
+    .post(
+      "/:poolId/groups",
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => ({
+          name: await deps.createGroup(params.poolId, body),
+        })),
+      { body: createGroupSchema },
+    )
+    .delete("/:poolId/groups/:groupName", async ({ params, set }) =>
+      runJsonAction(set, async () => {
+        await deps.deleteGroup(
+          params.poolId,
+          decodeURIComponent(params.groupName),
+        )
+      }),
+    )
+    .get("/:poolId/groups/:groupName/users", async ({ params, set }) =>
+      runJsonAction(set, async () => ({
+        users: await deps.listUsersInGroup(
+          params.poolId,
+          decodeURIComponent(params.groupName),
+        ),
+      })),
+    )
+    .post(
+      "/:poolId/groups/:groupName/users",
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
+          await deps.addUserToGroup(
+            params.poolId,
+            decodeURIComponent(params.groupName),
+            body.username,
+          )
+        }),
+      { body: addGroupMemberSchema },
+    )
+    .delete(
+      "/:poolId/groups/:groupName/users/:username",
+      async ({ params, set }) =>
+        runJsonAction(set, async () => {
+          await deps.removeUserFromGroup(
+            params.poolId,
+            decodeURIComponent(params.groupName),
+            decodeURIComponent(params.username),
+          )
+        }),
     )
     .post(
       "/:poolId/clients",

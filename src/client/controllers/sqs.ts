@@ -1,4 +1,5 @@
 import type { SQSSettingsInitial } from "../../views/sqs/settings-form-state"
+import { PLACEHOLDER } from "../../views/format"
 import {
   dispatchToast,
   errorMessage,
@@ -33,13 +34,48 @@ function buildSqsAttributes(input: SqsAttributesInput): Record<string, string> {
       deadLetterTargetArn: input.dlqTargetArn,
       maxReceiveCount: Number(input.dlqMaxReceiveCount),
     })
+  } else {
+    attributes.RedrivePolicy = ""
   }
 
   if (input.kmsEnabled && input.kmsMasterKeyId) {
     attributes.KmsMasterKeyId = input.kmsMasterKeyId
+  } else {
+    attributes.KmsMasterKeyId = ""
   }
 
   return attributes
+}
+
+function validateSqsAttributes(input: SqsAttributesInput): string | null {
+  if (input.visibilityTimeout < 0 || input.visibilityTimeout > 43200) {
+    return "可視性タイムアウトは 0〜43200 の範囲で入力してください"
+  }
+  if (
+    input.messageRetentionPeriod < 60 ||
+    input.messageRetentionPeriod > 1209600
+  ) {
+    return "保持期間は 60〜1209600 の範囲で入力してください"
+  }
+  if (input.delaySeconds < 0 || input.delaySeconds > 900) {
+    return "配信遅延は 0〜900 の範囲で入力してください"
+  }
+  if (
+    input.receiveMessageWaitTimeSeconds < 0 ||
+    input.receiveMessageWaitTimeSeconds > 20
+  ) {
+    return "ロングポーリング待機は 0〜20 の範囲で入力してください"
+  }
+  if (input.maximumMessageSize < 1024 || input.maximumMessageSize > 262144) {
+    return "最大メッセージサイズは 1024〜262144 の範囲で入力してください"
+  }
+  if (
+    input.dlqEnabled &&
+    (input.dlqMaxReceiveCount < 1 || input.dlqMaxReceiveCount > 1000)
+  ) {
+    return "最大受信回数は 1〜1000 の範囲で入力してください"
+  }
+  return null
 }
 
 function buildSqsTagsPayload(tags: { key: string; value: string }[]) {
@@ -55,6 +91,7 @@ interface PeekedMessage {
   receiptHandle?: string
   body: string
   sentTimestamp: number | null
+  receiveCount: number | null
 }
 
 interface QueueAttributes {
@@ -77,7 +114,7 @@ interface QueueDetailControllerProps {
 }
 
 function approximateAge(sentTimestamp: number | null): string {
-  if (!sentTimestamp) return "—"
+  if (!sentTimestamp) return PLACEHOLDER
   const ageMs = Date.now() - sentTimestamp
   if (ageMs < 0) return "0s"
   const sec = Math.floor(ageMs / 1000)
@@ -91,7 +128,25 @@ function approximateAge(sentTimestamp: number | null): string {
 }
 
 function truncate(body: string): string {
-  return body.length > 300 ? `${body.slice(0, 300)}…` : body
+  try {
+    const parsed = JSON.parse(body)
+    if (Array.isArray(parsed)) {
+      return `[配列 ${parsed.length} 件]`
+    }
+    if (parsed !== null && typeof parsed === "object") {
+      const keys = Object.keys(parsed)
+      const preview = keys.slice(0, 5).join(", ")
+      const suffix = keys.length > 5 ? `, …+${keys.length - 5}` : ""
+      return `{${preview}${suffix}}`
+    }
+    const str = String(parsed)
+    return str.length > 120 ? `${str.slice(0, 120)}…` : str
+  } catch {
+    if (body.length <= 120) return body
+    const cut = body.slice(0, 120)
+    const lastSpace = cut.lastIndexOf(" ")
+    return lastSpace > 60 ? `${cut.slice(0, lastSpace)}…` : `${cut}…`
+  }
 }
 
 export function createSqsCreateQueueController(
@@ -144,6 +199,10 @@ export function createSqsCreateQueueController(
 
     async submit() {
       this.error = null
+
+      this.error = validateSqsAttributes(this)
+      if (this.error) return
+
       this.submitting = true
       try {
         await requestJson("/sqs", {
@@ -166,6 +225,7 @@ export function createSqsSettingsController(
 ) {
   const { name } = init
   return {
+    isFifo: init.isFifo,
     visibilityTimeout: init.visibilityTimeout,
     messageRetentionPeriod: init.messageRetentionPeriod,
     delaySeconds: init.delaySeconds,
@@ -176,6 +236,8 @@ export function createSqsSettingsController(
     dlqMaxReceiveCount: init.dlqMaxReceiveCount,
     kmsEnabled: init.kmsEnabled,
     kmsMasterKeyId: init.kmsMasterKeyId,
+    deduplicationScope: init.deduplicationScope ?? "queue",
+    fifoThroughputLimit: init.fifoThroughputLimit ?? "perQueue",
     tags: [...init.tags],
     error: null as string | null,
     submitting: false,
@@ -183,14 +245,23 @@ export function createSqsSettingsController(
     ...tagMixin,
 
     buildPayload() {
+      const attributes = buildSqsAttributes(this)
+      if (this.isFifo) {
+        attributes.DeduplicationScope = this.deduplicationScope
+        attributes.FifoThroughputLimit = this.fifoThroughputLimit
+      }
       return {
-        attributes: buildSqsAttributes(this),
+        attributes,
         tags: buildSqsTagsPayload(this.tags),
       }
     },
 
     async submit() {
       this.error = null
+
+      this.error = validateSqsAttributes(this)
+      if (this.error) return
+
       this.submitting = true
 
       try {
@@ -215,16 +286,20 @@ export function createSqsQueueDetailController(
 ) {
   return {
     open: false,
+    batchMode: false,
     body: "",
     groupId: "",
     deduplicationId: "",
     sending: false,
     lastId: "",
     error: "",
+    batchBodies: "",
+    batchSending: false,
+    batchResult: "",
+    batchError: "",
     selectedMsg: null as {
       id: string
-      receipt: string
-      body?: string
+      body: string
     } | null,
     bodyLoading: false,
     bodyError: "",
@@ -240,10 +315,60 @@ export function createSqsQueueDetailController(
     approximateAge,
     truncate,
 
+    openSend() {
+      this.open = true
+    },
+
     close() {
-      if (this.sending) return
+      if (this.sending || this.batchSending) return
       this.open = false
       this.error = ""
+      this.batchError = ""
+    },
+
+    async sendBatch() {
+      const lines = this.batchBodies
+        .split("\n")
+        .map((l: string) => l.trim())
+        .filter((l: string) => l.length > 0)
+      if (lines.length === 0) {
+        this.batchError = "メッセージを1件以上入力してください"
+        return
+      }
+      if (lines.length > 10) {
+        this.batchError = "バッチ送信は最大10件です"
+        return
+      }
+      this.batchSending = true
+      this.batchError = ""
+      this.batchResult = ""
+
+      const entries = lines.map((body: string, i: number) => ({
+        id: `msg-${i}`,
+        body,
+      }))
+
+      try {
+        const data = await requestJson<{
+          result: {
+            successful: { id: string; messageId: string }[]
+            failed: { id: string; code: string; message?: string }[]
+          }
+        }>(`${props.queuePath}/send-batch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entries }),
+        })
+        const { successful, failed } = data.result
+        this.batchResult = `成功 ${successful.length} 件 / 失敗 ${failed.length} 件`
+        this.batchBodies = ""
+        this.batchSending = false
+        this.open = false
+        await this.refreshState()
+      } catch (error) {
+        this.batchError = errorMessage(error)
+        this.batchSending = false
+      }
     },
 
     async send() {
@@ -312,23 +437,12 @@ export function createSqsQueueDetailController(
       }
     },
 
-    async openMessageModal(detail: { id: string; receipt: string }) {
+    openMessageModal(detail: { id: string; body: string }) {
       this.selectedMsg = detail
-      this.bodyLoading = true
+      this.bodyLoading = false
       this.bodyError = ""
       this.deleteError = ""
       this.deleting = false
-
-      try {
-        const data = await requestJson<{ body: string }>(
-          `${props.queuePath}/messages/${detail.id}/body`,
-        )
-        this.selectedMsg = { ...detail, body: data.body }
-        this.bodyLoading = false
-      } catch (error) {
-        this.bodyError = errorMessage(error)
-        this.bodyLoading = false
-      }
     },
 
     async deleteMsg() {
@@ -341,7 +455,7 @@ export function createSqsQueueDetailController(
         await requestJson(`${props.queuePath}/message`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ receipt: this.selectedMsg.receipt }),
+          body: JSON.stringify({ messageId: this.selectedMsg.id }),
         })
         this.selectedMsg = null
         this.deleting = false
@@ -352,10 +466,23 @@ export function createSqsQueueDetailController(
       }
     },
 
+    get formattedBody(): string {
+      const body = this.selectedMsg?.body ?? ""
+      try {
+        return JSON.stringify(JSON.parse(body), null, 2)
+      } catch {
+        return body
+      }
+    },
+
+    copyBody() {
+      navigator.clipboard.writeText(this.selectedMsg?.body ?? "")
+    },
+
     selectMsg(msg: PeekedMessage) {
       this.openMessageModal({
         id: msg.messageId,
-        receipt: msg.receiptHandle ?? "",
+        body: msg.body,
       })
     },
 

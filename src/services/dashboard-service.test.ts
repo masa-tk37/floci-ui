@@ -48,16 +48,18 @@ beforeEach(() => {
   listUserPoolsMock.mockClear()
 })
 
+const allLoaders = {
+  listTables: listTablesMock,
+  listBuckets: listBucketsMock,
+  listQueues: listQueuesMock,
+  listParameters: listParametersMock,
+  listSecrets: listSecretsMock,
+  listUserPools: listUserPoolsMock,
+}
+
 describe("loadDashboardData", () => {
   it("returns service counts and sidebar counts when all services succeed", async () => {
-    const result = await loadDashboardData({
-      listTables: listTablesMock,
-      listBuckets: listBucketsMock,
-      listQueues: listQueuesMock,
-      listParameters: listParametersMock,
-      listSecrets: listSecretsMock,
-      listUserPools: listUserPoolsMock,
-    })
+    const result = await loadDashboardData(allLoaders)
     expect(result.dynamodb).toEqual({
       count: 2,
       items: ["users", "orders"],
@@ -92,17 +94,10 @@ describe("loadDashboardData", () => {
     })
   })
 
-  it("marks the dashboard offline when any service fails", async () => {
+  it("marks failed service as error but still returns sidebarCounts with 0 for that service", async () => {
     listBucketsMock.mockRejectedValueOnce(new Error("connection refused"))
 
-    const result = await loadDashboardData({
-      listTables: listTablesMock,
-      listBuckets: listBucketsMock,
-      listQueues: listQueuesMock,
-      listParameters: listParametersMock,
-      listSecrets: listSecretsMock,
-      listUserPools: listUserPoolsMock,
-    })
+    const result = await loadDashboardData(allLoaders)
 
     expect(result.dynamodb.error).toBeUndefined()
     expect(result.s3).toEqual({
@@ -114,6 +109,8 @@ describe("loadDashboardData", () => {
     expect(result.ssm.error).toBeUndefined()
     expect(result.secrets.error).toBeUndefined()
     expect(result.cognito.error).toBeUndefined()
-    expect(result.sidebarCounts).toBeUndefined()
+    expect(result.sidebarCounts).toBeDefined()
+    expect(result.sidebarCounts?.buckets).toBe(0)
+    expect(result.sidebarCounts?.tables).toBe(2)
   })
 })

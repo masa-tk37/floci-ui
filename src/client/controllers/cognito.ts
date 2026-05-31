@@ -4,6 +4,12 @@ interface CreateModalProps {
   poolPath: string
 }
 
+interface GroupMemberUser {
+  username: string
+  email: string
+  status: string
+}
+
 interface UserDetailActionProps {
   enableUrl: string
   disableUrl: string
@@ -58,12 +64,97 @@ export function createCognitoPoolDetailController(
     createClient: createModalFormController(`${props.poolPath}/clients`, {
       name: "",
     }),
+    createGroup: createModalFormController(`${props.poolPath}/groups`, {
+      name: "",
+      description: "",
+    }),
     createUser: createModalFormController(`${props.poolPath}/users`, {
       username: "",
       temporaryPassword: "",
       email: "",
       phoneNumber: "",
     }),
+    groupMembers: {
+      isOpen: false,
+      groupName: "",
+      groupNameEncoded: "",
+      users: [] as GroupMemberUser[],
+      loading: false,
+      newUsername: "",
+      adding: false,
+      removing: false,
+      error: null as string | null,
+
+      async show(groupName: string, groupNameEncoded: string) {
+        this.groupName = groupName
+        this.groupNameEncoded = groupNameEncoded
+        this.isOpen = true
+        this.error = null
+        this.newUsername = ""
+        await this.fetchMembers()
+      },
+
+      close() {
+        this.isOpen = false
+        this.users = []
+        this.error = null
+        this.newUsername = ""
+      },
+
+      async fetchMembers() {
+        this.loading = true
+        this.error = null
+        try {
+          const result = await requestJson<{ users: GroupMemberUser[] }>(
+            `${props.poolPath}/groups/${this.groupNameEncoded}/users`,
+          )
+          this.users = result.users
+        } catch (error) {
+          this.error = errorMessage(error)
+        } finally {
+          this.loading = false
+        }
+      },
+
+      async addMember() {
+        const username = this.newUsername.trim()
+        if (!username) return
+        this.error = null
+        this.adding = true
+        try {
+          await requestJson(
+            `${props.poolPath}/groups/${this.groupNameEncoded}/users`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username }),
+            },
+          )
+          this.newUsername = ""
+          await this.fetchMembers()
+        } catch (error) {
+          this.error = errorMessage(error)
+        } finally {
+          this.adding = false
+        }
+      },
+
+      async removeMember(username: string) {
+        this.error = null
+        this.removing = true
+        try {
+          await requestJson(
+            `${props.poolPath}/groups/${this.groupNameEncoded}/users/${encodeURIComponent(username)}`,
+            { method: "DELETE" },
+          )
+          await this.fetchMembers()
+        } catch (error) {
+          this.error = errorMessage(error)
+        } finally {
+          this.removing = false
+        }
+      },
+    },
   }
 }
 

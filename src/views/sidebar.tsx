@@ -23,6 +23,7 @@ export function Sidebar({ active, counts }: SidebarProps) {
         href="/"
         class={`sidebar__brand${active === "dashboard" ? " is-active" : ""}`}
       >
+        <span class="sidebar__dot sidebar__dot--dashboard" />
         floci-ui
       </a>
       <nav class="sidebar__nav">

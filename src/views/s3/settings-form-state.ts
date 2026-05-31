@@ -10,9 +10,9 @@ export interface S3SettingsInitial {
   restrictPublicBuckets: boolean
   tags: { key: string; value: string }[]
   corsRules: {
-    allowedMethods: string
-    allowedOrigins: string
-    allowedHeaders: string
+    allowedMethods: string[]
+    allowedOrigins: string[]
+    allowedHeaders: string[]
     maxAge: number
   }[]
   lifecycleRules: { id: string; prefix: string; expirationDays: number }[]

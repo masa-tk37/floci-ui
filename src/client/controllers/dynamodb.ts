@@ -185,6 +185,26 @@ export function createDynamoCreateTableController(
 
     async submit() {
       this.error = null
+      for (const [i, g] of this.gsi.entries()) {
+        if (!g.indexName) {
+          this.error = `GSI ${i + 1}: インデックス名を入力してください`
+          return
+        }
+        if (!g.pk.name) {
+          this.error = `GSI ${i + 1}: PK 名を入力してください`
+          return
+        }
+      }
+      for (const [i, l] of this.lsi.entries()) {
+        if (!l.indexName) {
+          this.error = `LSI ${i + 1}: インデックス名を入力してください`
+          return
+        }
+        if (!l.sk.name) {
+          this.error = `LSI ${i + 1}: ソートキー名を入力してください`
+          return
+        }
+      }
       this.submitting = true
 
       try {
@@ -271,6 +291,14 @@ export function createDynamoItemEditController(
     },
 
     async submit() {
+      try {
+        JSON.parse(this.itemJson)
+      } catch (e) {
+        this.error =
+          "JSON の形式が正しくありません: " +
+          (e instanceof Error ? e.message : String(e))
+        return
+      }
       this.error = null
       this.submitting = true
       try {
@@ -299,6 +327,7 @@ export function createDynamoQueryBuilderController(
     keyConditionExpression: "",
     filterExpression: "",
     expressionAttributeValues: "",
+    expressionAttributeNames: "",
     indexName: "",
     results: [] as Record<string, unknown>[],
     columns: [] as string[],
@@ -315,6 +344,7 @@ export function createDynamoQueryBuilderController(
         keyConditionExpression: this.keyConditionExpression,
         filterExpression: this.filterExpression,
         expressionAttributeValues: this.expressionAttributeValues,
+        expressionAttributeNames: this.expressionAttributeNames,
         indexName: this.indexName,
         cursor: cursor || undefined,
       }
@@ -350,6 +380,30 @@ export function createDynamoQueryBuilderController(
     },
 
     async submit() {
+      if (this.mode === "query" && !this.keyConditionExpression) {
+        this.error = "Query モードでは KeyConditionExpression が必須です"
+        return
+      }
+      if (this.expressionAttributeValues) {
+        try {
+          JSON.parse(this.expressionAttributeValues)
+        } catch (e) {
+          this.error =
+            "ExpressionAttributeValues の JSON が不正です: " +
+            (e instanceof Error ? e.message : String(e))
+          return
+        }
+      }
+      if (this.expressionAttributeNames) {
+        try {
+          JSON.parse(this.expressionAttributeNames)
+        } catch (e) {
+          this.error =
+            "ExpressionAttributeNames の JSON が不正です: " +
+            (e instanceof Error ? e.message : String(e))
+          return
+        }
+      }
       await this.loadPage("", 0, [""])
     },
 
@@ -369,6 +423,41 @@ export function createDynamoQueryBuilderController(
         previousIndex,
         this.pageCursors.slice(0, this.currentPageIndex),
       )
+    },
+  }
+}
+
+export function createDynamoItemListController() {
+  return {
+    selectedCell: null as null | {
+      fieldName: string
+      formatted: string
+      raw: string
+    },
+
+    openCell(el: HTMLElement) {
+      const raw = el.dataset.json ?? ""
+      const fieldName = el.dataset.fieldName ?? ""
+      let formatted: string
+      try {
+        formatted = JSON.stringify(JSON.parse(raw), null, 2)
+      } catch {
+        formatted = raw
+      }
+      this.selectedCell = { fieldName, formatted, raw }
+    },
+
+    closeCell() {
+      this.selectedCell = null
+    },
+
+    async copyCell() {
+      if (!this.selectedCell) return
+      try {
+        await navigator.clipboard.writeText(this.selectedCell.raw)
+      } catch {
+        // clipboard API が使えない環境では何もしない
+      }
     },
   }
 }

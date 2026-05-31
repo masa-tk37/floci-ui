@@ -52,7 +52,7 @@ export function Layout({
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>{title} — floci-ui</title>
+        <title safe>{title} — floci-ui</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -95,6 +95,7 @@ export function Layout({
         <div
           {...mountComponentAttrs("delete-modal")}
           {...{ "x-on:open-delete-modal.window": "open($event.detail)" }}
+          {...{ "@keydown.escape.window": "cancel()" }}
           x-cloak
         >
           <div

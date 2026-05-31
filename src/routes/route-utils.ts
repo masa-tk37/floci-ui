@@ -106,7 +106,6 @@ const GET_JSON_API_PATTERNS = [
   /^\/s3\/[^/]+\/object-details$/,
   /^\/sqs\/[^/]+\/messages\.json$/,
   /^\/sqs\/[^/]+\/attributes\.json$/,
-  /^\/sqs\/[^/]+\/messages\/[^/]+\/body$/,
 ]
 
 export function isJsonApiRequest(request: Request): boolean {

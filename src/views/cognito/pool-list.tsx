@@ -1,4 +1,5 @@
 import { Html } from "@elysiajs/html"
+import { escapeHtml } from "@kitajs/html"
 
 import type { UserPoolSummary } from "../../services/cognito/cognito-service"
 import { mountComponentAttrs } from "../client"
@@ -58,7 +59,7 @@ export function UserPoolList({ userPools, sidebarCounts }: UserPoolListProps) {
 
                   return (
                     <tr
-                      data-filter-text={`${pool.name} ${pool.id}`}
+                      data-filter-text={`${escapeHtml(pool.name)} ${pool.id}`}
                       x-show="matches($el.dataset.filterText)"
                     >
                       <td>
@@ -75,7 +76,7 @@ export function UserPoolList({ userPools, sidebarCounts }: UserPoolListProps) {
                           type="button"
                           class="btn btn--danger-ghost btn--sm"
                           data-floci-delete-trigger=""
-                          data-resource-name={pool.name}
+                          data-resource-name={escapeHtml(pool.name)}
                           data-delete-url={path}
                           data-on-success="reload"
                         >

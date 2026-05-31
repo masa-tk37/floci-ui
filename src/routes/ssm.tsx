@@ -37,7 +37,7 @@ const parameterTierSchema = t.Union([
 const createParameterSchema = t.Object({
   name: t.String({ minLength: 1 }),
   type: parameterTypeSchema,
-  value: t.String(),
+  value: t.String({ minLength: 1 }),
   description: t.Optional(t.String()),
   tier: t.Optional(parameterTierSchema),
   keyId: t.Optional(t.String()),
@@ -46,7 +46,7 @@ const createParameterSchema = t.Object({
 
 const updateParameterSchema = t.Object({
   type: parameterTypeSchema,
-  value: t.String(),
+  value: t.String({ minLength: 1 }),
   description: t.Optional(t.String()),
   tier: t.Optional(parameterTierSchema),
   keyId: t.Optional(t.String()),

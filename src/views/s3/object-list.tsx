@@ -1,4 +1,5 @@
 import { Html } from "@elysiajs/html"
+import { escapeHtml } from "@kitajs/html"
 import { ClientProps, mountComponentAttrs } from "../client"
 import {
   IconFile,
@@ -9,7 +10,7 @@ import {
 } from "../icons"
 import { Layout } from "../layout"
 import { ResourceRail } from "../resource-rail"
-import { formatDate } from "../format"
+import { formatDate, formatRelativeDate, PLACEHOLDER } from "../format"
 
 interface S3Object {
   Key?: string
@@ -21,6 +22,16 @@ interface CommonPrefix {
   Prefix?: string
 }
 
+interface ObjectVersionEntry {
+  key: string
+  versionId: string | undefined
+  size: number
+  lastModified: Date | undefined
+  isLatest: boolean
+  isDeleteMarker: boolean
+  eTag: string | undefined
+}
+
 interface ObjectListProps {
   bucket: string
   buckets?: { Name?: string }[]
@@ -28,6 +39,10 @@ interface ObjectListProps {
   objects: S3Object[]
   folders: CommonPrefix[]
   sidebarCounts?: import("../layout").SidebarCounts
+  nextCursor?: string
+  versioningEnabled?: boolean
+  showVersions?: boolean
+  versions?: ObjectVersionEntry[]
 }
 
 interface PathCrumb {
@@ -48,7 +63,7 @@ function buildPrefixCrumbs(prefix: string): PathCrumb[] {
 }
 
 function formatSize(bytes: number | undefined): string {
-  if (bytes === undefined) return "—"
+  if (bytes === undefined) return PLACEHOLDER
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   if (bytes < 1024 * 1024 * 1024)
@@ -68,6 +83,10 @@ export function ObjectList({
   objects,
   folders,
   sidebarCounts,
+  nextCursor,
+  versioningEnabled = false,
+  showVersions = false,
+  versions,
 }: ObjectListProps) {
   const prefixCrumbs = buildPrefixCrumbs(prefix)
   const bucketPath = `/s3/${encodeURIComponent(bucket)}`
@@ -153,6 +172,23 @@ export function ObjectList({
                 </a>
               </div>
             </section>
+
+            {versioningEnabled ? (
+              <div class="s3-object-list-page__tabs">
+                <a
+                  href={`${bucketPath}?${prefix ? `prefix=${encodeURIComponent(prefix)}` : ""}`}
+                  class={`tab${!showVersions ? " tab--active" : ""}`}
+                >
+                  オブジェクト
+                </a>
+                <a
+                  href={`${bucketPath}?${prefix ? `prefix=${encodeURIComponent(prefix)}&` : ""}versions=1`}
+                  class={`tab${showVersions ? " tab--active" : ""}`}
+                >
+                  バージョン
+                </a>
+              </div>
+            ) : null}
 
             <div
               x-show="isFolderModalOpen"
@@ -435,6 +471,52 @@ export function ObjectList({
                       x-text="propertyMetadata"
                     />
                   </div>
+
+                  <div class="form-row">
+                    <div class="form-label-row">
+                      <label class="form-label">タグ</label>
+                      <button
+                        type="button"
+                        class="btn btn--ghost btn--sm"
+                        {...{ "@click": "addPropertyTag()" }}
+                      >
+                        {IconPlus}追加
+                      </button>
+                    </div>
+                    <template x-if="propertyTags.length > 0">
+                      <div class="tag-list">
+                        <template
+                          x-for="(tag, index) in propertyTags"
+                          {...{ ":key": "index" }}
+                        >
+                          <div class="tag-row">
+                            <input
+                              type="text"
+                              class="input input--sm"
+                              placeholder="キー"
+                              {...{ "x-model": "tag.key" }}
+                            />
+                            <input
+                              type="text"
+                              class="input input--sm"
+                              placeholder="値"
+                              {...{ "x-model": "tag.value" }}
+                            />
+                            <button
+                              type="button"
+                              class="btn btn--ghost btn--sm"
+                              {...{ "@click": "removePropertyTag(index)" }}
+                            >
+                              削除
+                            </button>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+                    <p class="form-help" x-show="propertyTags.length === 0">
+                      タグなし
+                    </p>
+                  </div>
                 </div>
 
                 <div class="error-inline" x-show="propertyError" x-cloak>
@@ -476,7 +558,7 @@ export function ObjectList({
                 <button
                   type="button"
                   class="s3-object-list-page__action-menu-backdrop"
-                  aria-label="Close action menu"
+                  aria-label="アクションメニューを閉じる"
                   {...{ "x-on:click": "closeActionMenu()" }}
                 />
                 <div
@@ -527,7 +609,89 @@ export function ObjectList({
               </div>
             </template>
 
-            {folders.length === 0 && objects.length === 0 ? (
+            {showVersions && versions ? (
+              versions.length === 0 ? (
+                <p class="empty-state">バージョンがありません</p>
+              ) : (
+                <div class="data-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Version ID</th>
+                        <th class="data-table__num">Size</th>
+                        <th>Last modified</th>
+                        <th>Latest</th>
+                        <th>種別</th>
+                        <th class="data-table__actions">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {versions.map((v) => {
+                        const shortVersionId = v.versionId
+                          ? `${v.versionId.slice(0, 8)}…`
+                          : "—"
+                        const encodedKey = encodeURIComponent(v.key)
+                        const encodedVersionId = v.versionId
+                          ? encodeURIComponent(v.versionId)
+                          : ""
+                        const downloadUrl =
+                          !v.isDeleteMarker && v.versionId
+                            ? `${bucketPath}/download?key=${encodedKey}&versionId=${encodedVersionId}`
+                            : undefined
+                        const deleteUrl = `${bucketPath}/object?key=${encodedKey}${v.versionId ? `&versionId=${encodedVersionId}` : ""}`
+                        return (
+                          <tr class="data-table__row">
+                            <td safe>{v.key}</td>
+                            <td class="mono" title={v.versionId ?? ""} safe>
+                              {shortVersionId}
+                            </td>
+                            <td class="data-table__num" safe>
+                              {formatSize(v.size)}
+                            </td>
+                            <td safe>
+                              {v.lastModified
+                                ? formatDate(v.lastModified)
+                                : PLACEHOLDER}
+                            </td>
+                            <td>{v.isLatest ? "✓" : ""}</td>
+                            <td>
+                              {v.isDeleteMarker ? (
+                                <span class="badge">削除マーカー</span>
+                              ) : (
+                                <span>バージョン</span>
+                              )}
+                            </td>
+                            <td class="data-table__actions">
+                              {downloadUrl ? (
+                                <a
+                                  href={downloadUrl}
+                                  class="btn btn--ghost btn--sm"
+                                >
+                                  DL
+                                </a>
+                              ) : null}
+                              <button
+                                type="button"
+                                class="btn btn--danger-ghost btn--sm"
+                                data-floci-delete-trigger=""
+                                data-resource-name={escapeHtml(
+                                  `${v.key} (${shortVersionId})`,
+                                )}
+                                data-delete-url={deleteUrl}
+                                data-on-success="reload"
+                              >
+                                削除
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            ) : folders.length === 0 && objects.length === 0 ? (
               <p class="empty-state">このフォルダは空です</p>
             ) : (
               <>
@@ -585,7 +749,7 @@ export function ObjectList({
                                 type="checkbox"
                                 value={folderPrefix}
                                 x-model="selectedFolders"
-                                aria-label={`Select folder ${displayName}`}
+                                aria-label={`フォルダ ${displayName} を選択`}
                               />
                             </td>
                             <td>
@@ -606,11 +770,13 @@ export function ObjectList({
                                 <button
                                   type="button"
                                   class="btn btn--ghost btn--sm s3-object-list-page__action-trigger"
-                                  aria-label={`Open actions for folder ${displayName}`}
+                                  aria-label={`${displayName} のアクションを開く`}
                                   aria-haspopup="menu"
                                   data-menu-kind="folder"
                                   data-menu-rename-source={folderPrefix}
-                                  data-menu-resource-name={displayName}
+                                  data-menu-resource-name={escapeHtml(
+                                    displayName,
+                                  )}
                                   data-menu-detail-text="このフォルダを削除すると、配下のオブジェクトも削除されます。"
                                   data-menu-delete-url={`${bucketPath}/delete-objects`}
                                   data-menu-delete-method="POST"
@@ -647,7 +813,7 @@ export function ObjectList({
                                 type="checkbox"
                                 value={key}
                                 x-model="selectedFiles"
-                                aria-label={`Select file ${displayName}`}
+                                aria-label={`ファイル ${displayName} を選択`}
                               />
                             </td>
                             <td>
@@ -664,19 +830,31 @@ export function ObjectList({
                             <td class="data-table__num" safe>
                               {formatSize(obj.Size)}
                             </td>
-                            <td safe>{formatDate(obj.LastModified)}</td>
+                            <td
+                              title={
+                                obj.LastModified
+                                  ? formatDate(obj.LastModified)
+                                  : undefined
+                              }
+                            >
+                              <span safe>
+                                {formatRelativeDate(obj.LastModified)}
+                              </span>
+                            </td>
                             <td class="data-table__actions s3-object-list-page__actions-cell">
                               <div class="s3-object-list-page__action-menu">
                                 <button
                                   type="button"
                                   class="btn btn--ghost btn--sm s3-object-list-page__action-trigger"
-                                  aria-label={`Open actions for file ${displayName}`}
+                                  aria-label={`${displayName} のアクションを開く`}
                                   aria-haspopup="menu"
                                   data-menu-kind="file"
                                   data-menu-rename-source={key}
                                   data-menu-object-key={key}
                                   data-menu-download-url={`${bucketPath}/download?key=${encodedKey}`}
-                                  data-menu-resource-name={displayName}
+                                  data-menu-resource-name={escapeHtml(
+                                    displayName,
+                                  )}
                                   data-menu-delete-url={deleteUrl}
                                   data-menu-on-success="reload"
                                   {...{
@@ -696,6 +874,16 @@ export function ObjectList({
                     </tbody>
                   </table>
                 </div>
+                {nextCursor ? (
+                  <div class="pagination">
+                    <a
+                      href={`${bucketPath}?${new URLSearchParams({ ...(prefix ? { prefix } : {}), cursor: nextCursor }).toString()}`}
+                      class="btn btn--ghost btn--sm"
+                    >
+                      次のページ →
+                    </a>
+                  </div>
+                ) : null}
               </>
             )}
           </div>

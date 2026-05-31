@@ -22,6 +22,7 @@ export interface PeekedMessage {
   receiptHandle?: string
   body: string
   sentTimestamp: number | null
+  receiveCount: number | null
 }
 
 interface QueueDetailProps {
@@ -102,6 +103,56 @@ export function QueueDetail({
                     {attributes.queueArn}
                   </p>
                 ) : null}
+                {attributes.queueArn ? (
+                  <button
+                    type="button"
+                    class="btn btn--ghost btn--sm"
+                    x-data="{ copied: false }"
+                    {...{
+                      "@click":
+                        "navigator.clipboard.writeText($el.previousElementSibling.textContent); copied = true; setTimeout(() => copied = false, 1500)",
+                    }}
+                  >
+                    <span x-show="!copied">
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <rect
+                          x="9"
+                          y="9"
+                          width="13"
+                          height="13"
+                          rx="2"
+                          ry="2"
+                        />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    </span>
+                    <span x-show="copied" x-cloak>
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                  </button>
+                ) : null}
               </div>
               <div class="page-header__actions">
                 <a
@@ -163,10 +214,17 @@ export function QueueDetail({
                     <span class="send-form__feedback" x-show="lastId" x-cloak>
                       送信済み · <code x-text="lastId" />
                     </span>
+                    <span
+                      class="send-form__feedback"
+                      x-show="batchResult"
+                      x-cloak
+                    >
+                      バッチ送信: <span x-text="batchResult" />
+                    </span>
                     <button
                       type="button"
                       class="btn btn--sqs btn--sm"
-                      {...{ "@click": "open = true" }}
+                      {...{ "@click": "openSend()" }}
                     >
                       {IconPlus}送信
                     </button>
@@ -198,6 +256,7 @@ export function QueueDetail({
                         <th>メッセージ ID</th>
                         <th>本文プレビュー</th>
                         <th>経過時間</th>
+                        <th>受信回数</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -216,6 +275,7 @@ export function QueueDetail({
                             <pre class="msg-body" x-text="truncate(msg.body)" />
                           </td>
                           <td x-text="approximateAge(msg.sentTimestamp)" />
+                          <td x-text="msg.receiveCount ?? '—'" />
                         </tr>
                       </template>
                     </tbody>
@@ -234,74 +294,146 @@ export function QueueDetail({
                       "@keydown.escape.window": "close()",
                     }}
                   >
-                    <h2 class="modal__title">メッセージを送信</h2>
-                    <form
-                      class="send-form send-form--modal"
-                      {...{ "@submit.prevent": "send()" }}
-                    >
-                      <textarea
-                        rows="6"
-                        placeholder="Message body (text or JSON)"
-                        required
-                        x-model="body"
-                        class="send-form__textarea"
-                      />
-                      <template x-if="isFifo">
-                        <div class="form-row sqs-queue-detail-page__group-row">
-                          <label class="form-label" for="sqs-group-id">
-                            Message Group ID{" "}
-                            <span class="form-label__hint">(FIFO 必須)</span>
-                          </label>
-                          <input
-                            id="sqs-group-id"
-                            type="text"
-                            class="input"
-                            x-model="groupId"
-                            placeholder="my-group"
-                          />
-                        </div>
-                      </template>
-                      <template x-if="requiresDeduplicationId">
-                        <div class="form-row sqs-queue-detail-page__group-row">
-                          <label class="form-label" for="sqs-deduplication-id">
-                            Message Deduplication ID{" "}
-                            <span class="form-label__hint">
-                              (content-based dedup 無効時に必須)
-                            </span>
-                          </label>
-                          <input
-                            id="sqs-deduplication-id"
-                            type="text"
-                            class="input"
-                            x-model="deduplicationId"
-                            placeholder="my-dedup-id"
-                          />
-                        </div>
-                      </template>
-                      <div class="error-inline" x-show="error" x-cloak>
-                        <strong>エラー:</strong> <span x-text="error" />
-                      </div>
-                      <div class="modal__actions">
+                    <div class="modal__header-row">
+                      <h2 class="modal__title">メッセージを送信</h2>
+                      <div class="modal__tab-toggle">
                         <button
-                          type="submit"
-                          class="btn btn--sqs"
+                          type="button"
+                          class="btn btn--sm"
                           {...{
-                            ":disabled":
-                              "sending || !body || (isFifo && !groupId) || (requiresDeduplicationId && !deduplicationId)",
+                            ":class": "!batchMode ? 'btn--sqs' : 'btn--ghost'",
+                            "@click": "batchMode = false",
                           }}
                         >
-                          <span x-show="!sending">送信</span>
-                          <span x-show="sending">送信中…</span>
+                          1件
                         </button>
                         <button
                           type="button"
-                          class="btn btn--ghost"
-                          {...{ "@click": "close()", ":disabled": "sending" }}
+                          class="btn btn--sm"
+                          {...{
+                            ":class": "batchMode ? 'btn--sqs' : 'btn--ghost'",
+                            "@click": "batchMode = true",
+                          }}
                         >
-                          キャンセル
+                          バッチ
                         </button>
                       </div>
-                    </form>
+                    </div>
+
+                    <div x-show="!batchMode">
+                      <form
+                        class="send-form send-form--modal"
+                        {...{ "@submit.prevent": "send()" }}
+                      >
+                        <textarea
+                          rows="6"
+                          placeholder="Message body (text or JSON)"
+                          required
+                          x-model="body"
+                          class="send-form__textarea"
+                        />
+                        <template x-if="isFifo">
+                          <div class="form-row sqs-queue-detail-page__group-row">
+                            <label class="form-label" for="sqs-group-id">
+                              Message Group ID{" "}
+                              <span class="form-label__hint">(FIFO 必須)</span>
+                            </label>
+                            <input
+                              id="sqs-group-id"
+                              type="text"
+                              class="input"
+                              x-model="groupId"
+                              placeholder="my-group"
+                            />
+                          </div>
+                        </template>
+                        <template x-if="requiresDeduplicationId">
+                          <div class="form-row sqs-queue-detail-page__group-row">
+                            <label
+                              class="form-label"
+                              for="sqs-deduplication-id"
+                            >
+                              Message Deduplication ID{" "}
+                              <span class="form-label__hint">
+                                (content-based dedup 無効時に必須)
+                              </span>
+                            </label>
+                            <input
+                              id="sqs-deduplication-id"
+                              type="text"
+                              class="input"
+                              x-model="deduplicationId"
+                              placeholder="my-dedup-id"
+                            />
+                          </div>
+                        </template>
+                        <div class="error-inline" x-show="error" x-cloak>
+                          <strong>エラー:</strong> <span x-text="error" />
+                        </div>
+                        <div class="modal__actions">
+                          <button
+                            type="submit"
+                            class="btn btn--sqs"
+                            {...{
+                              ":disabled":
+                                "sending || !body || (isFifo && !groupId) || (requiresDeduplicationId && !deduplicationId)",
+                            }}
+                          >
+                            <span x-show="!sending">送信</span>
+                            <span x-show="sending">送信中…</span>
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn--ghost"
+                            {...{ "@click": "close()", ":disabled": "sending" }}
+                          >
+                            キャンセル
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                    <div x-show="batchMode">
+                      <form
+                        class="send-form send-form--modal"
+                        {...{ "@submit.prevent": "sendBatch()" }}
+                      >
+                        <p class="form-hint">1行 = 1メッセージ（最大10件）</p>
+                        <textarea
+                          rows="8"
+                          placeholder={"メッセージ1\nメッセージ2\nメッセージ3"}
+                          required
+                          x-model="batchBodies"
+                          class="send-form__textarea"
+                        />
+                        <div class="error-inline" x-show="batchError" x-cloak>
+                          <strong>エラー:</strong> <span x-text="batchError" />
+                        </div>
+                        <div class="modal__actions">
+                          <button
+                            type="submit"
+                            class="btn btn--sqs"
+                            {...{
+                              ":disabled":
+                                "batchSending || !batchBodies.trim()",
+                            }}
+                          >
+                            <span x-show="!batchSending">バッチ送信</span>
+                            <span x-show="batchSending">送信中…</span>
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn--ghost"
+                            {...{
+                              "@click": "close()",
+                              ":disabled": "batchSending",
+                            }}
+                          >
+                            キャンセル
+                          </button>
+                        </div>
+                      </form>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -312,7 +444,16 @@ export function QueueDetail({
                   {...{ "@click.self": "selectedMsg = null" }}
                 >
                   <div class="modal modal--wide">
-                    <h2 class="modal__title">メッセージ詳細</h2>
+                    <div class="modal__header-row">
+                      <h2 class="modal__title">メッセージ詳細</h2>
+                      <button
+                        type="button"
+                        class="btn btn--ghost btn--sm"
+                        {...{ "@click": "copyBody()" }}
+                      >
+                        コピー
+                      </button>
+                    </div>
                     <p class="sqs-queue-detail-page__message-id">
                       ID: <span x-text="selectedMsg.id" />
                     </p>
@@ -324,7 +465,7 @@ export function QueueDetail({
                     </template>
                     <pre
                       x-show="!bodyLoading && !bodyError"
-                      x-text="selectedMsg?.body ?? ''"
+                      x-text="formattedBody"
                       class="sqs-queue-detail-page__message-body"
                     />
                     <div class="error-inline" x-show="deleteError" x-cloak>
@@ -336,7 +477,7 @@ export function QueueDetail({
                         class="btn btn--danger-ghost"
                         {...{
                           "@click": "deleteMsg()",
-                          ":disabled": "deleting || !selectedMsg.receipt",
+                          ":disabled": "deleting",
                         }}
                       >
                         <span x-show="!deleting">削除</span>

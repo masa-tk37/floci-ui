@@ -97,6 +97,7 @@ export interface QueryInput {
   keyConditionExpression?: string
   filterExpression?: string
   expressionAttributeValuesJson?: string
+  expressionAttributeNamesJson?: string
   indexName?: string
   cursor?: string
 }
@@ -214,8 +215,16 @@ function assertItemMatchesRouteKey(
 }
 
 export async function listTables(): Promise<string[]> {
-  const { TableNames } = await dynamodb.send(new ListTablesCommand({}))
-  return TableNames ?? []
+  const names: string[] = []
+  let lastTableName: string | undefined
+  do {
+    const result = await dynamodb.send(
+      new ListTablesCommand({ ExclusiveStartTableName: lastTableName }),
+    )
+    names.push(...(result.TableNames ?? []))
+    lastTableName = result.LastEvaluatedTableName
+  } while (lastTableName !== undefined)
+  return names
 }
 
 export async function getTableDetail(tableName: string): Promise<TableDetail> {
@@ -312,7 +321,7 @@ export async function updateTable(
           TableName: tableName,
           TimeToLiveSpecification: {
             Enabled: input.ttlEnabled,
-            AttributeName: input.ttlEnabled ? input.ttlAttr : "ttl",
+            AttributeName: input.ttlAttr || "ttl",
           },
         }),
       )
@@ -377,6 +386,20 @@ export async function queryItems(
     }
   }
 
+  let expressionAttributeNames: Record<string, string> | undefined
+  if (input.expressionAttributeNamesJson?.trim()) {
+    try {
+      expressionAttributeNames = JSON.parse(
+        input.expressionAttributeNamesJson,
+      ) as Record<string, string>
+    } catch (err) {
+      throw new ServiceError(
+        "InvalidInput",
+        `Invalid ExpressionAttributeNames JSON: ${(err as Error).message}`,
+      )
+    }
+  }
+
   if (input.mode === "query") {
     if (!input.keyConditionExpression) {
       throw new ServiceError(
@@ -391,6 +414,7 @@ export async function queryItems(
           KeyConditionExpression: input.keyConditionExpression,
           FilterExpression: input.filterExpression || undefined,
           ExpressionAttributeValues: expressionAttributeValues,
+          ExpressionAttributeNames: expressionAttributeNames,
           IndexName: input.indexName || undefined,
           Limit: SCAN_PAGE_SIZE,
           ExclusiveStartKey: startKey,
@@ -411,6 +435,7 @@ export async function queryItems(
         TableName: tableName,
         FilterExpression: input.filterExpression || undefined,
         ExpressionAttributeValues: expressionAttributeValues,
+        ExpressionAttributeNames: expressionAttributeNames,
         IndexName: input.indexName || undefined,
         Limit: SCAN_PAGE_SIZE,
         ExclusiveStartKey: startKey,
