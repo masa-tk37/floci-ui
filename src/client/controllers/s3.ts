@@ -717,7 +717,7 @@ export function createS3PreviewController(
         pdfjsLib.GlobalWorkerOptions.workerSrc =
           "/public/assets/pdf.worker.min.mjs"
 
-        const pdf = await pdfjsLib.getDocument(props.downloadHref).promise
+        const pdf = await pdfjsLib.getDocument({ url: props.downloadHref }).promise
         statusEl.textContent = `${pdf.numPages} ページを読み込みました`
 
         const outputScale = window.devicePixelRatio || 1
