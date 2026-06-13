@@ -81,9 +81,9 @@
 }
 
 .sqs-settings-page__success {
-  background: var(--color-s3-soft);
-  border-color: var(--color-s3);
-  color: #1a5c3a;
+  background: var(--color-success-soft);
+  border-color: var(--color-success);
+  color: var(--color-success-ink);
 }
 
 @media (max-width: 700px) {

@@ -1,5 +1,10 @@
 /* ============================================================
-   floci-ui — pastel orange + M PLUS Rounded 1c
+   floci-ui — Macaron Pop palette + M PLUS Rounded 1c
+   Light is default. [data-theme="dark"] overrides below.
+   The mint accent is a PASTEL, so filled controls use dark ink
+   text (--color-ink-on-accent) — white text fails AA on a
+   light fill. Service identity (macaron-6) lives only in dots /
+   badges / card accents — the page accent is a single mint.
    ============================================================ */
 
 :root {
@@ -10,112 +15,163 @@
     "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     monospace;
 
-  /* Surfaces — warm off-white */
-  --color-bg: #fdf9f5;
-  --color-surface: #fffaf5;
+  /* Surfaces — neutral lilac-tinted off-white (cool to let pastels pop) */
+  --color-bg: #faf8fc;
+  --color-surface: #fffdff;
   --color-surface-raised: #ffffff;
-  --color-surface-sunken: #f7f1ea;
-  --color-warm-sand: #f0e8da;
+  --color-surface-sunken: #f1eef6;
+  --color-warm-sand: #efebf5; /* section / card tint (lilac-gray) */
 
   /* Text */
-  --color-text: #2b221a;
-  --color-text-muted: #6b5e52;
-  --color-text-dim: #9c8e80;
-  --color-text-on-accent: #ffffff;
+  --color-text: #24222b;
+  --color-text-muted: #615e6e;
+  --color-text-dim: #928fa0;
+  --color-text-on-accent: #ffffff; /* on a DARK fill (danger button) */
 
   /* Borders */
-  --color-border: #f1e6d8;
-  --color-border-strong: #e6d5bf;
-  --color-ring: #d9c5a8;
+  --color-border: #ebe7f2;
+  --color-border-strong: #dcd6e8;
+  --color-ring: #cfc7de;
 
-  /* Primary — pale orange (H24) */
-  --color-accent: #ffb787;
-  --color-accent-hover: #ff9f63;
-  --color-accent-light: #ff9f63;
-  --color-primary-soft: #ffe7d4;
-  --color-primary-ink: #7a3d14;
+  /* Primary accent — pastel mint. The fill is light, so its text
+     is dark ink (--color-ink-on-accent), never white. */
+  --color-accent: #9ed0c4; /* button bg */
+  --color-accent-hover: #8cc6b8; /* button hover bg */
+  --color-accent-soft: #dcf2ec; /* badge / selected-row tint */
+  --color-accent-ink: #1a5448; /* text on accent-soft = 8.1:1 */
+  /* Dark ink for text sitting on the pastel mint FILL (btn--primary).
+     Stays dark in both themes because the fill is light in both. */
+  --color-ink-on-accent: #133f35; /* on --color-accent = 6.3:1 */
+  /* Accent used as TEXT/line on the page surface (links, active) */
+  --color-accent-text: #1f7060; /* on --color-bg = 5.4:1 */
+  --color-accent-text-strong: #185749;
 
-  /* Service accents — triadic pastels */
-  --color-dynamodb: #ffa674;
-  --color-dynamodb-soft: #ffe3ce;
-  --color-s3: #8ed6b4;
-  --color-s3-soft: #d9f3e4;
-  --color-sqs: #c4b0e8;
-  --color-sqs-soft: #ece3f7;
-  --color-ssm: #d7bf74;
-  --color-ssm-soft: #f5eed0;
+  /* Back-compat aliases (consumed across the stylesheet) */
+  --color-primary-soft: var(--color-accent-soft);
+  --color-primary-ink: var(--color-accent-ink);
 
-  /* Theme tokens — follow current service; fallback to primary orange */
-  --color-theme: var(--color-accent);
-  --color-theme-hover: var(--color-accent-hover);
-  --color-theme-soft: var(--color-primary-soft);
-  --color-theme-ink: var(--color-primary-ink);
-  --color-secrets: #dd9ab2;
-  --color-secrets-soft: #f7dfe8;
-  --color-cognito: #82b7d9;
-  --color-cognito-soft: #dbeaf5;
+  /* Theme tokens — single accent everywhere (no per-service swap) */
+  --color-theme: var(--color-accent-text);
+  --color-theme-hover: var(--color-accent-text-strong);
+  --color-theme-soft: var(--color-accent-soft);
+  --color-theme-ink: var(--color-accent-ink);
 
-  /* Semantic */
-  --color-danger: #e07a7a;
+  /* Service identity — macaron-6 (dot / badge / card accent only).
+     base = dot/border, soft = badge bg, ink = badge text (AA on soft). */
+  --color-dynamodb: #ffb877; /* mango */
+  --color-dynamodb-soft: #ffe9d3;
+  --color-dynamodb-ink: #8a4a16;
+  --color-s3: #9ed0a4; /* pistachio */
+  --color-s3-soft: #e1f1e3;
+  --color-s3-ink: #2c6135;
+  --color-sqs: #bfa8e8; /* taro */
+  --color-sqs-soft: #ece4f8;
+  --color-sqs-ink: #543a85;
+  --color-ssm: #f0d785; /* butter */
+  --color-ssm-soft: #faf0cf;
+  --color-ssm-ink: #6b550f;
+  --color-secrets: #f2a0bf; /* strawberry */
+  --color-secrets-soft: #fce0eb;
+  --color-secrets-ink: #8a3257;
+  --color-cognito: #8fc8e6; /* soda */
+  --color-cognito-soft: #ddeef8;
+  --color-cognito-ink: #1f5778;
+
+  /* Semantic — danger / success / warning (functional, AA-verified) */
+  --color-danger: #c2342f; /* filled bg / text; #fff = 5.3:1 */
+  --color-danger-hover: #a82a26;
   --color-danger-bg: #fbe8e8;
-  --color-danger-border: #f2c4c4;
-  --color-success: #7fc79a;
-  --color-focus: #ffb787;
+  --color-danger-border: #ecbcbc;
+  --color-danger-ink: #8f211d; /* text on danger-bg */
+  --color-success: #3a9e64;
+  --color-success-soft: #e1f3e8;
+  --color-success-ink: #1f6b41;
+  --color-warning: #b8860b;
+  --color-warning-soft: #fbf3d1;
+  --color-warning-border: #ead79a;
+  --color-warning-ink: #7a5f14;
 
-  /* Radius — rounded/cute */
+  --color-focus: #1f7060; /* mint, matches --color-accent-text */
+
+  /* Radius — slightly tightened (was 14/20/28) to read as a data tool
+     while the rounded font keeps the warm feel */
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
-  --radius-2xl: 28px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 18px;
   --radius-pill: 9999px;
 
-  /* Shadows */
+  /* Shadows — lilac-tinted to match the cool surfaces */
   --shadow-ring: 0 0 0 1px var(--color-ring);
-  --shadow-whisper: rgba(0, 0, 0, 0.05) 0 4px 24px;
-  --shadow-lift: rgba(0, 0, 0, 0.07) 0 8px 32px;
+  --shadow-whisper: rgba(40, 30, 60, 0.06) 0 4px 20px;
+  --shadow-lift: rgba(40, 30, 60, 0.10) 0 8px 28px;
 }
 
-/* Service-specific theme token overrides */
+/* ============================================================
+   Dark theme — cool plum-tinted (not pure black)
+   ============================================================ */
 
-[data-service="dynamodb"] {
-  --color-theme: var(--color-dynamodb);
-  --color-theme-hover: #e8844d;
-  --color-theme-soft: var(--color-dynamodb-soft);
-  --color-theme-ink: #7a3014;
-}
+[data-theme="dark"] {
+  --color-bg: #1b1a1f;
+  --color-surface: #252430;
+  --color-surface-raised: #2e2c3a;
+  --color-surface-sunken: #141318;
+  --color-warm-sand: #2e2c3a;
 
-[data-service="s3"] {
-  --color-theme: var(--color-s3);
-  --color-theme-hover: #6cc49e;
-  --color-theme-soft: var(--color-s3-soft);
-  --color-theme-ink: #1a4d35;
-}
+  --color-text: #ece9f2;
+  --color-text-muted: #a8a5b5;
+  --color-text-dim: #7c7a8a;
+  /* --color-text-on-accent stays #ffffff (inherited from :root) in both
+     themes — the danger fill it sits on is dark in light and dark mode. */
 
-[data-service="sqs"] {
-  --color-theme: var(--color-sqs);
-  --color-theme-hover: #ab94d8;
-  --color-theme-soft: var(--color-sqs-soft);
-  --color-theme-ink: #4a3070;
-}
+  --color-border: #302e3a;
+  --color-border-strong: #42404f;
+  --color-ring: #42404f;
 
-[data-service="ssm"] {
-  --color-theme: var(--color-ssm);
-  --color-theme-hover: #c6ae61;
-  --color-theme-soft: var(--color-ssm-soft);
-  --color-theme-ink: #5f4c13;
-}
+  /* Mint fill stays light in dark mode too — keep dark ink on it */
+  --color-accent: #7fc7b6;
+  --color-accent-hover: #92d3c3;
+  --color-accent-soft: #16302a;
+  --color-accent-ink: #9fdccb; /* text on accent-soft (dark tint) */
+  --color-ink-on-accent: #0c2a23; /* on --color-accent = 7.9:1 */
+  --color-accent-text: #86cebc; /* readable mint text on dark bg */
+  --color-accent-text-strong: #9fdccb;
 
-[data-service="secrets"] {
-  --color-theme: var(--color-secrets);
-  --color-theme-hover: #cf839f;
-  --color-theme-soft: var(--color-secrets-soft);
-  --color-theme-ink: #84445d;
-}
+  --color-dynamodb: #ffba7e;
+  --color-dynamodb-soft: #3a2914;
+  --color-dynamodb-ink: #f6c486;
+  --color-s3: #a6d8ac;
+  --color-s3-soft: #1c3320;
+  --color-s3-ink: #b3dcb6;
+  --color-sqs: #c8b4f0;
+  --color-sqs-soft: #2a2440;
+  --color-sqs-ink: #d4c4f2;
+  --color-ssm: #f0d785;
+  --color-ssm-soft: #332c14;
+  --color-ssm-ink: #ecd28a;
+  --color-secrets: #f5abc7;
+  --color-secrets-soft: #391f2b;
+  --color-secrets-ink: #f3acc6;
+  --color-cognito: #9bd0ee;
+  --color-cognito-soft: #16293a;
+  --color-cognito-ink: #aed8ef;
 
-[data-service="cognito"] {
-  --color-theme: var(--color-cognito);
-  --color-theme-hover: #68a4cb;
-  --color-theme-soft: var(--color-cognito-soft);
-  --color-theme-ink: #153e58;
+  --color-danger: #d8584f;
+  --color-danger-hover: #e16b63;
+  --color-danger-bg: #3a1f1e;
+  --color-danger-border: #5e3331;
+  --color-danger-ink: #f3aca8;
+  --color-success: #54b87c;
+  --color-success-soft: #18301f;
+  --color-success-ink: #a6dcbb;
+  --color-warning: #d3a017;
+  --color-warning-soft: #352a0e;
+  --color-warning-border: #5a4a1f;
+  --color-warning-ink: #ecd083;
+
+  --color-focus: #86cebc;
+
+  --shadow-whisper: rgba(0, 0, 0, 0.35) 0 4px 20px;
+  --shadow-lift: rgba(0, 0, 0, 0.45) 0 8px 28px;
 }

@@ -165,6 +165,45 @@ export function createRevealToggleController(
   }
 }
 
+export function createThemeToggleController() {
+  return {
+    isDark: false,
+
+    init() {
+      this.isDark =
+        document.documentElement.getAttribute("data-theme") === "dark"
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", (event) => {
+          // Follow the OS only while the user has no explicit preference.
+          // localStorage can throw where storage is blocked; treat a failed
+          // read as "no preference" and fall through to the OS value.
+          try {
+            if (localStorage.getItem("theme")) return
+          } catch {
+            // ignore: storage unavailable
+          }
+          this.isDark = event.matches
+          document.documentElement.setAttribute(
+            "data-theme",
+            event.matches ? "dark" : "light",
+          )
+        })
+    },
+
+    toggle() {
+      this.isDark = !this.isDark
+      const next = this.isDark ? "dark" : "light"
+      document.documentElement.setAttribute("data-theme", next)
+      try {
+        localStorage.setItem("theme", next)
+      } catch {
+        // ignore: storage unavailable, theme still applies for this session
+      }
+    },
+  }
+}
+
 let deleteTriggersRegistered = false
 
 export function bindDeleteModalTriggers(): void {

@@ -19,6 +19,7 @@ import {
   createDeleteModalController,
   createListFilterController,
   createRevealToggleController,
+  createThemeToggleController,
   createToastController,
   bindDeleteModalTriggers,
 } from "./controllers/shared"
@@ -40,6 +41,7 @@ const registry = {
   toast: createToastController,
   "list-filter": createListFilterController,
   "reveal-toggle": createRevealToggleController,
+  "theme-toggle": createThemeToggleController,
   "secret-form": createSecretFormController,
   "parameter-form": createParameterFormController,
   "user-pool-form": createUserPoolFormController,

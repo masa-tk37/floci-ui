@@ -254,86 +254,38 @@
 
 .btn--primary {
   background: var(--color-accent);
-  color: var(--color-text-on-accent);
+  color: var(--color-ink-on-accent);
   box-shadow: 0 0 0 1px var(--color-accent);
 }
 
 .btn--primary:hover {
   background: var(--color-accent-hover);
   box-shadow: 0 0 0 1px var(--color-accent-hover);
-  color: var(--color-text-on-accent);
+  color: var(--color-ink-on-accent);
 }
 
-.btn--dynamodb {
-  background: var(--color-dynamodb);
-  color: var(--color-text-on-accent);
-  box-shadow: 0 0 0 1px var(--color-dynamodb);
-}
-
-.btn--dynamodb:hover {
-  background: #e8844d;
-  box-shadow: 0 0 0 1px #e8844d;
-  color: var(--color-text-on-accent);
-}
-
-.btn--s3 {
-  background: var(--color-s3);
-  color: #1a4d35;
-  box-shadow: 0 0 0 1px var(--color-s3);
-}
-
-.btn--s3:hover {
-  background: #6cc49e;
-  box-shadow: 0 0 0 1px #6cc49e;
-  color: #1a4d35;
-}
-
-.btn--sqs {
-  background: var(--color-sqs);
-  color: #ffffff;
-  box-shadow: 0 0 0 1px var(--color-sqs);
-}
-
-.btn--sqs:hover {
-  background: #ab94d8;
-  box-shadow: 0 0 0 1px #ab94d8;
-  color: #ffffff;
-}
-
-.btn--ssm {
-  background: var(--color-ssm);
-  color: #5f4c13;
-  box-shadow: 0 0 0 1px var(--color-ssm);
-}
-
-.btn--ssm:hover {
-  background: #c6ae61;
-  box-shadow: 0 0 0 1px #c6ae61;
-  color: #5f4c13;
-}
-
-.btn--secrets {
-  background: var(--color-secrets);
-  color: #ffffff;
-  box-shadow: 0 0 0 1px var(--color-secrets);
-}
-
-.btn--secrets:hover {
-  background: #cf839f;
-  box-shadow: 0 0 0 1px #cf839f;
-  color: #ffffff;
-}
-
+/* Service-scoped primary buttons resolve to the single amber accent —
+   service identity is carried by dots / badges, not action buttons. */
+.btn--dynamodb,
+.btn--s3,
+.btn--sqs,
+.btn--ssm,
+.btn--secrets,
 .btn--cognito {
-  background: var(--color-cognito);
-  color: #153e58;
-  box-shadow: 0 0 0 1px var(--color-cognito);
+  background: var(--color-accent);
+  color: var(--color-ink-on-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
 }
 
+.btn--dynamodb:hover,
+.btn--s3:hover,
+.btn--sqs:hover,
+.btn--ssm:hover,
+.btn--secrets:hover,
 .btn--cognito:hover {
-  background: #68a4cb;
-  box-shadow: 0 0 0 1px #68a4cb;
-  color: #153e58;
+  background: var(--color-accent-hover);
+  box-shadow: 0 0 0 1px var(--color-accent-hover);
+  color: var(--color-ink-on-accent);
 }
 
 .btn--secondary {
@@ -366,8 +318,8 @@
 }
 
 .btn--danger:hover {
-  background: #d05e5e;
-  box-shadow: 0 0 0 1px #d05e5e;
+  background: var(--color-danger-hover);
+  box-shadow: 0 0 0 1px var(--color-danger-hover);
   color: var(--color-text-on-accent);
 }
 
@@ -633,37 +585,37 @@ input[type="checkbox"] {
 
 .badge--dynamodb {
   background: var(--color-dynamodb-soft);
-  color: #7a3014;
+  color: var(--color-dynamodb-ink);
 }
 
 .badge--s3 {
   background: var(--color-s3-soft);
-  color: #1a5c3a;
+  color: var(--color-s3-ink);
 }
 
 .badge--sqs {
   background: var(--color-sqs-soft);
-  color: #4a3070;
+  color: var(--color-sqs-ink);
 }
 
 .badge--ssm {
   background: var(--color-ssm-soft);
-  color: #6c5818;
+  color: var(--color-ssm-ink);
 }
 
 .badge--secrets {
   background: var(--color-secrets-soft);
-  color: #84445d;
+  color: var(--color-secrets-ink);
 }
 
 .badge--cognito {
   background: var(--color-cognito-soft);
-  color: #245570;
+  color: var(--color-cognito-ink);
 }
 
 .badge--dlq {
   background: var(--color-danger-bg);
-  color: var(--color-danger);
+  color: var(--color-danger-ink);
 }
 
 .badge--depth {
@@ -673,7 +625,7 @@ input[type="checkbox"] {
 
 .badge--depth-active {
   background: var(--color-dynamodb-soft);
-  color: #7a3014;
+  color: var(--color-dynamodb-ink);
 }
 
 .status-pill {
@@ -700,21 +652,21 @@ input[type="checkbox"] {
 }
 
 .status-pill--success {
-  border-color: #a8d7b7;
-  background: #e8f6ed;
-  color: #3f7d56;
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success-ink);
 }
 
 .status-pill--warning {
-  border-color: #ead79a;
-  background: #fbf3d1;
-  color: #7a5f14;
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-soft);
+  color: var(--color-warning-ink);
 }
 
 .status-pill--danger {
   border-color: var(--color-danger-border);
   background: var(--color-danger-bg);
-  color: var(--color-danger);
+  color: var(--color-danger-ink);
 }
 
 .status-pill--muted,
@@ -952,7 +904,6 @@ input[type="checkbox"] {
 }
 
 .empty__title {
-  font-family: var(--font-serif);
   font-size: 1rem;
   font-weight: 500;
   margin-bottom: 0.35rem;
@@ -1238,8 +1189,8 @@ input[type="checkbox"] {
 }
 
 .health-dot--online {
-  background: #5fa35f;
-  box-shadow: 0 0 0 2px rgba(95, 163, 95, 0.25);
+  background: var(--color-success);
+  box-shadow: 0 0 0 2px var(--color-success-soft);
 }
 
 .health-dot--offline {

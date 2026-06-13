@@ -56,9 +56,9 @@
 }
 
 .s3-create-page__warning {
-  background: #fff8ec;
-  border-color: #f5d69a;
-  color: #7a4f00;
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning-ink);
 }
 
 .s3-create-page__warning-list {

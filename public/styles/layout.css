@@ -44,7 +44,7 @@ body {
 
 .sidebar__brand:hover {
   text-decoration: none;
-  color: var(--color-accent);
+  color: var(--color-accent-text);
 }
 
 .sidebar__brand.is-active {
@@ -82,8 +82,8 @@ body {
 }
 
 .sidebar__dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -143,6 +143,7 @@ body {
   top: 0;
   z-index: 40;
   min-height: 46px;
+  flex-shrink: 0;
 }
 
 /* アクティブサービスのアクセントライン — data-service が設定されているページのみ */
@@ -159,6 +160,38 @@ body {
 
 .toolbar__spacer {
   flex: 1;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  box-shadow: var(--shadow-ring);
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.theme-toggle:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.theme-toggle__icon {
+  display: block;
 }
 
 .breadcrumb__link {

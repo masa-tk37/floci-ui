@@ -166,32 +166,32 @@
 
 .sidebar__badge--dynamodb {
   background: var(--color-dynamodb-soft);
-  color: #7a3014;
+  color: var(--color-dynamodb-ink);
 }
 
 .sidebar__badge--s3 {
   background: var(--color-s3-soft);
-  color: #1a5c3a;
+  color: var(--color-s3-ink);
 }
 
 .sidebar__badge--sqs {
   background: var(--color-sqs-soft);
-  color: #4a3070;
+  color: var(--color-sqs-ink);
 }
 
 .sidebar__badge--ssm {
   background: var(--color-ssm-soft);
-  color: #6c5818;
+  color: var(--color-ssm-ink);
 }
 
 .sidebar__badge--secrets {
   background: var(--color-secrets-soft);
-  color: #84445d;
+  color: var(--color-secrets-ink);
 }
 
 .sidebar__badge--cognito {
   background: var(--color-cognito-soft);
-  color: #245570;
+  color: var(--color-cognito-ink);
 }
 
 /* ============================================================
@@ -263,23 +263,23 @@
 }
 
 .toast--success {
-  background: #eaf6ef;
-  border: 1px solid #a8dbb9;
-  color: #3f7b56;
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-success);
+  color: var(--color-success-ink);
 }
 
 .toast--success::after {
-  background: #5cb87a;
+  background: var(--color-success);
 }
 
 .toast--error {
-  background: #fdecea;
-  border: 1px solid #f0a8a0;
-  color: #a03030;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger-ink);
 }
 
 .toast--error::after {
-  background: #d9604e;
+  background: var(--color-danger);
 }
 
 .toast__message {
