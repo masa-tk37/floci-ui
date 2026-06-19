@@ -1,0 +1,24 @@
+name: Cleanup old packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      keep-n-tagged:
+        description: "Number of recent tagged images to keep"
+        required: false
+        default: "3"
+
+permissions:
+  packages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          package: ${{ github.event.repository.name }}
+          keep-n-tagged: ${{ github.event.inputs.keep-n-tagged }}
+          delete-untagged: true
+          delete-partial-images: true
+          exclude-tags: latest,main
