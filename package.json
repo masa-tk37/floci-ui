@@ -25,7 +25,7 @@
     "alpinejs": "^3.15.12",
     "elysia": "^1.4.29",
     "mime-types": "^3.0.2",
-    "pdfjs-dist": "6.0.227"
+    "pdfjs-dist": "6.1.200"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.2",
