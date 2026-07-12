@@ -33,6 +33,6 @@
     "@types/alpinejs": "^3.13.11",
     "@types/mime-types": "^3.0.1",
     "bun-types": "latest",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   }
 }
