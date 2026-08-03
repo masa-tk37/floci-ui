@@ -14,8 +14,8 @@ import {
   getObjectPreview,
   getObjectTags,
   listBuckets,
-  listObjectVersions,
   listObjects,
+  listObjectVersions,
   putObjectTags,
   renameFolder,
   renameObject,
@@ -34,7 +34,6 @@ import {
   jsonData,
   jsonError,
   loadPageData,
-  loadSidebarPage,
   respondWithError,
   respondWithFrameworkError,
   runJsonAction,
@@ -199,20 +198,14 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
   return new Elysia({ prefix: "/s3" })
     .use(html())
     .get("/", async () => {
-      const { data: buckets, sidebarCounts } = await loadPageData(deps, () =>
-        deps.listBuckets(),
-      )
+      const buckets = await deps.listBuckets()
       return (
         <BucketList
           buckets={buckets.map((bucket) => ({ Name: bucket.name }))}
-          sidebarCounts={sidebarCounts}
         />
       )
     })
-    .get("/new", async () => {
-      const { sidebarCounts } = await loadSidebarPage(deps)
-      return <CreateBucketForm sidebarCounts={sidebarCounts} />
-    })
+    .get("/new", () => <CreateBucketForm />)
     .post(
       "/bucket",
       async ({ body, set }) =>
@@ -229,10 +222,8 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
       { body: createBucketSchema },
     )
     .get("/:bucket/settings", async ({ params }) => {
-      const { data: init, sidebarCounts } = await loadPageData(deps, () =>
-        deps.getBucketSettings(params.bucket),
-      )
-      return <S3SettingsForm init={init} sidebarCounts={sidebarCounts} />
+      const init = await deps.getBucketSettings(params.bucket)
+      return <S3SettingsForm init={init} />
     })
     .post(
       "/:bucket/settings",
@@ -429,9 +420,7 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
       const key = query.key
       if (!key) return new Response("Missing key", { status: 400 })
       try {
-        const { data: result, sidebarCounts } = await loadPageData(deps, () =>
-          deps.getObjectPreview(params.bucket, key),
-        )
+        const result = await deps.getObjectPreview(params.bucket, key)
         return (
           <Preview
             bucket={params.bucket}
@@ -440,7 +429,6 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
             mode={result.mode}
             text={result.text}
             truncated={result.truncated}
-            sidebarCounts={sidebarCounts}
           />
         )
       } catch (e) {
@@ -454,13 +442,12 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
       const prefix = query.prefix ?? ""
       const cursor = query.cursor
       const showVersions = query.versions === "1"
-      const [{ data: result, sidebar, sidebarCounts }, versioningEnabled] =
-        await Promise.all([
-          loadPageData(deps, () =>
-            deps.listObjects(params.bucket, prefix, cursor),
-          ),
-          deps.getBucketVersioningEnabled(params.bucket),
-        ])
+      const [{ data: result, sidebar }, versioningEnabled] = await Promise.all([
+        loadPageData(deps, () =>
+          deps.listObjects(params.bucket, prefix, cursor),
+        ),
+        deps.getBucketVersioningEnabled(params.bucket),
+      ])
       let versionResult:
         | Awaited<ReturnType<typeof deps.listObjectVersions>>
         | undefined
@@ -479,7 +466,6 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
             LastModified: object.lastModified,
           }))}
           folders={result.folders.map((folder) => ({ Prefix: folder.prefix }))}
-          sidebarCounts={sidebarCounts}
           nextCursor={result.nextCursor}
           versioningEnabled={versioningEnabled}
           showVersions={showVersions}

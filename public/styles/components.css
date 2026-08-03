@@ -1202,13 +1202,6 @@ input[type="checkbox"] {
   background: var(--color-text-dim);
 }
 
-.section-heading {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--color-text);
-  margin: 0 0 1rem;
-}
-
 /* Stat cards (dashboard counts) */
 
 .stat-card {

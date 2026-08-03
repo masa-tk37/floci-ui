@@ -1,7 +1,5 @@
 import { Html } from "@elysiajs/html"
 
-import type { SidebarCounts } from "./layout"
-
 type Service =
   | "dashboard"
   | "dynamodb"
@@ -13,10 +11,9 @@ type Service =
 
 interface SidebarProps {
   active?: Service
-  counts?: SidebarCounts
 }
 
-export function Sidebar({ active, counts }: SidebarProps) {
+export function Sidebar({ active }: SidebarProps) {
   return (
     <aside class="sidebar">
       <a
@@ -33,11 +30,6 @@ export function Sidebar({ active, counts }: SidebarProps) {
         >
           <span class="sidebar__dot sidebar__dot--dynamodb" />
           <span class="sidebar__section-label">DynamoDB</span>
-          {counts !== undefined ? (
-            <span class="sidebar__badge sidebar__badge--dynamodb">
-              {counts.tables}
-            </span>
-          ) : null}
         </a>
         <a
           href="/s3"
@@ -45,11 +37,6 @@ export function Sidebar({ active, counts }: SidebarProps) {
         >
           <span class="sidebar__dot sidebar__dot--s3" />
           <span class="sidebar__section-label">S3</span>
-          {counts !== undefined ? (
-            <span class="sidebar__badge sidebar__badge--s3">
-              {counts.buckets}
-            </span>
-          ) : null}
         </a>
         <a
           href="/sqs"
@@ -57,11 +44,6 @@ export function Sidebar({ active, counts }: SidebarProps) {
         >
           <span class="sidebar__dot sidebar__dot--sqs" />
           <span class="sidebar__section-label">SQS</span>
-          {counts !== undefined ? (
-            <span class="sidebar__badge sidebar__badge--sqs">
-              {counts.queues}
-            </span>
-          ) : null}
         </a>
         <a
           href="/ssm"
@@ -69,11 +51,6 @@ export function Sidebar({ active, counts }: SidebarProps) {
         >
           <span class="sidebar__dot sidebar__dot--ssm" />
           <span class="sidebar__section-label">SSM</span>
-          {counts !== undefined ? (
-            <span class="sidebar__badge sidebar__badge--ssm">
-              {counts.parameters}
-            </span>
-          ) : null}
         </a>
         <a
           href="/secrets"
@@ -81,11 +58,6 @@ export function Sidebar({ active, counts }: SidebarProps) {
         >
           <span class="sidebar__dot sidebar__dot--secrets" />
           <span class="sidebar__section-label">Secrets</span>
-          {counts !== undefined ? (
-            <span class="sidebar__badge sidebar__badge--secrets">
-              {counts.secrets}
-            </span>
-          ) : null}
         </a>
         <a
           href="/cognito"
@@ -93,11 +65,6 @@ export function Sidebar({ active, counts }: SidebarProps) {
         >
           <span class="sidebar__dot sidebar__dot--cognito" />
           <span class="sidebar__section-label">Cognito</span>
-          {counts !== undefined ? (
-            <span class="sidebar__badge sidebar__badge--cognito">
-              {counts.userPools}
-            </span>
-          ) : null}
         </a>
       </nav>
     </aside>

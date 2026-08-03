@@ -2,7 +2,7 @@ import { Html } from "@elysiajs/html"
 import { escapeHtml } from "@kitajs/html"
 import { mountComponentAttrs } from "../client"
 import { IconEdit, IconSearch, IconSettings, IconTrash } from "../icons"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 import { ResourceRail } from "../resource-rail"
 
 interface ItemListProps {
@@ -14,7 +14,6 @@ interface ItemListProps {
   cursor?: string
   nextCursor?: string
   tableArn?: string
-  sidebarCounts?: SidebarCounts
   stack?: string
 }
 
@@ -88,7 +87,6 @@ export function ItemList({
   cursor,
   nextCursor,
   tableArn,
-  sidebarCounts,
   stack,
 }: ItemListProps) {
   const columns = detectColumns(items, hashKey, sortKey)
@@ -107,7 +105,6 @@ export function ItemList({
         { label: "DynamoDB", href: "/dynamodb" },
         { label: tableName, href: tablePath },
       ]}
-      sidebarCounts={sidebarCounts}
       mainClass="main--resource-workspace"
       contentClass="content--resource-workspace"
       stylesheets={["/public/styles/views/dynamodb/item-list.css"]}

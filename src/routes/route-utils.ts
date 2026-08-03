@@ -1,6 +1,6 @@
 import type { ServiceErrorCode } from "../errors"
 import { httpStatusFor, ServiceError } from "../errors"
-import { type SidebarData, toSidebarCounts } from "../services/sidebar-service"
+import type { SidebarData } from "../services/sidebar-service"
 
 export interface JsonError {
   code: ServiceErrorCode | "InternalServerError"
@@ -61,7 +61,6 @@ export function respondWithError(
 export interface PageData<T> {
   data: T
   sidebar: SidebarData | undefined
-  sidebarCounts: ReturnType<typeof toSidebarCounts>
 }
 
 export async function loadPageData<T>(
@@ -69,17 +68,7 @@ export async function loadPageData<T>(
   loader: () => Promise<T>,
 ): Promise<PageData<T>> {
   const [data, sidebar] = await Promise.all([loader(), deps.loadSidebarSafe()])
-  return { data, sidebar, sidebarCounts: toSidebarCounts(sidebar) }
-}
-
-export async function loadSidebarPage(deps: {
-  loadSidebarSafe: () => Promise<SidebarData | undefined>
-}): Promise<{
-  sidebar: SidebarData | undefined
-  sidebarCounts: ReturnType<typeof toSidebarCounts>
-}> {
-  const sidebar = await deps.loadSidebarSafe()
-  return { sidebar, sidebarCounts: toSidebarCounts(sidebar) }
+  return { data, sidebar }
 }
 
 export async function runJsonAction(

@@ -2,15 +2,14 @@ import { Html } from "@elysiajs/html"
 
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import { ClientProps, mountComponentAttrs } from "../client"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 import type { ParameterFormInitial } from "./parameter-form-state"
 
 interface ParameterFormProps {
   init: ParameterFormInitial
-  sidebarCounts?: SidebarCounts
 }
 
-export function ParameterForm({ init, sidebarCounts }: ParameterFormProps) {
+export function ParameterForm({ init }: ParameterFormProps) {
   const parameterPath =
     init.mode === "edit" ? `/ssm/${encodeResourceName(init.name)}` : "/ssm"
 
@@ -20,7 +19,6 @@ export function ParameterForm({ init, sidebarCounts }: ParameterFormProps) {
         init.mode === "create" ? "SSM Parameter を作成" : `編集 · ${init.name}`
       }
       active="ssm"
-      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/ssm/parameter-form.css"]}
       crumbs={
         init.mode === "create"

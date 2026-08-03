@@ -1,25 +1,16 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test"
-import { createApp, type AppRouteDeps } from "./app"
+import { type AppRouteDeps, createApp } from "./app"
 import { encodeResourceName } from "./infrastructure/resource-name-codec"
 
 const sidebarDataMock = mock(async () => undefined)
 
 const loadDashboardDataMock = mock(async () => ({
-  dynamodb: { count: 1, items: ["users"] },
-  s3: { count: 1, items: ["assets"] },
-  sqs: { count: 1, items: ["jobs"] },
-  ssm: { count: 1, items: ["/demo/param"] },
-  secrets: { count: 1, items: ["demo-secret"] },
-  cognito: { count: 1, items: [{ id: "pool-1", name: "local-pool" }] },
-  endpoint: "http://localhost:4566",
-  sidebarCounts: {
-    tables: 1,
-    buckets: 1,
-    queues: 1,
-    parameters: 1,
-    secrets: 1,
-    userPools: 1,
-  },
+  dynamodb: { count: 1 },
+  s3: { count: 1 },
+  sqs: { count: 1 },
+  ssm: { count: 1 },
+  secrets: { count: 1 },
+  cognito: { count: 1 },
 }))
 
 const createSecretMock = mock(async () => undefined)
@@ -260,7 +251,6 @@ function buildTestApp() {
       deleteSecret: deleteSecretMock,
       getSecretDetail: getSecretDetailMock,
       listSecrets: listSecretsMock,
-      loadSidebarSafe: sidebarDataMock,
       updateSecret: updateSecretMock,
     },
     ssm: {
@@ -268,7 +258,6 @@ function buildTestApp() {
       deleteParameter: deleteParameterMock,
       getParameterDetail: getParameterDetailMock,
       listParameters: listParametersMock,
-      loadSidebarSafe: sidebarDataMock,
       updateParameter: updateParameterMock,
     },
     cognito: {
@@ -291,7 +280,6 @@ function buildTestApp() {
       listUserPools: listUserPoolsMock,
       listUsers: listUsersMock,
       listUsersInGroup: listUsersInGroupMock,
-      loadSidebarSafe: sidebarDataMock,
       removeUserFromGroup: removeUserFromGroupMock,
       setUserPassword: setUserPasswordMock,
     },
@@ -305,7 +293,6 @@ function buildTestApp() {
       getQueueMessages: getQueueMessagesMock,
       getQueueSettings: getQueueSettingsMock,
       listQueues: listQueuesMock,
-      loadSidebarSafe: sidebarDataMock,
       purgeQueue: purgeQueueMock,
       sendMessage: sendMessageMock,
       sendMessageBatch: sendMessageBatchMock,

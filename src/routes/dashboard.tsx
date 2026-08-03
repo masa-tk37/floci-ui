@@ -28,7 +28,6 @@ export function createDashboardRoutes(
         secrets={data.secrets}
         cognito={data.cognito}
         endpoint={deps.endpoint}
-        sidebarCounts={data.sidebarCounts}
       />
     )
   })

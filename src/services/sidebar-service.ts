@@ -32,18 +32,6 @@ const defaultSidebarLoaders: SidebarLoaders = {
   listUserPools,
 }
 
-export function toSidebarCounts(data: SidebarData | undefined) {
-  if (!data) return undefined
-  return {
-    tables: data.tables.length,
-    buckets: data.buckets.length,
-    queues: data.queues.length,
-    parameters: data.parameters.length,
-    secrets: data.secrets.length,
-    userPools: data.userPools.length,
-  }
-}
-
 export async function loadSidebarSafe(
   loaders: SidebarLoaders = defaultSidebarLoaders,
 ): Promise<SidebarData | undefined> {

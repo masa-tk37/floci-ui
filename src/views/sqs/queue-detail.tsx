@@ -30,7 +30,6 @@ interface QueueDetailProps {
   queues?: QueueSummary[]
   attributes: QueueAttributes
   messages: PeekedMessage[]
-  sidebarCounts?: import("../layout").SidebarCounts
 }
 
 export function QueueDetail({
@@ -38,7 +37,6 @@ export function QueueDetail({
   queues = [],
   attributes,
   messages,
-  sidebarCounts,
 }: QueueDetailProps) {
   const queuePath = `/sqs/${encodeURIComponent(name)}`
   const isFifo = name.endsWith(".fifo")
@@ -63,7 +61,6 @@ export function QueueDetail({
         { label: "SQS", href: "/sqs" },
         { label: name, href: queuePath },
       ]}
-      sidebarCounts={sidebarCounts}
       mainClass="main--resource-workspace"
       contentClass="content--resource-workspace"
       stylesheets={["/public/styles/views/sqs/queue-detail.css"]}

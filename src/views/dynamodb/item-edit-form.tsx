@@ -1,15 +1,14 @@
 import { Html } from "@elysiajs/html"
 
 import { ClientProps, mountComponentAttrs } from "../client"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 import type { ItemEditFormInitial } from "./item-edit-form-state"
 
 interface ItemEditFormProps {
   init: ItemEditFormInitial
-  sidebarCounts?: SidebarCounts
 }
 
-export function ItemEditForm({ init, sidebarCounts }: ItemEditFormProps) {
+export function ItemEditForm({ init }: ItemEditFormProps) {
   const tablePath = `/dynamodb/${encodeURIComponent(init.tableName)}`
   const itemPath = init.sk
     ? `${tablePath}/${encodeURIComponent(init.pk)}/${encodeURIComponent(init.sk)}`
@@ -25,7 +24,6 @@ export function ItemEditForm({ init, sidebarCounts }: ItemEditFormProps) {
         { label: init.tableName, href: tablePath },
         { label: "編集", href: `${itemPath}/edit` },
       ]}
-      sidebarCounts={sidebarCounts}
     >
       <div class="ddb-item-edit-page">
         <section class="page-header">

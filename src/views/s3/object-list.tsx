@@ -1,6 +1,7 @@
 import { Html } from "@elysiajs/html"
 import { escapeHtml } from "@kitajs/html"
 import { ClientProps, mountComponentAttrs } from "../client"
+import { formatDate, formatRelativeDate, PLACEHOLDER } from "../format"
 import {
   IconFile,
   IconFolder,
@@ -10,7 +11,6 @@ import {
 } from "../icons"
 import { Layout } from "../layout"
 import { ResourceRail } from "../resource-rail"
-import { formatDate, formatRelativeDate, PLACEHOLDER } from "../format"
 
 interface S3Object {
   Key?: string
@@ -38,7 +38,6 @@ interface ObjectListProps {
   prefix: string
   objects: S3Object[]
   folders: CommonPrefix[]
-  sidebarCounts?: import("../layout").SidebarCounts
   nextCursor?: string
   versioningEnabled?: boolean
   showVersions?: boolean
@@ -82,7 +81,6 @@ export function ObjectList({
   prefix,
   objects,
   folders,
-  sidebarCounts,
   nextCursor,
   versioningEnabled = false,
   showVersions = false,
@@ -117,7 +115,6 @@ export function ObjectList({
       title={`S3 · ${bucket}`}
       active="s3"
       crumbs={layoutCrumbs}
-      sidebarCounts={sidebarCounts}
       mainClass="main--resource-workspace"
       contentClass="content--resource-workspace"
       stylesheets={["/public/styles/views/s3/object-list.css"]}

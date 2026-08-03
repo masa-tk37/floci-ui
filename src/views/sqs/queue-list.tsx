@@ -1,9 +1,9 @@
 import { Html } from "@elysiajs/html"
 import { escapeHtml } from "@kitajs/html"
-import { PLACEHOLDER } from "../format"
 import { mountComponentAttrs } from "../client"
+import { PLACEHOLDER } from "../format"
 import { IconPlus, IconSearch, IconSettings, IconTrash } from "../icons"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 
 export interface QueueSummary {
   name: string
@@ -13,16 +13,14 @@ export interface QueueSummary {
 
 interface QueueListProps {
   queues: QueueSummary[]
-  sidebarCounts?: SidebarCounts
 }
 
-export function QueueList({ queues, sidebarCounts }: QueueListProps) {
+export function QueueList({ queues }: QueueListProps) {
   return (
     <Layout
       title="SQS Queues"
       active="sqs"
       crumbs={[{ label: "SQS", href: "/sqs" }]}
-      sidebarCounts={sidebarCounts}
     >
       <section class="page-header page-header--row">
         <h1 class="page-title">SQS Queues</h1>

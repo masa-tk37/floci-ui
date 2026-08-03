@@ -6,20 +6,18 @@ import type { SecretSummary } from "../../services/secrets/secret-service"
 import { mountComponentAttrs } from "../client"
 import { formatDate, PLACEHOLDER } from "../format"
 import { IconEdit, IconPlus, IconSearch, IconTrash } from "../icons"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 
 interface SecretListProps {
   secrets: SecretSummary[]
-  sidebarCounts?: SidebarCounts
 }
 
-export function SecretList({ secrets, sidebarCounts }: SecretListProps) {
+export function SecretList({ secrets }: SecretListProps) {
   return (
     <Layout
       title="Secrets Manager"
       active="secrets"
       crumbs={[{ label: "Secrets", href: "/secrets" }]}
-      sidebarCounts={sidebarCounts}
     >
       <section class="page-header page-header--row">
         <h1 class="page-title">Secrets Manager</h1>

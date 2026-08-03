@@ -105,7 +105,7 @@
   /* Shadows — lilac-tinted to match the cool surfaces */
   --shadow-ring: 0 0 0 1px var(--color-ring);
   --shadow-whisper: rgba(40, 30, 60, 0.06) 0 4px 20px;
-  --shadow-lift: rgba(40, 30, 60, 0.10) 0 8px 28px;
+  --shadow-lift: rgba(40, 30, 60, 0.1) 0 8px 28px;
 }
 
 /* ============================================================

@@ -5,20 +5,18 @@ import type { UserPoolSummary } from "../../services/cognito/cognito-service"
 import { mountComponentAttrs } from "../client"
 import { formatDate } from "../format"
 import { IconPlus, IconSearch, IconTrash } from "../icons"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 
 interface UserPoolListProps {
   userPools: UserPoolSummary[]
-  sidebarCounts?: SidebarCounts
 }
 
-export function UserPoolList({ userPools, sidebarCounts }: UserPoolListProps) {
+export function UserPoolList({ userPools }: UserPoolListProps) {
   return (
     <Layout
       title="Cognito"
       active="cognito"
       crumbs={[{ label: "Cognito", href: "/cognito" }]}
-      sidebarCounts={sidebarCounts}
     >
       <section class="page-header page-header--row">
         <h1 class="page-title">Cognito User Pools</h1>

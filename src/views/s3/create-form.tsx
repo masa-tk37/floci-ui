@@ -1,20 +1,13 @@
 import { Html } from "@elysiajs/html"
 
 import { ClientProps, mountComponentAttrs } from "../client"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 
-interface CreateBucketFormProps {
-  sidebarCounts?: SidebarCounts
-}
-
-export function CreateBucketForm({
-  sidebarCounts,
-}: CreateBucketFormProps = {}) {
+export function CreateBucketForm() {
   return (
     <Layout
       title="Create S3 Bucket"
       active="s3"
-      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/s3/create-form.css"]}
       crumbs={[
         { label: "S3", href: "/s3" },

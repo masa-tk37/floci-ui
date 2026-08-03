@@ -1,6 +1,5 @@
 import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
-import { loadSidebarSafe } from "../services/sidebar-service"
 import {
   createQueue,
   deleteMessage,
@@ -16,16 +15,11 @@ import {
   sendMessageBatch,
   updateQueueSettings,
 } from "../services/sqs/queue-service"
-import {
-  jsonData,
-  loadPageData,
-  loadSidebarPage,
-  runJsonAction,
-} from "./route-utils"
 import { CreateQueueForm } from "../views/sqs/create-form"
 import { QueueDetail } from "../views/sqs/queue-detail"
 import { QueueList } from "../views/sqs/queue-list"
 import { SQSSettingsForm } from "../views/sqs/settings-form"
+import { jsonData, runJsonAction } from "./route-utils"
 
 const stringRecordSchema = t.Record(t.String(), t.String())
 
@@ -50,7 +44,6 @@ export interface SqsRouteDeps {
   getQueueMessages: typeof getQueueMessages
   getQueueSettings: typeof getQueueSettings
   listQueues: typeof listQueues
-  loadSidebarSafe: typeof loadSidebarSafe
   purgeQueue: typeof purgeQueue
   sendMessage: typeof sendMessage
   sendMessageBatch: typeof sendMessageBatch
@@ -67,7 +60,6 @@ const defaultSqsRouteDeps: SqsRouteDeps = {
   getQueueMessages,
   getQueueSettings,
   listQueues,
-  loadSidebarSafe,
   purgeQueue,
   sendMessage,
   sendMessageBatch,
@@ -78,15 +70,10 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
   return new Elysia({ prefix: "/sqs" })
     .use(html())
     .get("/", async () => {
-      const { data: queues, sidebarCounts } = await loadPageData(deps, () =>
-        deps.listQueues(),
-      )
-      return <QueueList queues={queues} sidebarCounts={sidebarCounts} />
+      const queues = await deps.listQueues()
+      return <QueueList queues={queues} />
     })
-    .get("/new", async () => {
-      const { sidebarCounts } = await loadSidebarPage(deps)
-      return <CreateQueueForm sidebarCounts={sidebarCounts} />
-    })
+    .get("/new", () => <CreateQueueForm />)
     .post(
       "/",
       async ({ body, set }) =>
@@ -101,10 +88,8 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
       }),
     )
     .get("/:queue/settings", async ({ params }) => {
-      const { data: init, sidebarCounts } = await loadPageData(deps, () =>
-        deps.getQueueSettings(params.queue),
-      )
-      return <SQSSettingsForm init={init} sidebarCounts={sidebarCounts} />
+      const init = await deps.getQueueSettings(params.queue)
+      return <SQSSettingsForm init={init} />
     })
     .post(
       "/:queue/settings",
@@ -119,9 +104,8 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
       { body: updateQueueSettingsSchema },
     )
     .get("/:queue", async ({ params }) => {
-      const [detail, { sidebarCounts }, queues] = await Promise.all([
+      const [detail, queues] = await Promise.all([
         deps.getQueueDetail(params.queue),
-        loadSidebarPage(deps),
         deps.listQueues(),
       ])
       return (
@@ -130,7 +114,6 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
           queues={queues}
           attributes={detail.attributes}
           messages={detail.messages}
-          sidebarCounts={sidebarCounts}
         />
       )
     })

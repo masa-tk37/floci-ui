@@ -1,22 +1,20 @@
 import { Html } from "@elysiajs/html"
 
 import { ClientProps, mountComponentAttrs } from "../client"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 import type { S3SettingsInitial } from "./settings-form-state"
 
 interface S3SettingsFormProps {
   init: S3SettingsInitial
-  sidebarCounts?: SidebarCounts
 }
 
-export function S3SettingsForm({ init, sidebarCounts }: S3SettingsFormProps) {
+export function S3SettingsForm({ init }: S3SettingsFormProps) {
   const bucketPath = `/s3/${encodeURIComponent(init.bucket)}`
 
   return (
     <Layout
       title={`Settings · ${init.bucket}`}
       active="s3"
-      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/s3/settings-form.css"]}
       crumbs={[
         { label: "S3", href: "/s3" },

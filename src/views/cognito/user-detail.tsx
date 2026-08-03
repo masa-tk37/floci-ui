@@ -6,21 +6,19 @@ import type { UserDetail as UserDetailData } from "../../services/cognito/cognit
 import { ClientProps, mountComponentAttrs } from "../client"
 import { formatDate, PLACEHOLDER } from "../format"
 import { IconTrash } from "../icons"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 import { CognitoStatusBadge, EnabledBadge } from "./status-badge"
 
 interface CognitoUserDetailProps {
   poolId: string
   poolName: string
   detail: UserDetailData
-  sidebarCounts?: SidebarCounts
 }
 
 export function CognitoUserDetail({
   poolId,
   poolName,
   detail,
-  sidebarCounts,
 }: CognitoUserDetailProps) {
   const poolPath = `/cognito/${encodeURIComponent(poolId)}`
   const userPath = `${poolPath}/users/${encodeResourceName(detail.username)}`
@@ -35,7 +33,6 @@ export function CognitoUserDetail({
     <Layout
       title={`Cognito User · ${detail.username}`}
       active="cognito"
-      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/cognito/pool-detail.css"]}
       crumbs={[
         { label: "Cognito", href: "/cognito" },

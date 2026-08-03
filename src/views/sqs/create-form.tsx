@@ -1,18 +1,13 @@
 import { Html } from "@elysiajs/html"
 
 import { ClientProps, mountComponentAttrs } from "../client"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 
-interface CreateQueueFormProps {
-  sidebarCounts?: SidebarCounts
-}
-
-export function CreateQueueForm({ sidebarCounts }: CreateQueueFormProps = {}) {
+export function CreateQueueForm() {
   return (
     <Layout
       title="SQS キューを作成"
       active="sqs"
-      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/sqs/create-form.css"]}
       crumbs={[
         { label: "SQS", href: "/sqs" },

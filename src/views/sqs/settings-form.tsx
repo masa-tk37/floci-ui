@@ -1,22 +1,20 @@
 import { Html } from "@elysiajs/html"
 
 import { ClientProps, mountComponentAttrs } from "../client"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 import type { SQSSettingsInitial } from "./settings-form-state"
 
 interface SQSSettingsFormProps {
   init: SQSSettingsInitial
-  sidebarCounts?: SidebarCounts
 }
 
-export function SQSSettingsForm({ init, sidebarCounts }: SQSSettingsFormProps) {
+export function SQSSettingsForm({ init }: SQSSettingsFormProps) {
   const queuePath = `/sqs/${encodeURIComponent(init.name)}`
 
   return (
     <Layout
       title={`設定 · ${init.name}`}
       active="sqs"
-      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/sqs/settings-form.css"]}
       crumbs={[
         { label: "SQS", href: "/sqs" },

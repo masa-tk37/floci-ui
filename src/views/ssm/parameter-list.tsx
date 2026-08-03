@@ -6,23 +6,18 @@ import type { ParameterSummary } from "../../services/ssm/parameter-service"
 import { mountComponentAttrs } from "../client"
 import { formatDate } from "../format"
 import { IconEdit, IconPlus, IconSearch, IconTrash } from "../icons"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 
 interface ParameterListProps {
   parameters: ParameterSummary[]
-  sidebarCounts?: SidebarCounts
 }
 
-export function ParameterList({
-  parameters,
-  sidebarCounts,
-}: ParameterListProps) {
+export function ParameterList({ parameters }: ParameterListProps) {
   return (
     <Layout
       title="SSM Parameters"
       active="ssm"
       crumbs={[{ label: "SSM", href: "/ssm" }]}
-      sidebarCounts={sidebarCounts}
     >
       <section class="page-header page-header--row">
         <h1 class="page-title">SSM Parameters</h1>

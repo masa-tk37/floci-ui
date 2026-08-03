@@ -6,7 +6,6 @@ import {
   jsonData,
   jsonOk,
   loadPageData,
-  loadSidebarPage,
   respondWithError,
   respondWithFrameworkError,
   runJsonAction,
@@ -119,39 +118,22 @@ const stubSidebar: SidebarData = {
 }
 
 describe("loadPageData", () => {
-  it("returns data, sidebar, and sidebarCounts in parallel", async () => {
+  it("returns data and sidebar in parallel", async () => {
     const loadSidebarSafe = mock(() => Promise.resolve(stubSidebar))
     const result = await loadPageData({ loadSidebarSafe }, () =>
       Promise.resolve({ value: 42 }),
     )
     expect(result.data).toEqual({ value: 42 })
     expect(result.sidebar).toBe(stubSidebar)
-    expect(result.sidebarCounts).toEqual({
-      tables: 1,
-      buckets: 1,
-      queues: 1,
-      parameters: 1,
-      secrets: 1,
-      userPools: 1,
-    })
   })
 
-  it("returns undefined sidebar and sidebarCounts when sidebar unavailable", async () => {
+  it("returns undefined sidebar when sidebar unavailable", async () => {
     const loadSidebarSafe = mock(() => Promise.resolve(undefined))
     const result = await loadPageData({ loadSidebarSafe }, () =>
       Promise.resolve("ok"),
     )
+    expect(result.data).toBe("ok")
     expect(result.sidebar).toBeUndefined()
-    expect(result.sidebarCounts).toBeUndefined()
-  })
-})
-
-describe("loadSidebarPage", () => {
-  it("returns sidebar and sidebarCounts", async () => {
-    const loadSidebarSafe = mock(() => Promise.resolve(stubSidebar))
-    const result = await loadSidebarPage({ loadSidebarSafe })
-    expect(result.sidebar).toBe(stubSidebar)
-    expect(result.sidebarCounts?.tables).toBe(1)
   })
 })
 

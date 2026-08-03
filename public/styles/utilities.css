@@ -151,50 +151,6 @@
 }
 
 /* ============================================================
-   Sidebar badge
-   ============================================================ */
-
-.sidebar__badge {
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 0.1rem 0.45rem;
-  border-radius: var(--radius-pill);
-  line-height: 1.6;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.sidebar__badge--dynamodb {
-  background: var(--color-dynamodb-soft);
-  color: var(--color-dynamodb-ink);
-}
-
-.sidebar__badge--s3 {
-  background: var(--color-s3-soft);
-  color: var(--color-s3-ink);
-}
-
-.sidebar__badge--sqs {
-  background: var(--color-sqs-soft);
-  color: var(--color-sqs-ink);
-}
-
-.sidebar__badge--ssm {
-  background: var(--color-ssm-soft);
-  color: var(--color-ssm-ink);
-}
-
-.sidebar__badge--secrets {
-  background: var(--color-secrets-soft);
-  color: var(--color-secrets-ink);
-}
-
-.sidebar__badge--cognito {
-  background: var(--color-cognito-soft);
-  color: var(--color-cognito-ink);
-}
-
-/* ============================================================
    Alpine cloak
    ============================================================ */
 

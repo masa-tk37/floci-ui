@@ -1,18 +1,13 @@
 import { Html } from "@elysiajs/html"
 
 import { ClientProps, mountComponentAttrs } from "../client"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 
-interface CreateTableFormProps {
-  sidebarCounts?: SidebarCounts
-}
-
-export function CreateTableForm({ sidebarCounts }: CreateTableFormProps = {}) {
+export function CreateTableForm() {
   return (
     <Layout
       title="Create DynamoDB Table"
       active="dynamodb"
-      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/dynamodb/create-form.css"]}
       crumbs={[
         { label: "DynamoDB", href: "/dynamodb" },

@@ -6,24 +6,19 @@ import type { ParameterDetail as ParameterDetailData } from "../../services/ssm/
 import { ClientProps, mountComponentAttrs } from "../client"
 import { formatDate, formatJsonValue, PLACEHOLDER } from "../format"
 import { IconEdit, IconTrash } from "../icons"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 
 interface ParameterDetailProps {
   detail: ParameterDetailData
-  sidebarCounts?: SidebarCounts
 }
 
-export function ParameterDetail({
-  detail,
-  sidebarCounts,
-}: ParameterDetailProps) {
+export function ParameterDetail({ detail }: ParameterDetailProps) {
   const parameterPath = `/ssm/${encodeResourceName(detail.name)}`
 
   return (
     <Layout
       title={`SSM · ${detail.name}`}
       active="ssm"
-      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/ssm/parameter-detail.css"]}
       crumbs={[
         { label: "SSM", href: "/ssm" },

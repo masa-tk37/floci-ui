@@ -1,7 +1,6 @@
 import { Html } from "@elysiajs/html"
-
-import { Sidebar } from "./sidebar"
 import { mountComponentAttrs } from "./client"
+import { Sidebar } from "./sidebar"
 
 type Service =
   | "dashboard"
@@ -17,20 +16,10 @@ export interface Crumb {
   href: string
 }
 
-export interface SidebarCounts {
-  tables: number
-  buckets: number
-  queues: number
-  parameters: number
-  secrets: number
-  userPools: number
-}
-
 interface LayoutProps {
   title: string
   active?: Service
   crumbs?: Crumb[]
-  sidebarCounts?: SidebarCounts
   mainClass?: string
   contentClass?: string
   stylesheets?: string[]
@@ -41,7 +30,6 @@ export function Layout({
   title,
   active,
   crumbs,
-  sidebarCounts,
   mainClass,
   contentClass,
   stylesheets,
@@ -75,7 +63,7 @@ export function Layout({
         <script type="module" src="/public/assets/app.js" />
       </head>
       <body class="app" data-service={active}>
-        <Sidebar active={active} counts={sidebarCounts} />
+        <Sidebar active={active} />
         <div class={mainClass ? `main ${mainClass}` : "main"}>
           <header class="toolbar">
             {crumbs && crumbs.length > 0 ? (

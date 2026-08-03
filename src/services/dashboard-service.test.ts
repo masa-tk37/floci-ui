@@ -58,59 +58,29 @@ const allLoaders = {
 }
 
 describe("loadDashboardData", () => {
-  it("returns service counts and sidebar counts when all services succeed", async () => {
+  it("returns service counts when all services succeed", async () => {
     const result = await loadDashboardData(allLoaders)
-    expect(result.dynamodb).toEqual({
-      count: 2,
-      items: ["users", "orders"],
-    })
-    expect(result.s3).toEqual({
-      count: 2,
-      items: ["archive", "uploads"],
-    })
-    expect(result.sqs).toEqual({
-      count: 1,
-      items: ["jobs"],
-    })
-    expect(result.ssm).toEqual({
-      count: 1,
-      items: ["/app/config"],
-    })
-    expect(result.secrets).toEqual({
-      count: 1,
-      items: ["app/dev/db"],
-    })
-    expect(result.cognito).toEqual({
-      count: 1,
-      items: [{ id: "pool-123", name: "local-dev-users" }],
-    })
-    expect(result.sidebarCounts).toEqual({
-      tables: 2,
-      buckets: 2,
-      queues: 1,
-      parameters: 1,
-      secrets: 1,
-      userPools: 1,
-    })
+    expect(result.dynamodb).toEqual({ count: 2 })
+    expect(result.s3).toEqual({ count: 2 })
+    expect(result.sqs).toEqual({ count: 1 })
+    expect(result.ssm).toEqual({ count: 1 })
+    expect(result.secrets).toEqual({ count: 1 })
+    expect(result.cognito).toEqual({ count: 1 })
   })
 
-  it("marks failed service as error but still returns sidebarCounts with 0 for that service", async () => {
+  it("marks failed service as error without affecting the others", async () => {
     listBucketsMock.mockRejectedValueOnce(new Error("connection refused"))
 
     const result = await loadDashboardData(allLoaders)
 
-    expect(result.dynamodb.error).toBeUndefined()
     expect(result.s3).toEqual({
       count: 0,
-      items: [],
       error: "floci に接続できませんでした。",
     })
+    expect(result.dynamodb).toEqual({ count: 2 })
     expect(result.sqs.error).toBeUndefined()
     expect(result.ssm.error).toBeUndefined()
     expect(result.secrets.error).toBeUndefined()
     expect(result.cognito.error).toBeUndefined()
-    expect(result.sidebarCounts).toBeDefined()
-    expect(result.sidebarCounts?.buckets).toBe(0)
-    expect(result.sidebarCounts?.tables).toBe(2)
   })
 })

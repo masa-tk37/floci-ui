@@ -11,11 +11,10 @@ import {
   listSecrets,
   updateSecret,
 } from "../services/secrets/secret-service"
-import { loadSidebarSafe } from "../services/sidebar-service"
 import { SecretDetail } from "../views/secrets/secret-detail"
 import { SecretForm } from "../views/secrets/secret-form"
 import { SecretList } from "../views/secrets/secret-list"
-import { loadPageData, loadSidebarPage, runJsonAction } from "./route-utils"
+import { runJsonAction } from "./route-utils"
 
 const secretTagSchema = t.Object({
   key: t.String(),
@@ -42,7 +41,6 @@ export interface SecretsRouteDeps {
   deleteSecret: typeof deleteSecret
   getSecretDetail: typeof getSecretDetail
   listSecrets: typeof listSecrets
-  loadSidebarSafe: typeof loadSidebarSafe
   updateSecret: typeof updateSecret
 }
 
@@ -51,7 +49,6 @@ const defaultSecretsRouteDeps: SecretsRouteDeps = {
   deleteSecret,
   getSecretDetail,
   listSecrets,
-  loadSidebarSafe,
   updateSecret,
 }
 
@@ -61,29 +58,23 @@ export function createSecretsRoutes(
   return new Elysia({ prefix: "/secrets" })
     .use(html())
     .get("/", async () => {
-      const { data: secrets, sidebarCounts } = await loadPageData(deps, () =>
-        deps.listSecrets(),
-      )
-      return <SecretList secrets={secrets} sidebarCounts={sidebarCounts} />
+      const secrets = await deps.listSecrets()
+      return <SecretList secrets={secrets} />
     })
-    .get("/new", async () => {
-      const { sidebarCounts } = await loadSidebarPage(deps)
-      return (
-        <SecretForm
-          init={{
-            mode: "create",
-            actionUrl: "/secrets",
-            name: "",
-            secretString: "",
-            description: "",
-            kmsKeyId: "",
-            tags: [],
-            isBinary: false,
-          }}
-          sidebarCounts={sidebarCounts}
-        />
-      )
-    })
+    .get("/new", () => (
+      <SecretForm
+        init={{
+          mode: "create",
+          actionUrl: "/secrets",
+          name: "",
+          secretString: "",
+          description: "",
+          kmsKeyId: "",
+          tags: [],
+          isBinary: false,
+        }}
+      />
+    ))
     .post(
       "/",
       async ({ body, set }) =>
@@ -94,15 +85,11 @@ export function createSecretsRoutes(
       { body: createSecretSchema },
     )
     .get("/:id", async ({ params }) => {
-      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
-        deps.getSecretDetail(decodeResourceName(params.id)),
-      )
-      return <SecretDetail detail={detail} sidebarCounts={sidebarCounts} />
+      const detail = await deps.getSecretDetail(decodeResourceName(params.id))
+      return <SecretDetail detail={detail} />
     })
     .get("/:id/edit", async ({ params }) => {
-      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
-        deps.getSecretDetail(decodeResourceName(params.id)),
-      )
+      const detail = await deps.getSecretDetail(decodeResourceName(params.id))
       return (
         <SecretForm
           init={{
@@ -115,7 +102,6 @@ export function createSecretsRoutes(
             tags: detail.tags,
             isBinary: detail.isBinary,
           }}
-          sidebarCounts={sidebarCounts}
         />
       )
     })

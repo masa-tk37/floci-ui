@@ -11,7 +11,7 @@ import type {
 import { ClientProps, mountComponentAttrs } from "../client"
 import { formatDate, PLACEHOLDER } from "../format"
 import { IconPlus, IconSearch, IconTrash } from "../icons"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 import { CognitoStatusBadge, EnabledBadge } from "./status-badge"
 
 interface UserPoolDetailProps {
@@ -19,7 +19,6 @@ interface UserPoolDetailProps {
   appClients: AppClientSummary[]
   groups: GroupSummary[]
   users: UserSummary[]
-  sidebarCounts?: SidebarCounts
 }
 
 function renderSignInMode(mode: UserPoolDetailData["signInMode"]) {
@@ -57,7 +56,6 @@ export function UserPoolDetail({
   appClients,
   groups,
   users,
-  sidebarCounts,
 }: UserPoolDetailProps) {
   const poolPath = `/cognito/${encodeURIComponent(pool.id)}`
 
@@ -65,7 +63,6 @@ export function UserPoolDetail({
     <Layout
       title={`Cognito · ${pool.name}`}
       active="cognito"
-      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/cognito/pool-detail.css"]}
       crumbs={[
         { label: "Cognito", href: "/cognito" },

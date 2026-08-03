@@ -2,20 +2,18 @@ import { Html } from "@elysiajs/html"
 import { escapeHtml } from "@kitajs/html"
 import { mountComponentAttrs } from "../client"
 import { IconPlus, IconSearch, IconSettings, IconTrash } from "../icons"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 
 interface TableListProps {
   tables: string[]
-  sidebarCounts?: SidebarCounts
 }
 
-export function TableList({ tables, sidebarCounts }: TableListProps) {
+export function TableList({ tables }: TableListProps) {
   return (
     <Layout
       title="DynamoDB Tables"
       active="dynamodb"
       crumbs={[{ label: "DynamoDB", href: "/dynamodb" }]}
-      sidebarCounts={sidebarCounts}
     >
       <section class="page-header page-header--row">
         <h1 class="page-title">DynamoDB Tables</h1>

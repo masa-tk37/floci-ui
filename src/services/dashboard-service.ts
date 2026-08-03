@@ -9,13 +9,6 @@ const CONNECTION_ERROR = "floci に接続できませんでした。"
 
 export interface DashboardServiceStatus {
   count: number
-  items: string[]
-  error?: string
-}
-
-export interface DashboardNamedStatus {
-  count: number
-  items: { id: string; name: string }[]
   error?: string
 }
 
@@ -25,17 +18,7 @@ export interface DashboardData {
   sqs: DashboardServiceStatus
   ssm: DashboardServiceStatus
   secrets: DashboardServiceStatus
-  cognito: DashboardNamedStatus
-  sidebarCounts?:
-    | {
-        tables: number
-        buckets: number
-        queues: number
-        parameters: number
-        secrets: number
-        userPools: number
-      }
-    | undefined
+  cognito: DashboardServiceStatus
 }
 
 export interface DashboardLoaders {
@@ -48,37 +31,13 @@ export interface DashboardLoaders {
 }
 
 function statusFromResult(
-  result: PromiseSettledResult<string[]>,
+  result: PromiseSettledResult<unknown[]>,
 ): DashboardServiceStatus {
   if (result.status === "fulfilled") {
-    return {
-      count: result.value.length,
-      items: result.value.slice(0, 5),
-    }
+    return { count: result.value.length }
   }
 
-  return {
-    count: 0,
-    items: [],
-    error: CONNECTION_ERROR,
-  }
-}
-
-function namedStatusFromResult(
-  result: PromiseSettledResult<{ id: string; name: string }[]>,
-): DashboardNamedStatus {
-  if (result.status === "fulfilled") {
-    return {
-      count: result.value.length,
-      items: result.value.slice(0, 5),
-    }
-  }
-
-  return {
-    count: 0,
-    items: [],
-    error: CONNECTION_ERROR,
-  }
+  return { count: 0, error: CONNECTION_ERROR }
 }
 
 export async function loadDashboardData(
@@ -100,21 +59,11 @@ export async function loadDashboardData(
     userPoolsResult,
   ] = await Promise.allSettled([
     loaders.listTables(),
-    loaders
-      .listBuckets()
-      .then((buckets) => buckets.map((bucket) => bucket.name)),
-    loaders.listQueues().then((queues) => queues.map((queue) => queue.name)),
-    loaders
-      .listParameters()
-      .then((parameters) => parameters.map((parameter) => parameter.name)),
-    loaders
-      .listSecrets()
-      .then((secrets) => secrets.map((secret) => secret.name)),
-    loaders
-      .listUserPools()
-      .then((userPools) =>
-        userPools.map((userPool) => ({ id: userPool.id, name: userPool.name })),
-      ),
+    loaders.listBuckets(),
+    loaders.listQueues(),
+    loaders.listParameters(),
+    loaders.listSecrets(),
+    loaders.listUserPools(),
   ])
 
   return {
@@ -123,24 +72,6 @@ export async function loadDashboardData(
     sqs: statusFromResult(queuesResult),
     ssm: statusFromResult(parametersResult),
     secrets: statusFromResult(secretsResult),
-    cognito: namedStatusFromResult(userPoolsResult),
-    sidebarCounts: {
-      tables:
-        tablesResult.status === "fulfilled" ? tablesResult.value.length : 0,
-      buckets:
-        bucketsResult.status === "fulfilled" ? bucketsResult.value.length : 0,
-      queues:
-        queuesResult.status === "fulfilled" ? queuesResult.value.length : 0,
-      parameters:
-        parametersResult.status === "fulfilled"
-          ? parametersResult.value.length
-          : 0,
-      secrets:
-        secretsResult.status === "fulfilled" ? secretsResult.value.length : 0,
-      userPools:
-        userPoolsResult.status === "fulfilled"
-          ? userPoolsResult.value.length
-          : 0,
-    },
+    cognito: statusFromResult(userPoolsResult),
   }
 }

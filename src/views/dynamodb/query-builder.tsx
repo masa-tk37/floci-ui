@@ -1,21 +1,19 @@
 import { Html } from "@elysiajs/html"
 
 import { ClientProps, mountComponentAttrs } from "../client"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 
 interface QueryBuilderProps {
   tableName: string
-  sidebarCounts?: SidebarCounts
 }
 
-export function QueryBuilder({ tableName, sidebarCounts }: QueryBuilderProps) {
+export function QueryBuilder({ tableName }: QueryBuilderProps) {
   const tablePath = `/dynamodb/${encodeURIComponent(tableName)}`
 
   return (
     <Layout
       title={`DynamoDB · ${tableName} · Query`}
       active="dynamodb"
-      sidebarCounts={sidebarCounts}
       crumbs={[
         { label: "DynamoDB", href: "/dynamodb" },
         { label: tableName, href: tablePath },

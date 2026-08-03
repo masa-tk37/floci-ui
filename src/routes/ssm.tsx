@@ -4,7 +4,6 @@ import {
   decodeResourceName,
   encodeResourceName,
 } from "../infrastructure/resource-name-codec"
-import { loadSidebarSafe } from "../services/sidebar-service"
 import {
   createParameter,
   deleteParameter,
@@ -15,7 +14,7 @@ import {
 import { ParameterDetail } from "../views/ssm/parameter-detail"
 import { ParameterForm } from "../views/ssm/parameter-form"
 import { ParameterList } from "../views/ssm/parameter-list"
-import { loadPageData, loadSidebarPage, runJsonAction } from "./route-utils"
+import { runJsonAction } from "./route-utils"
 
 const parameterTagSchema = t.Object({
   key: t.String(),
@@ -58,7 +57,6 @@ export interface SsmRouteDeps {
   deleteParameter: typeof deleteParameter
   getParameterDetail: typeof getParameterDetail
   listParameters: typeof listParameters
-  loadSidebarSafe: typeof loadSidebarSafe
   updateParameter: typeof updateParameter
 }
 
@@ -67,7 +65,6 @@ const defaultSsmRouteDeps: SsmRouteDeps = {
   deleteParameter,
   getParameterDetail,
   listParameters,
-  loadSidebarSafe,
   updateParameter,
 }
 
@@ -75,32 +72,24 @@ export function createSsmRoutes(deps: SsmRouteDeps = defaultSsmRouteDeps) {
   return new Elysia({ prefix: "/ssm" })
     .use(html())
     .get("/", async () => {
-      const { data: parameters, sidebarCounts } = await loadPageData(deps, () =>
-        deps.listParameters(),
-      )
-      return (
-        <ParameterList parameters={parameters} sidebarCounts={sidebarCounts} />
-      )
+      const parameters = await deps.listParameters()
+      return <ParameterList parameters={parameters} />
     })
-    .get("/new", async () => {
-      const { sidebarCounts } = await loadSidebarPage(deps)
-      return (
-        <ParameterForm
-          init={{
-            mode: "create",
-            actionUrl: "/ssm",
-            name: "",
-            type: "String",
-            value: "",
-            description: "",
-            tier: "Standard",
-            keyId: "",
-            tags: [],
-          }}
-          sidebarCounts={sidebarCounts}
-        />
-      )
-    })
+    .get("/new", () => (
+      <ParameterForm
+        init={{
+          mode: "create",
+          actionUrl: "/ssm",
+          name: "",
+          type: "String",
+          value: "",
+          description: "",
+          tier: "Standard",
+          keyId: "",
+          tags: [],
+        }}
+      />
+    ))
     .post(
       "/",
       async ({ body, set }) =>
@@ -111,14 +100,14 @@ export function createSsmRoutes(deps: SsmRouteDeps = defaultSsmRouteDeps) {
       { body: createParameterSchema },
     )
     .get("/:id", async ({ params }) => {
-      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
-        deps.getParameterDetail(decodeResourceName(params.id)),
+      const detail = await deps.getParameterDetail(
+        decodeResourceName(params.id),
       )
-      return <ParameterDetail detail={detail} sidebarCounts={sidebarCounts} />
+      return <ParameterDetail detail={detail} />
     })
     .get("/:id/edit", async ({ params }) => {
-      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
-        deps.getParameterDetail(decodeResourceName(params.id)),
+      const detail = await deps.getParameterDetail(
+        decodeResourceName(params.id),
       )
       return (
         <ParameterForm
@@ -133,7 +122,6 @@ export function createSsmRoutes(deps: SsmRouteDeps = defaultSsmRouteDeps) {
             keyId: detail.keyId,
             tags: detail.tags,
           }}
-          sidebarCounts={sidebarCounts}
         />
       )
     })

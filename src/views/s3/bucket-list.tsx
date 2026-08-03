@@ -2,7 +2,7 @@ import { Html } from "@elysiajs/html"
 import { escapeHtml } from "@kitajs/html"
 import { mountComponentAttrs } from "../client"
 import { IconPlus, IconSearch, IconSettings, IconTrash } from "../icons"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 
 interface Bucket {
   Name?: string
@@ -10,16 +10,14 @@ interface Bucket {
 
 interface BucketListProps {
   buckets: Bucket[]
-  sidebarCounts?: SidebarCounts
 }
 
-export function BucketList({ buckets, sidebarCounts }: BucketListProps) {
+export function BucketList({ buckets }: BucketListProps) {
   return (
     <Layout
       title="S3 Buckets"
       active="s3"
       crumbs={[{ label: "S3", href: "/s3" }]}
-      sidebarCounts={sidebarCounts}
     >
       <section class="page-header page-header--row">
         <h1 class="page-title">S3 Buckets</h1>

@@ -6,21 +6,19 @@ import type { SecretDetail as SecretDetailData } from "../../services/secrets/se
 import { ClientProps, mountComponentAttrs } from "../client"
 import { formatDate, formatJsonValue, PLACEHOLDER } from "../format"
 import { IconEdit, IconTrash } from "../icons"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 
 interface SecretDetailProps {
   detail: SecretDetailData
-  sidebarCounts?: SidebarCounts
 }
 
-export function SecretDetail({ detail, sidebarCounts }: SecretDetailProps) {
+export function SecretDetail({ detail }: SecretDetailProps) {
   const secretPath = `/secrets/${encodeResourceName(detail.name)}`
 
   return (
     <Layout
       title={`Secret · ${detail.name}`}
       active="secrets"
-      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/secrets/secret-detail.css"]}
       crumbs={[
         { label: "Secrets", href: "/secrets" },

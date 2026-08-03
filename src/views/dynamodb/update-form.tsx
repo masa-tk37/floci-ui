@@ -1,22 +1,20 @@
 import { Html } from "@elysiajs/html"
 
 import { ClientProps, mountComponentAttrs } from "../client"
-import { Layout, type SidebarCounts } from "../layout"
+import { Layout } from "../layout"
 import type { UpdateFormInitial } from "./update-form-state"
 
 interface UpdateTableFormProps {
   init: UpdateFormInitial
-  sidebarCounts?: SidebarCounts
 }
 
-export function UpdateTableForm({ init, sidebarCounts }: UpdateTableFormProps) {
+export function UpdateTableForm({ init }: UpdateTableFormProps) {
   const tablePath = `/dynamodb/${encodeURIComponent(init.tableName)}`
 
   return (
     <Layout
       title={`Table を編集 · ${init.tableName}`}
       active="dynamodb"
-      sidebarCounts={sidebarCounts}
       stylesheets={["/public/styles/views/dynamodb/update-form.css"]}
       crumbs={[
         { label: "DynamoDB", href: "/dynamodb" },

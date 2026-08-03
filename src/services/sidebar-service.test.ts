@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test"
-import {
-  loadSidebar,
-  loadSidebarSafe,
-  toSidebarCounts,
-} from "./sidebar-service"
+import { loadSidebar, loadSidebarSafe } from "./sidebar-service"
 
 const listTablesMock = mock(() => Promise.resolve(["table-a", "table-b"]))
 const listBucketsMock = mock(() => Promise.resolve([{ name: "bucket-1" }]))
@@ -77,31 +73,5 @@ describe("loadSidebarSafe", () => {
     expect(result?.parameters).toBeArray()
     expect(result?.secrets).toBeArray()
     expect(result?.userPools).toBeArray()
-  })
-})
-
-describe("toSidebarCounts", () => {
-  it("returns counts for loaded sidebar data", () => {
-    expect(
-      toSidebarCounts({
-        tables: ["users", "orders"],
-        buckets: ["archive"],
-        queues: ["jobs", "dead-letter"],
-        parameters: ["/app/config"],
-        secrets: ["app/dev/db", "app/dev/api"],
-        userPools: ["local-dev-users"],
-      }),
-    ).toEqual({
-      tables: 2,
-      buckets: 1,
-      queues: 2,
-      parameters: 1,
-      secrets: 2,
-      userPools: 1,
-    })
-  })
-
-  it("returns undefined when sidebar data is unavailable", () => {
-    expect(toSidebarCounts(undefined)).toBeUndefined()
   })
 })

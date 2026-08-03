@@ -1,7 +1,7 @@
-import { ServiceError } from "../errors"
 import type { BillingMode, StreamViewType } from "@aws-sdk/client-dynamodb"
 import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
+import { ServiceError } from "../errors"
 import {
   createTable,
   deleteItem,
@@ -21,7 +21,7 @@ import { ItemList } from "../views/dynamodb/item-list"
 import { QueryBuilder } from "../views/dynamodb/query-builder"
 import { TableList } from "../views/dynamodb/table-list"
 import { UpdateTableForm } from "../views/dynamodb/update-form"
-import { loadPageData, loadSidebarPage, runJsonAction } from "./route-utils"
+import { loadPageData, runJsonAction } from "./route-utils"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -165,15 +165,10 @@ export function createDynamodbRoutes(
   return new Elysia({ prefix: "/dynamodb" })
     .use(html())
     .get("/", async () => {
-      const { data: tables, sidebarCounts } = await loadPageData(deps, () =>
-        deps.listTables(),
-      )
-      return <TableList tables={tables} sidebarCounts={sidebarCounts} />
+      const tables = await deps.listTables()
+      return <TableList tables={tables} />
     })
-    .get("/new", async () => {
-      const { sidebarCounts } = await loadSidebarPage(deps)
-      return <CreateTableForm sidebarCounts={sidebarCounts} />
-    })
+    .get("/new", () => <CreateTableForm />)
     .post(
       "/tables",
       async ({ body, set }) =>
@@ -188,9 +183,7 @@ export function createDynamodbRoutes(
       }),
     )
     .get("/:table/edit", async ({ params }) => {
-      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
-        deps.getTableDetail(params.table),
-      )
+      const detail = await deps.getTableDetail(params.table)
       return (
         <UpdateTableForm
           init={{
@@ -204,7 +197,6 @@ export function createDynamodbRoutes(
             ttlAttr: detail.ttlAttr,
             deletionProtection: detail.deletionProtection,
           }}
-          sidebarCounts={sidebarCounts}
         />
       )
     })
@@ -228,11 +220,7 @@ export function createDynamodbRoutes(
     .get(
       "/:table",
       async ({ params, query }) => {
-        const {
-          data: result,
-          sidebar,
-          sidebarCounts,
-        } = await loadPageData(deps, () =>
+        const { data: result, sidebar } = await loadPageData(deps, () =>
           deps.scanItems(params.table, query.cursor),
         )
         return (
@@ -245,7 +233,6 @@ export function createDynamodbRoutes(
             cursor={query.cursor}
             nextCursor={result.nextCursor}
             tableArn={result.tableArn}
-            sidebarCounts={sidebarCounts}
             stack={query.stack}
           />
         )
@@ -257,16 +244,11 @@ export function createDynamodbRoutes(
         }),
       },
     )
-    .get("/:table/query", async ({ params }) => {
-      const { sidebarCounts } = await loadSidebarPage(deps)
-      return (
-        <QueryBuilder tableName={params.table} sidebarCounts={sidebarCounts} />
-      )
-    })
+    .get("/:table/query", ({ params }) => (
+      <QueryBuilder tableName={params.table} />
+    ))
     .get("/:table/:pk/edit", async ({ params }) => {
-      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
-        deps.getItem(params.table, params.pk),
-      )
+      const detail = await deps.getItem(params.table, params.pk)
       return (
         <ItemEditForm
           init={{
@@ -277,14 +259,11 @@ export function createDynamodbRoutes(
             sortKey: detail.sortKey,
             tableArn: detail.tableArn,
           }}
-          sidebarCounts={sidebarCounts}
         />
       )
     })
     .get("/:table/:pk/:sk/edit", async ({ params }) => {
-      const { data: detail, sidebarCounts } = await loadPageData(deps, () =>
-        deps.getItem(params.table, params.pk, params.sk),
-      )
+      const detail = await deps.getItem(params.table, params.pk, params.sk)
       return (
         <ItemEditForm
           init={{
@@ -296,7 +275,6 @@ export function createDynamodbRoutes(
             sortKey: detail.sortKey,
             tableArn: detail.tableArn,
           }}
-          sidebarCounts={sidebarCounts}
         />
       )
     })

@@ -24,12 +24,11 @@ import {
   removeUserFromGroup,
   setUserPassword,
 } from "../services/cognito/cognito-service"
-import { loadSidebarSafe } from "../services/sidebar-service"
 import { UserPoolDetail } from "../views/cognito/pool-detail"
 import { UserPoolForm } from "../views/cognito/pool-form"
 import { UserPoolList } from "../views/cognito/pool-list"
 import { CognitoUserDetail } from "../views/cognito/user-detail"
-import { loadPageData, loadSidebarPage, runJsonAction } from "./route-utils"
+import { runJsonAction } from "./route-utils"
 
 const cognitoVerifiedAttributeSchema = t.Union([
   t.Literal("email"),
@@ -94,7 +93,6 @@ export interface CognitoRouteDeps {
   listUserPools: typeof listUserPools
   listUsers: typeof listUsers
   listUsersInGroup: typeof listUsersInGroup
-  loadSidebarSafe: typeof loadSidebarSafe
   removeUserFromGroup: typeof removeUserFromGroup
   setUserPassword: typeof setUserPassword
 }
@@ -119,7 +117,6 @@ const defaultCognitoRouteDeps: CognitoRouteDeps = {
   listUserPools,
   listUsers,
   listUsersInGroup,
-  loadSidebarSafe,
   removeUserFromGroup,
   setUserPassword,
 }
@@ -130,28 +127,20 @@ export function createCognitoRoutes(
   return new Elysia({ prefix: "/cognito" })
     .use(html())
     .get("/", async () => {
-      const { data: userPools, sidebarCounts } = await loadPageData(deps, () =>
-        deps.listUserPools(),
-      )
-      return (
-        <UserPoolList userPools={userPools} sidebarCounts={sidebarCounts} />
-      )
+      const userPools = await deps.listUserPools()
+      return <UserPoolList userPools={userPools} />
     })
-    .get("/new", async () => {
-      const { sidebarCounts } = await loadSidebarPage(deps)
-      return (
-        <UserPoolForm
-          init={{
-            actionUrl: "/cognito",
-            name: "",
-            usernameMode: "username",
-            autoVerifiedAttributes: [],
-            mfaConfiguration: "OFF",
-          }}
-          sidebarCounts={sidebarCounts}
-        />
-      )
-    })
+    .get("/new", () => (
+      <UserPoolForm
+        init={{
+          actionUrl: "/cognito",
+          name: "",
+          usernameMode: "username",
+          autoVerifiedAttributes: [],
+          mfaConfiguration: "OFF",
+        }}
+      />
+    ))
     .post(
       "/",
       async ({ body, set }) =>
@@ -161,21 +150,18 @@ export function createCognitoRoutes(
       { body: createUserPoolSchema },
     )
     .get("/:poolId", async ({ params }) => {
-      const [pool, appClients, users, groups, { sidebarCounts }] =
-        await Promise.all([
-          deps.getUserPoolDetail(params.poolId),
-          deps.listUserPoolClients(params.poolId),
-          deps.listUsers(params.poolId),
-          deps.listGroups(params.poolId),
-          loadSidebarPage(deps),
-        ])
+      const [pool, appClients, users, groups] = await Promise.all([
+        deps.getUserPoolDetail(params.poolId),
+        deps.listUserPoolClients(params.poolId),
+        deps.listUsers(params.poolId),
+        deps.listGroups(params.poolId),
+      ])
       return (
         <UserPoolDetail
           pool={pool}
           appClients={appClients}
           users={users}
           groups={groups}
-          sidebarCounts={sidebarCounts}
         />
       )
     })
@@ -254,17 +240,15 @@ export function createCognitoRoutes(
     )
     .get("/:poolId/users/:username", async ({ params }) => {
       const username = decodeResourceName(params.username)
-      const [user, pool, { sidebarCounts }] = await Promise.all([
+      const [user, pool] = await Promise.all([
         deps.getUserDetail(params.poolId, username),
         deps.getUserPoolDetail(params.poolId),
-        loadSidebarPage(deps),
       ])
       return (
         <CognitoUserDetail
           poolId={params.poolId}
           poolName={pool.name}
           detail={user}
-          sidebarCounts={sidebarCounts}
         />
       )
     })
