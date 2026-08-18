@@ -13,10 +13,18 @@ export const FLOCI_ACCOUNT_ID =
 
 const credentials = { accessKeyId: "test", secretAccessKey: "test" }
 
+/**
+ * Bounds how long a page waits on an unreachable emulator. requestTimeout is a
+ * socket-inactivity timeout, so a slow but progressing scan or download is not
+ * cut off — this only catches a runtime that never answers.
+ */
+const requestHandler = { connectionTimeout: 3_000, requestTimeout: 10_000 }
+
 export const dynamodb = new DynamoDBClient({
   endpoint: FLOCI_ENDPOINT,
   region: FLOCI_REGION,
   credentials,
+  requestHandler,
 })
 
 export const s3 = new S3Client({
@@ -24,28 +32,33 @@ export const s3 = new S3Client({
   region: FLOCI_REGION,
   credentials,
   forcePathStyle: true,
+  requestHandler,
 })
 
 export const sqs = new SQSClient({
   endpoint: FLOCI_ENDPOINT,
   region: FLOCI_REGION,
   credentials,
+  requestHandler,
 })
 
 export const ssm = new SSMClient({
   endpoint: FLOCI_ENDPOINT,
   region: FLOCI_REGION,
   credentials,
+  requestHandler,
 })
 
 export const secretsManager = new SecretsManagerClient({
   endpoint: FLOCI_ENDPOINT,
   region: FLOCI_REGION,
   credentials,
+  requestHandler,
 })
 
 export const cognitoIdentityProvider = new CognitoIdentityProviderClient({
   endpoint: FLOCI_ENDPOINT,
   region: FLOCI_REGION,
   credentials,
+  requestHandler,
 })

@@ -9,6 +9,8 @@ export class ServiceError extends Error {
     public readonly code: ServiceErrorCode,
     message: string,
     public readonly cause?: unknown,
+    /** Underlying SDK exception or socket error name, when there was one. */
+    public readonly awsCode?: string,
   ) {
     super(message)
     this.name = "ServiceError"
@@ -34,5 +36,14 @@ export function toOperationFailed(e: unknown): never {
     "OperationFailed",
     e instanceof Error ? e.message : String(e),
     e,
+    awsCodeOf(e),
   )
+}
+
+function awsCodeOf(e: unknown): string | undefined {
+  if (typeof e !== "object" || e === null) return undefined
+  const { name, code } = e as { name?: unknown; code?: unknown }
+  if (typeof name === "string" && name !== "Error") return name
+  if (typeof code === "string") return code
+  return undefined
 }

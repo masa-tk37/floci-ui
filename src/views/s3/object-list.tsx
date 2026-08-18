@@ -1,7 +1,12 @@
 import { Html } from "@elysiajs/html"
 import { escapeHtml } from "@kitajs/html"
 import { ClientProps, mountComponentAttrs } from "../client"
-import { formatDate, formatRelativeDate, PLACEHOLDER } from "../format"
+import {
+  formatBytes,
+  formatDate,
+  formatRelativeDate,
+  PLACEHOLDER,
+} from "../format"
 import {
   IconFile,
   IconFolder,
@@ -59,15 +64,6 @@ function buildPrefixCrumbs(prefix: string): PathCrumb[] {
     crumbs.push({ label: part, prefix: acc })
   }
   return crumbs
-}
-
-function formatSize(bytes: number | undefined): string {
-  if (bytes === undefined) return PLACEHOLDER
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
 function stripPrefix(key: string, prefix: string): string {
@@ -149,14 +145,14 @@ export function ObjectList({
               <div class="s3-object-list-page__header-actions">
                 <button
                   type="button"
-                  class="btn btn--s3 btn--sm"
+                  class="btn btn--primary btn--sm"
                   {...{ "@click": "openFolderModal()" }}
                 >
                   {IconPlus}フォルダ作成
                 </button>
                 <button
                   type="button"
-                  class="btn btn--s3 btn--sm"
+                  class="btn btn--primary btn--sm"
                   {...{ "@click": "openUploadModal()" }}
                 >
                   {IconPlus}アップロード
@@ -229,7 +225,7 @@ export function ObjectList({
                 <div class="modal__actions">
                   <button
                     type="button"
-                    class="btn btn--s3"
+                    class="btn btn--primary"
                     {...{
                       "@click": "createFolder()",
                       ":disabled": "folderSubmitting",
@@ -266,15 +262,25 @@ export function ObjectList({
                 }}
               >
                 <h2 class="modal__title">ファイルアップロード</h2>
-                <p class="modal__body">
-                  現在の保存先:
-                  <span
-                    class="badge badge--s3 s3-object-list-page__scope-badge"
-                    safe
-                  >
-                    {prefix || "/"}
-                  </span>
-                </p>
+                <div class="form-row">
+                  <label class="form-label" for="s3-upload-prefix">
+                    保存先 prefix
+                  </label>
+                  <input
+                    id="s3-upload-prefix"
+                    type="text"
+                    class="input"
+                    placeholder="バケット直下"
+                    x-model="uploadPrefix"
+                  />
+                  <p class="form-help">
+                    アップロード先:{" "}
+                    <code
+                      class="s3-object-list-page__upload-target"
+                      x-text="uploadTargetKey"
+                    />
+                  </p>
+                </div>
                 <div class="form-row">
                   <label class="form-label" for="s3-upload-files-modal">
                     ファイル
@@ -297,7 +303,7 @@ export function ObjectList({
                 <div class="modal__actions">
                   <button
                     type="button"
-                    class="btn btn--s3"
+                    class="btn btn--primary"
                     {...{
                       "@click": "upload()",
                       ":disabled": "uploadSubmitting",
@@ -367,7 +373,7 @@ export function ObjectList({
                 <div class="modal__actions">
                   <button
                     type="button"
-                    class="btn btn--s3"
+                    class="btn btn--primary"
                     {...{
                       "@click": "submitRename()",
                       ":disabled": "renameSubmitting",
@@ -522,7 +528,7 @@ export function ObjectList({
                 <div class="modal__actions">
                   <button
                     type="button"
-                    class="btn btn--s3"
+                    class="btn btn--primary"
                     {...{
                       "@click": "saveProperties()",
                       ":disabled": "propertyLoading || propertySubmitting",
@@ -644,7 +650,7 @@ export function ObjectList({
                               {shortVersionId}
                             </td>
                             <td class="data-table__num" safe>
-                              {formatSize(v.size)}
+                              {formatBytes(v.size)}
                             </td>
                             <td safe>
                               {v.lastModified
@@ -825,7 +831,7 @@ export function ObjectList({
                               </a>
                             </td>
                             <td class="data-table__num" safe>
-                              {formatSize(obj.Size)}
+                              {formatBytes(obj.Size)}
                             </td>
                             <td
                               title={

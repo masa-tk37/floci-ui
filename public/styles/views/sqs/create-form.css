@@ -71,7 +71,7 @@
 }
 
 .sqs-create-page__tag-remove {
-  align-self: end;
+  margin-top: var(--form-label-block);
 }
 
 @media (max-width: 700px) {
@@ -79,6 +79,10 @@
   .sqs-create-page__dlq-grid,
   .sqs-create-page__tag-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sqs-create-page__tag-remove {
+    margin-top: 0;
   }
 
   .sqs-create-page__count-input {

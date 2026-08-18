@@ -4,20 +4,35 @@
   gap: 1.25rem;
 }
 
+/* The edge bar takes --color-service from the [data-service] token block, so
+   all six cards share one rule instead of a modifier each. */
 .service-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--space-3);
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-xl);
-  padding: 1.25rem;
-  box-shadow: var(--shadow-whisper);
+  padding: var(--space-5);
+  box-shadow:
+    inset 3px 0 0 var(--color-service),
+    var(--shadow-xs);
+  transition:
+    box-shadow var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard);
+}
+
+.service-card:hover {
+  box-shadow:
+    inset 3px 0 0 var(--color-service),
+    var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .service-card__title {
-  font-size: 0.95rem;
+  font-family: var(--font-display);
+  font-size: var(--font-size-md);
   font-weight: 700;
   color: var(--color-text);
   margin: 0;
@@ -32,40 +47,4 @@
 
 .service-card__status .status-pill {
   white-space: nowrap;
-}
-
-.service-card--dynamodb {
-  box-shadow:
-    inset 3px 0 0 var(--color-dynamodb),
-    var(--shadow-whisper);
-}
-
-.service-card--s3 {
-  box-shadow:
-    inset 3px 0 0 var(--color-s3),
-    var(--shadow-whisper);
-}
-
-.service-card--sqs {
-  box-shadow:
-    inset 3px 0 0 var(--color-sqs),
-    var(--shadow-whisper);
-}
-
-.service-card--ssm {
-  box-shadow:
-    inset 3px 0 0 var(--color-ssm),
-    var(--shadow-whisper);
-}
-
-.service-card--secrets {
-  box-shadow:
-    inset 3px 0 0 var(--color-secrets),
-    var(--shadow-whisper);
-}
-
-.service-card--cognito {
-  box-shadow:
-    inset 3px 0 0 var(--color-cognito),
-    var(--shadow-whisper);
 }

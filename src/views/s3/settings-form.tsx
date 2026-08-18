@@ -413,7 +413,7 @@ export function S3SettingsForm({ init }: S3SettingsFormProps) {
           <div class="form-actions">
             <button
               type="button"
-              class="btn btn--s3"
+              class="btn btn--primary"
               {...{ "@click": "submit()", ":disabled": "submitting" }}
             >
               <span x-show="!submitting">保存</span>

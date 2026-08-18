@@ -270,7 +270,7 @@ export function SQSSettingsForm({ init }: SQSSettingsFormProps) {
           <div class="form-actions">
             <button
               type="button"
-              class="btn btn--sqs"
+              class="btn btn--primary"
               {...{ "@click": "submit()", ":disabled": "submitting" }}
             >
               <span x-show="!submitting">保存</span>

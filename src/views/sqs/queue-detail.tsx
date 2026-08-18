@@ -220,7 +220,7 @@ export function QueueDetail({
                     </span>
                     <button
                       type="button"
-                      class="btn btn--sqs btn--sm"
+                      class="btn btn--primary btn--sm"
                       {...{ "@click": "openSend()" }}
                     >
                       {IconPlus}送信
@@ -298,7 +298,8 @@ export function QueueDetail({
                           type="button"
                           class="btn btn--sm"
                           {...{
-                            ":class": "!batchMode ? 'btn--sqs' : 'btn--ghost'",
+                            ":class":
+                              "!batchMode ? 'btn--primary' : 'btn--ghost'",
                             "@click": "batchMode = false",
                           }}
                         >
@@ -308,7 +309,8 @@ export function QueueDetail({
                           type="button"
                           class="btn btn--sm"
                           {...{
-                            ":class": "batchMode ? 'btn--sqs' : 'btn--ghost'",
+                            ":class":
+                              "batchMode ? 'btn--primary' : 'btn--ghost'",
                             "@click": "batchMode = true",
                           }}
                         >
@@ -370,7 +372,7 @@ export function QueueDetail({
                         <div class="modal__actions">
                           <button
                             type="submit"
-                            class="btn btn--sqs"
+                            class="btn btn--primary"
                             {...{
                               ":disabled":
                                 "sending || !body || (isFifo && !groupId) || (requiresDeduplicationId && !deduplicationId)",
@@ -409,7 +411,7 @@ export function QueueDetail({
                         <div class="modal__actions">
                           <button
                             type="submit"
-                            class="btn btn--sqs"
+                            class="btn btn--primary"
                             {...{
                               ":disabled":
                                 "batchSending || !batchBodies.trim()",

@@ -29,7 +29,7 @@ function ServiceCard({
   status: ServiceStatus
 }) {
   return (
-    <div class={`service-card service-card--${service}`}>
+    <div class="service-card" data-service={service}>
       <h2 class="service-card__title" safe>
         {title}
       </h2>

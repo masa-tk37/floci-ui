@@ -110,7 +110,7 @@ export function UserPoolForm({ init }: UserPoolFormProps) {
           <div class="form-actions">
             <button
               type="button"
-              class="btn btn--cognito"
+              class="btn btn--primary"
               {...{ "@click": "submit()", ":disabled": "submitting || !name" }}
             >
               <span x-show="!submitting">作成</span>

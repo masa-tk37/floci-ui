@@ -16,6 +16,13 @@
   margin-left: 0.5rem;
 }
 
+.s3-object-list-page__upload-target {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
 .s3-object-list-page__code {
   font-family: var(--font-mono);
   font-size: 0.82rem;

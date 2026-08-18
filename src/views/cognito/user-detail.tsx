@@ -181,7 +181,7 @@ export function CognitoUserDetail({
             ) : (
               <button
                 type="button"
-                class="btn btn--cognito btn--sm"
+                class="btn btn--primary btn--sm"
                 {...{ "@click": "enable()", ":disabled": "loading" }}
               >
                 Enable
@@ -222,7 +222,7 @@ export function CognitoUserDetail({
             <div class="form-actions">
               <button
                 type="submit"
-                class="btn btn--cognito btn--sm"
+                class="btn btn--primary btn--sm"
                 {...{ ":disabled": "loading || !password.trim()" }}
               >
                 <span x-show="!loading">Set Password</span>

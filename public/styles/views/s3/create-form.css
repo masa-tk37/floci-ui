@@ -52,7 +52,7 @@
 }
 
 .s3-create-page__tag-remove {
-  align-self: end;
+  margin-top: var(--form-label-block);
 }
 
 .s3-create-page__warning {
@@ -69,6 +69,10 @@
 @media (max-width: 700px) {
   .s3-create-page__tag-grid {
     grid-template-columns: 1fr;
+  }
+
+  .s3-create-page__tag-remove {
+    margin-top: 0;
   }
 
   .s3-create-page__section-header {

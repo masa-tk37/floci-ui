@@ -2,14 +2,27 @@ import { Html } from "@elysiajs/html"
 import { escapeHtml } from "@kitajs/html"
 
 import type { UserPoolSummary } from "../../services/cognito/cognito-service"
-import { mountComponentAttrs } from "../client"
 import { formatDate } from "../format"
-import { IconPlus, IconSearch, IconTrash } from "../icons"
+import { IconPlus, IconTrash } from "../icons"
 import { Layout } from "../layout"
+import { ResourceTable, type TableColumn } from "../resource-table"
 
 interface UserPoolListProps {
   userPools: UserPoolSummary[]
 }
+
+const columns: TableColumn<UserPoolSummary>[] = [
+  {
+    label: "Name",
+    cell: (pool) => (
+      <a href={`/cognito/${encodeURIComponent(pool.id)}`} safe>
+        {pool.name}
+      </a>
+    ),
+  },
+  { label: "ID", className: "mono", text: (pool) => pool.id },
+  { label: "作成日時", text: (pool) => formatDate(pool.createdAt) },
+]
 
 export function UserPoolList({ userPools }: UserPoolListProps) {
   return (
@@ -20,80 +33,29 @@ export function UserPoolList({ userPools }: UserPoolListProps) {
     >
       <section class="page-header page-header--row">
         <h1 class="page-title">Cognito User Pools</h1>
-        <a href="/cognito/new" class="btn btn--cognito btn--sm">
+        <a href="/cognito/new" class="btn btn--primary btn--sm">
           {IconPlus}User Pool を作成
         </a>
       </section>
 
-      {userPools.length === 0 ? (
-        <p class="empty-state">まだ User Pool がありません</p>
-      ) : (
-        <div {...mountComponentAttrs("list-filter")}>
-          <div class="list-toolbar">
-            <label class="list-filter">
-              <span class="list-filter__icon">{IconSearch}</span>
-              <input
-                type="search"
-                class="input list-filter__input"
-                placeholder="User Pool を検索"
-                {...{ "x-model.debounce.120ms": "query" }}
-              />
-            </label>
-          </div>
-          <p class="list-count">{userPools.length} 件の User Pool</p>
-          <div class="data-table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>ID</th>
-                  <th>作成日時</th>
-                  <th class="data-table__actions">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {userPools.map((pool) => {
-                  const path = `/cognito/${encodeURIComponent(pool.id)}`
-
-                  return (
-                    <tr
-                      data-filter-text={`${escapeHtml(pool.name)} ${pool.id}`}
-                      x-show="matches($el.dataset.filterText)"
-                    >
-                      <td>
-                        <a href={path} safe>
-                          {pool.name}
-                        </a>
-                      </td>
-                      <td class="mono" safe>
-                        {pool.id}
-                      </td>
-                      <td>{formatDate(pool.createdAt)}</td>
-                      <td class="data-table__actions">
-                        <button
-                          type="button"
-                          class="btn btn--danger-ghost btn--sm"
-                          data-floci-delete-trigger=""
-                          data-resource-name={escapeHtml(pool.name)}
-                          data-delete-url={path}
-                          data-on-success="reload"
-                        >
-                          {IconTrash}削除
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-                <tr x-show="hasQuery && visibleCount === 0" x-cloak>
-                  <td colspan={4} class="data-table__empty">
-                    一致する User Pool がありません
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      <ResourceTable
+        items={userPools}
+        columns={columns}
+        resourceLabel="User Pool"
+        filterText={(pool) => `${pool.name} ${pool.id}`}
+        actions={(pool) => (
+          <button
+            type="button"
+            class="btn btn--danger-ghost btn--sm"
+            data-floci-delete-trigger=""
+            data-resource-name={escapeHtml(pool.name)}
+            data-delete-url={`/cognito/${encodeURIComponent(pool.id)}`}
+            data-on-success="reload"
+          >
+            {IconTrash}削除
+          </button>
+        )}
+      />
     </Layout>
   )
 }

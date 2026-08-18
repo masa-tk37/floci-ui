@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test"
 import { type AppRouteDeps, createApp } from "./app"
+import { ServiceError } from "./errors"
+import { FLOCI_ENDPOINT } from "./infrastructure/floci-clients"
 import { encodeResourceName } from "./infrastructure/resource-name-codec"
 
 const sidebarDataMock = mock(async () => undefined)
@@ -526,5 +528,79 @@ describe("createApp", () => {
       },
     })
     expect(getObjectDetailsMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("page error handling", () => {
+  it("renders a navigable error page when a page route fails", async () => {
+    loadDashboardDataMock.mockRejectedValueOnce(
+      new ServiceError(
+        "OperationFailed",
+        "connect ECONNREFUSED 127.0.0.1:4566",
+        undefined,
+        "ECONNREFUSED",
+      ),
+    )
+
+    const response = await buildTestApp().handle(
+      new Request("http://localhost/"),
+    )
+    const body = await response.text()
+
+    expect(response.status).toBe(500)
+    expect(response.headers.get("content-type")).toContain("text/html")
+    expect(body).toContain('<aside class="sidebar">')
+    expect(body).toContain("ECONNREFUSED")
+    expect(body).toContain(FLOCI_ENDPOINT)
+    expect(body).toContain("floci が起動していない可能性がある")
+  })
+
+  it("omits the emulator-down hint when floci answered with a service error", async () => {
+    loadDashboardDataMock.mockRejectedValueOnce(
+      new ServiceError(
+        "OperationFailed",
+        "Requested resource not found",
+        undefined,
+        "ResourceNotFoundException",
+      ),
+    )
+
+    const response = await buildTestApp().handle(
+      new Request("http://localhost/"),
+    )
+    const body = await response.text()
+
+    expect(response.status).toBe(500)
+    expect(body).toContain("ResourceNotFoundException")
+    expect(body).not.toContain("floci が起動していない可能性がある")
+  })
+
+  it("renders the error page for unknown paths instead of a bare 404", async () => {
+    const response = await buildTestApp().handle(
+      new Request("http://localhost/nope"),
+    )
+    const body = await response.text()
+
+    expect(response.status).toBe(404)
+    expect(response.headers.get("content-type")).toContain("text/html")
+    expect(body).toContain('<aside class="sidebar">')
+  })
+
+  it("still answers JSON API failures with the JSON envelope", async () => {
+    getObjectDetailsMock.mockRejectedValueOnce(
+      new ServiceError("NotFound", "No such key"),
+    )
+
+    const response = await buildTestApp().handle(
+      new Request(
+        "http://localhost/s3/demo-bucket/object-details?key=gone.txt",
+      ),
+    )
+
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { code: "NotFound", message: "No such key" },
+    })
   })
 })

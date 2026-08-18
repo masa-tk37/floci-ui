@@ -20,10 +20,11 @@ import {
   UpdateTableCommand,
   UpdateTimeToLiveCommand,
 } from "@aws-sdk/client-dynamodb"
-import { marshall, unmarshall } from "@aws-sdk/util-dynamodb"
+import { marshall } from "@aws-sdk/util-dynamodb"
 import { ServiceError, toOperationFailed } from "../../errors"
 import { dynamodb } from "../../infrastructure/floci-clients"
 import { decodeCursor, encodeCursor } from "./cursor"
+import { findLossyAttributes, normalizeItem } from "./item-normalizer"
 
 const SCAN_PAGE_SIZE = 25
 
@@ -348,7 +349,7 @@ export async function scanItems(
         }),
       ),
     ])
-    const items = (scanResult.Items ?? []).map((item) => unmarshall(item))
+    const items = (scanResult.Items ?? []).map(normalizeItem)
     const nextCursor = encodeCursor(scanResult.LastEvaluatedKey)
     return {
       items,
@@ -421,7 +422,7 @@ export async function queryItems(
         }),
       )
       return {
-        items: (result.Items ?? []).map((item) => unmarshall(item)),
+        items: (result.Items ?? []).map(normalizeItem),
         cursor: encodeCursor(result.LastEvaluatedKey),
       }
     } catch (e: unknown) {
@@ -442,7 +443,7 @@ export async function queryItems(
       }),
     )
     return {
-      items: (result.Items ?? []).map((item) => unmarshall(item)),
+      items: (result.Items ?? []).map(normalizeItem),
       cursor: encodeCursor(result.LastEvaluatedKey),
     }
   } catch (e: unknown) {
@@ -468,7 +469,7 @@ export async function getItem(
       throw new ServiceError("NotFound", `Item not found in ${tableName}`)
     }
     return {
-      item: unmarshall(result.Item),
+      item: normalizeItem(result.Item),
       hashKey: keyInfo.hashKey,
       sortKey: keyInfo.sortKey,
       tableArn: keyInfo.tableArn,
@@ -486,6 +487,7 @@ export async function saveItem(
 ): Promise<void> {
   const keyInfo = await getKeyInfo(tableName)
   assertItemMatchesRouteKey(keyInfo, item, pk, sk)
+  await assertNoLossyAttributes(tableName, keyInfo, pk, sk)
 
   try {
     await dynamodb.send(
@@ -497,6 +499,39 @@ export async function saveItem(
   } catch (e: unknown) {
     toOperationFailed(e)
   }
+}
+
+/**
+ * The editor round-trips an item through JSON, so Binary, Set and high-precision
+ * Number attributes come back as strings and arrays — writing them back would
+ * silently retype the stored attribute.
+ */
+async function assertNoLossyAttributes(
+  tableName: string,
+  keyInfo: KeyInfo,
+  pk: string,
+  sk?: string,
+): Promise<void> {
+  let existing: Record<string, AttributeValue> | undefined
+  try {
+    const result = await dynamodb.send(
+      new GetItemCommand({
+        TableName: tableName,
+        Key: marshall(buildItemKeyObject(keyInfo, pk, sk)),
+      }),
+    )
+    existing = result.Item
+  } catch (e: unknown) {
+    toOperationFailed(e)
+  }
+  if (!existing) return
+
+  const lossy = findLossyAttributes(existing)
+  if (lossy.length === 0) return
+  throw new ServiceError(
+    "InvalidInput",
+    `Cannot save: ${lossy.join(", ")} hold Binary, Set or high-precision Number values, which the JSON editor cannot write back without changing their stored type.`,
+  )
 }
 
 export async function deleteItem(

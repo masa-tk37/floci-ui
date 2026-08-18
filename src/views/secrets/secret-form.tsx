@@ -182,7 +182,7 @@ export function SecretForm({ init }: SecretFormProps) {
             {!init.isBinary ? (
               <button
                 type="button"
-                class="btn btn--secrets"
+                class="btn btn--primary"
                 {...{
                   "@click": "submit()",
                   ":disabled": "submitting || !name || !secretString",

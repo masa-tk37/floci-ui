@@ -76,9 +76,12 @@ body {
   color: var(--color-text-muted);
 }
 
+/* The tinted fill, the ink text and the dot already identify the service —
+   an inset bar inside the rounded row only reads as a clipping artefact. */
 .sidebar__section-header.is-active {
   background: var(--color-theme-soft);
   color: var(--color-theme-ink);
+  transition: background-color var(--duration-base) var(--ease-standard);
 }
 
 .sidebar__dot {
@@ -148,7 +151,7 @@ body {
 
 /* アクティブサービスのアクセントライン — data-service が設定されているページのみ */
 [data-service] .toolbar {
-  box-shadow: inset 0 -3px 0 var(--color-theme);
+  box-shadow: inset 0 -3px 0 var(--color-service);
 }
 
 .toolbar__breadcrumb {

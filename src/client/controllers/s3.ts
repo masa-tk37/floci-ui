@@ -1,3 +1,4 @@
+import { formatBytes, PLACEHOLDER } from "../../views/format"
 import type { S3SettingsInitial } from "../../views/s3/settings-form-state"
 import {
   type AlpineMagic,
@@ -7,7 +8,6 @@ import {
   requestJson,
   tagMixin,
 } from "../lib/floci"
-import { PLACEHOLDER } from "../../views/format"
 
 function buildEncryptionPayload(encryption: string, kmsKeyId: string) {
   if (encryption === "none") return null
@@ -15,6 +15,12 @@ function buildEncryptionPayload(encryption: string, kmsKeyId: string) {
     type: encryption,
     kmsKeyId: encryption === "aws:kms" && kmsKeyId ? kmsKeyId : undefined,
   }
+}
+
+export function normalizeUploadPrefix(raw: string): string {
+  const trimmed = raw.trim().replace(/^\/+/, "")
+  if (!trimmed) return ""
+  return trimmed.endsWith("/") ? trimmed : `${trimmed}/`
 }
 
 function buildS3TagsPayload(tags: { key: string; value: string }[]) {
@@ -244,6 +250,7 @@ export function createS3ObjectListController(
     folderSubmitting: false,
 
     isUploadModalOpen: false,
+    uploadPrefix: props.prefix,
     uploadFiles: [] as File[],
     uploadError: "",
     uploadSubmitting: false,
@@ -282,15 +289,7 @@ export function createS3ObjectListController(
     actionMenuX: 0,
     actionMenuY: 0,
 
-    formatBytes(bytes: number | undefined | null) {
-      if (bytes === undefined || bytes === null) return PLACEHOLDER
-      if (bytes < 1024) return `${bytes} B`
-      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-      if (bytes < 1024 * 1024 * 1024) {
-        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-      }
-      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
-    },
+    formatBytes,
 
     get selectedCount() {
       return this.selectedFiles.length + this.selectedFolders.length
@@ -394,6 +393,7 @@ export function createS3ObjectListController(
       this._closeAllModals()
       this.uploadError = ""
       this.uploadFiles = []
+      this.uploadPrefix = this.prefix
       this.isUploadModalOpen = true
       const uploadInput = (this as unknown as AlpineMagic).$refs.uploadInput as
         | HTMLInputElement
@@ -415,6 +415,16 @@ export function createS3ObjectListController(
       this.uploadFiles = Array.from(input.files || [])
       this.uploadError = ""
     },
+    get uploadTargetKey(): string {
+      const normalized = normalizeUploadPrefix(this.uploadPrefix)
+      const first = this.uploadFiles[0]
+      if (!first) return `${normalized}…`
+      const suffix =
+        this.uploadFiles.length > 1
+          ? ` ほか ${this.uploadFiles.length - 1} 件`
+          : ""
+      return `${normalized}${first.name}${suffix}`
+    },
     async upload() {
       if (this.uploadFiles.length === 0) {
         this.uploadError = "ファイルを選択してください"
@@ -422,16 +432,25 @@ export function createS3ObjectListController(
       }
       this.uploadSubmitting = true
       this.uploadError = ""
+      const destination = normalizeUploadPrefix(this.uploadPrefix)
       try {
         const formData = new FormData()
-        formData.append("prefix", this.prefix)
+        formData.append("prefix", destination)
         for (const file of this.uploadFiles) {
           formData.append("files", file)
         }
         await requestJson(uploadPath, { method: "POST", body: formData })
         this.uploadSubmitting = false
         this.closeUploadModal()
-        window.location.reload()
+        // Uploading outside the current folder would otherwise reload a listing
+        // that cannot show the new files.
+        if (destination === normalizeUploadPrefix(this.prefix)) {
+          window.location.reload()
+          return
+        }
+        window.location.href = destination
+          ? `${bucketPath}?prefix=${encodeURIComponent(destination)}`
+          : bucketPath
       } catch (error) {
         this.uploadError = errorMessage(error)
         this.uploadSubmitting = false

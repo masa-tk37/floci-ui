@@ -8,12 +8,52 @@
    ============================================================ */
 
 :root {
-  /* Fonts */
-  --font-sans:
+  /* Fonts — display carries the rounded warmth, body carries table density. */
+  --font-display:
     "M PLUS Rounded 1c", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body:
+    "M PLUS 1", "M PLUS Rounded 1c", system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --font-sans: var(--font-body);
   --font-mono:
     "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     monospace;
+
+  /* Type scale — assumes a 16px root */
+  --font-size-2xs: 0.6875rem; /* 11px — table headers, eyebrows */
+  --font-size-xs: 0.75rem; /* 12px — chips */
+  --font-size-sm: 0.8125rem; /* 13px — table body */
+  --font-size-base: 0.875rem; /* 14px — default UI */
+  --font-size-md: 1rem; /* 16px — card headings */
+  --font-size-lg: 1.25rem; /* 20px — h3 */
+  --font-size-xl: 1.5rem; /* 24px — h2 */
+  --font-size-2xl: 1.875rem; /* 30px — page title */
+  --font-size-3xl: 2.25rem; /* 36px — standalone figures */
+  --tracking-caps: 0.06em;
+
+  /* Spacing — 4px grid */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* .form-label's line box plus its bottom margin — offsets a label-less
+     control so it centers against the input, not the whole field row. */
+  --form-label-block: calc(0.85rem * 1.55 + 0.375rem);
+
+  /* Motion */
+  --duration-instant: 80ms; /* press feedback */
+  --duration-fast: 120ms; /* hover */
+  --duration-base: 180ms; /* active-state and tab swaps */
+  --duration-slow: 260ms; /* modal, toast */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* Surfaces — neutral lilac-tinted off-white (cool to let pastels pop) */
   --color-bg: #faf8fc;
@@ -55,6 +95,9 @@
   --color-theme-hover: var(--color-accent-text-strong);
   --color-theme-soft: var(--color-accent-soft);
   --color-theme-ink: var(--color-accent-ink);
+  /* Decorative service colour: the pastel base, for rules and bars where the
+     ink variants read as mud. Text keeps --color-theme-ink for contrast. */
+  --color-service: var(--color-accent);
 
   /* Service identity — macaron-6 (dot / badge / card accent only).
      base = dot/border, soft = badge bg, ink = badge text (AA on soft). */
@@ -102,10 +145,15 @@
   --radius-2xl: 18px;
   --radius-pill: 9999px;
 
-  /* Shadows — lilac-tinted to match the cool surfaces */
+  /* Elevation — lilac-tinted. In-flow surfaces use xs, popovers and toasts md,
+     modals lg. */
   --shadow-ring: 0 0 0 1px var(--color-ring);
-  --shadow-whisper: rgba(40, 30, 60, 0.06) 0 4px 20px;
-  --shadow-lift: rgba(40, 30, 60, 0.1) 0 8px 28px;
+  --shadow-xs: rgba(40, 30, 60, 0.05) 0 1px 3px;
+  --shadow-sm: rgba(40, 30, 60, 0.06) 0 4px 20px;
+  --shadow-md: rgba(40, 30, 60, 0.1) 0 8px 28px;
+  --shadow-lg: rgba(40, 30, 60, 0.18) 0 20px 48px;
+  --shadow-whisper: var(--shadow-sm);
+  --shadow-lift: var(--shadow-md);
 }
 
 /* ============================================================
@@ -172,6 +220,64 @@
 
   --color-focus: #86cebc;
 
-  --shadow-whisper: rgba(0, 0, 0, 0.35) 0 4px 20px;
-  --shadow-lift: rgba(0, 0, 0, 0.45) 0 8px 28px;
+  --shadow-xs: rgba(0, 0, 0, 0.25) 0 1px 3px;
+  --shadow-sm: rgba(0, 0, 0, 0.35) 0 4px 20px;
+  --shadow-md: rgba(0, 0, 0, 0.45) 0 8px 28px;
+  --shadow-lg: rgba(0, 0, 0, 0.55) 0 20px 48px;
+  --shadow-whisper: var(--shadow-sm);
+  --shadow-lift: var(--shadow-md);
+}
+
+/* ============================================================
+   Service identity — scoped by body[data-service] so the sidebar,
+   resource rail and toolbar pick up the active service colour.
+   --color-accent is deliberately left alone (see .btn in components.css).
+   ============================================================ */
+
+[data-service="dynamodb"] {
+  --color-theme: var(--color-dynamodb-ink);
+  --color-theme-hover: var(--color-dynamodb-ink);
+  --color-theme-soft: var(--color-dynamodb-soft);
+  --color-theme-ink: var(--color-dynamodb-ink);
+  --color-service: var(--color-dynamodb);
+}
+
+[data-service="s3"] {
+  --color-theme: var(--color-s3-ink);
+  --color-theme-hover: var(--color-s3-ink);
+  --color-theme-soft: var(--color-s3-soft);
+  --color-theme-ink: var(--color-s3-ink);
+  --color-service: var(--color-s3);
+}
+
+[data-service="sqs"] {
+  --color-theme: var(--color-sqs-ink);
+  --color-theme-hover: var(--color-sqs-ink);
+  --color-theme-soft: var(--color-sqs-soft);
+  --color-theme-ink: var(--color-sqs-ink);
+  --color-service: var(--color-sqs);
+}
+
+[data-service="ssm"] {
+  --color-theme: var(--color-ssm-ink);
+  --color-theme-hover: var(--color-ssm-ink);
+  --color-theme-soft: var(--color-ssm-soft);
+  --color-theme-ink: var(--color-ssm-ink);
+  --color-service: var(--color-ssm);
+}
+
+[data-service="secrets"] {
+  --color-theme: var(--color-secrets-ink);
+  --color-theme-hover: var(--color-secrets-ink);
+  --color-theme-soft: var(--color-secrets-soft);
+  --color-theme-ink: var(--color-secrets-ink);
+  --color-service: var(--color-secrets);
+}
+
+[data-service="cognito"] {
+  --color-theme: var(--color-cognito-ink);
+  --color-theme-hover: var(--color-cognito-ink);
+  --color-theme-soft: var(--color-cognito-soft);
+  --color-theme-ink: var(--color-cognito-ink);
+  --color-service: var(--color-cognito);
 }

@@ -18,13 +18,26 @@ body {
    Base
    ============================================================ */
 
+/* No html { font-size } override: the rem scale assumes the 16px default and a
+   fixed root would discard the reader's browser font-size preference. */
 body {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.6;
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: 1.55;
   color: var(--color-text);
   background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 a {
@@ -42,22 +55,23 @@ h2,
 h3,
 h4 {
   margin: 0 0 0.5em;
+  font-family: var(--font-display);
   font-weight: 700;
   line-height: 1.2;
   color: var(--color-text);
 }
 
 h1 {
-  font-size: 1.75rem;
+  font-size: var(--font-size-2xl);
 }
 h2 {
-  font-size: 1.3rem;
+  font-size: var(--font-size-xl);
 }
 h3 {
-  font-size: 1.05rem;
+  font-size: var(--font-size-lg);
 }
 h4 {
-  font-size: 0.95rem;
+  font-size: var(--font-size-md);
 }
 
 p {

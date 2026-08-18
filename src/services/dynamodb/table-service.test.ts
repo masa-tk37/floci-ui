@@ -257,6 +257,8 @@ describe("saveItem", () => {
           AttributeDefinitions: [{ AttributeName: "id", AttributeType: "S" }],
         },
       })
+      // GetItem for the lossy-attribute guard
+      .mockResolvedValueOnce({ Item: { id: { S: "pk-value" } } })
       .mockResolvedValueOnce({})
 
     await expect(
@@ -267,9 +269,32 @@ describe("saveItem", () => {
     ).resolves.toBeUndefined()
 
     const calls = mockSend.mock.calls as unknown[][]
-    expect((calls[1]?.[0] as { input?: unknown })?.input).toMatchObject({
+    expect((calls[2]?.[0] as { input?: unknown })?.input).toMatchObject({
       TableName: "my-table",
+      Item: { id: { S: "pk-value" }, email: { S: "user@example.com" } },
     })
+  })
+
+  it("should refuse to save an item holding Binary or Set attributes", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        Table: {
+          KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+          AttributeDefinitions: [{ AttributeName: "id", AttributeType: "S" }],
+        },
+      })
+      .mockResolvedValueOnce({
+        Item: { id: { S: "pk-value" }, thumbnail: { B: new Uint8Array([1]) } },
+      })
+
+    await expect(
+      saveItem("my-table", "pk-value", {
+        id: "pk-value",
+        thumbnail: "AQ==",
+      }),
+    ).rejects.toMatchObject({ code: "InvalidInput" })
+
+    expect(mockSend).toHaveBeenCalledTimes(2)
   })
 
   it("should reject item saves that change the hash key", async () => {

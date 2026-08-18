@@ -177,7 +177,7 @@ export function UserPoolDetail({
             <div class="panel__actions">
               <button
                 type="button"
-                class="btn btn--cognito btn--sm"
+                class="btn btn--primary btn--sm"
                 {...{ "@click": "createClient.open = true" }}
               >
                 {IconPlus}追加
@@ -264,7 +264,7 @@ export function UserPoolDetail({
               <div class="modal__actions">
                 <button
                   type="button"
-                  class="btn btn--cognito"
+                  class="btn btn--primary"
                   {...{
                     "@click":
                       "createClient.submit({ name: createClient.name })",
@@ -296,7 +296,7 @@ export function UserPoolDetail({
             <div class="panel__actions">
               <button
                 type="button"
-                class="btn btn--cognito btn--sm"
+                class="btn btn--primary btn--sm"
                 {...{ "@click": "createGroup.open = true" }}
               >
                 {IconPlus}追加
@@ -403,7 +403,7 @@ export function UserPoolDetail({
               <div class="modal__actions">
                 <button
                   type="button"
-                  class="btn btn--cognito"
+                  class="btn btn--primary"
                   {...{
                     "@click":
                       "createGroup.submit({ name: createGroup.name, description: createGroup.description })",
@@ -461,7 +461,7 @@ export function UserPoolDetail({
                 />
                 <button
                   type="button"
-                  class="btn btn--cognito btn--sm"
+                  class="btn btn--primary btn--sm"
                   {...{
                     "@click": "groupMembers.addMember()",
                     ":disabled":
@@ -541,7 +541,7 @@ export function UserPoolDetail({
             <div class="panel__actions">
               <button
                 type="button"
-                class="btn btn--cognito btn--sm"
+                class="btn btn--primary btn--sm"
                 {...{ "@click": "createUser.open = true" }}
               >
                 {IconPlus}追加
@@ -696,7 +696,7 @@ export function UserPoolDetail({
               <div class="modal__actions">
                 <button
                   type="button"
-                  class="btn btn--cognito"
+                  class="btn btn--primary"
                   {...{
                     "@click":
                       "createUser.submit({ username: createUser.username, temporaryPassword: createUser.temporaryPassword, email: createUser.email, phoneNumber: createUser.phoneNumber })",

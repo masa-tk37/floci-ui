@@ -532,7 +532,7 @@ describe("updateObjectProperties", () => {
             Metadata?: Record<string, string>
           }
         }
-      ).input,
+      )?.input,
     ).toMatchObject({
       MetadataDirective: "REPLACE",
       ContentType: "application/json",
@@ -588,10 +588,10 @@ describe("uploadObjects", () => {
     expect(result.errors).toEqual([])
 
     const calls = mockSend.mock.calls as unknown[][]
-    expect((calls[0]?.[0] as { input?: { Key?: string } }).input?.Key).toBe(
+    expect((calls[0]?.[0] as { input?: { Key?: string } })?.input?.Key).toBe(
       "reports/alpha.txt",
     )
-    expect((calls[1]?.[0] as { input?: { Key?: string } }).input?.Key).toBe(
+    expect((calls[1]?.[0] as { input?: { Key?: string } })?.input?.Key).toBe(
       "reports/beta.json",
     )
   })
@@ -663,7 +663,7 @@ describe("putObjectTags", () => {
     })
     const calls = mockSend.mock.calls as unknown[][]
     expect(
-      (calls[0]?.[0] as { input?: { Tagging?: { TagSet?: unknown } } }).input
+      (calls[0]?.[0] as { input?: { Tagging?: { TagSet?: unknown } } })?.input
         ?.Tagging?.TagSet,
     ).toEqual([
       { Key: "env", Value: "local" },

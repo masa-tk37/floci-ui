@@ -77,7 +77,7 @@
 }
 
 .sqs-settings-page__tag-remove {
-  align-self: end;
+  margin-top: var(--form-label-block);
 }
 
 .sqs-settings-page__success {
@@ -91,6 +91,10 @@
   .sqs-settings-page__dlq-grid,
   .sqs-settings-page__tag-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sqs-settings-page__tag-remove {
+    margin-top: 0;
   }
 
   .sqs-settings-page__count-input {

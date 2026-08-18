@@ -40,6 +40,18 @@ export function formatRelativeDate(date: Date | undefined): string {
   return relativeTimeFormatter.format(Math.round(diff / YEAR), "year")
 }
 
+const KB = 1024
+const MB = KB * 1024
+const GB = MB * 1024
+
+export function formatBytes(bytes: number | undefined | null): string {
+  if (bytes === undefined || bytes === null) return PLACEHOLDER
+  if (bytes < KB) return `${bytes} B`
+  if (bytes < MB) return `${(bytes / KB).toFixed(1)} KB`
+  if (bytes < GB) return `${(bytes / MB).toFixed(1)} MB`
+  return `${(bytes / GB).toFixed(2)} GB`
+}
+
 export function formatJsonValue(value: string): string {
   if (!value) return value
   try {

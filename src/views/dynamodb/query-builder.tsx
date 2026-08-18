@@ -117,7 +117,7 @@ export function QueryBuilder({ tableName }: QueryBuilderProps) {
           <div class="form-actions">
             <button
               type="submit"
-              class="btn btn--dynamodb"
+              class="btn btn--primary"
               {...{ ":disabled": "loading" }}
             >
               <span x-show="!loading">実行</span>

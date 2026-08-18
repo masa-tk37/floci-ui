@@ -2,7 +2,7 @@ import { Html } from "@elysiajs/html"
 import { mountComponentAttrs } from "./client"
 import { Sidebar } from "./sidebar"
 
-type Service =
+export type Service =
   | "dashboard"
   | "dynamodb"
   | "s3"
@@ -53,7 +53,7 @@ export function Layout({
           crossorigin=""
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=M+PLUS+1:wght@400;500;700&family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap"
           rel="stylesheet"
         />
         <link rel="stylesheet" href="/public/styles/app.css" />

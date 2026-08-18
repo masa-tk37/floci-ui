@@ -434,7 +434,7 @@ export function CreateTableForm() {
           <div class="form-actions">
             <button
               type="button"
-              class="btn btn--dynamodb"
+              class="btn btn--primary"
               {...{
                 "@click": "submit()",
                 ":disabled": "submitting || !tableName || !pk.name",

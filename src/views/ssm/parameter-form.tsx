@@ -183,7 +183,7 @@ export function ParameterForm({ init }: ParameterFormProps) {
           <div class="form-actions">
             <button
               type="button"
-              class="btn btn--ssm"
+              class="btn btn--primary"
               {...{
                 "@click": "submit()",
                 ":disabled": "submitting || !name || !value",
