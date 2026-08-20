@@ -29,7 +29,7 @@ export function errorMessage(error: unknown): string {
     typeof error.message === "string" &&
     error.message
   ) {
-    // fetch() がネットワーク層で失敗した場合（"fetch failed" / "Failed to fetch" / "Load failed"）
+    // fetch() の転送層エラーはランタイムごとに文言が違い、判別できるコードを持たない
     if (
       "name" in error &&
       error.name === "TypeError" &&

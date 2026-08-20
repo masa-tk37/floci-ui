@@ -501,11 +501,7 @@ export async function saveItem(
   }
 }
 
-/**
- * The editor round-trips an item through JSON, so Binary, Set and high-precision
- * Number attributes come back as strings and arrays — writing them back would
- * silently retype the stored attribute.
- */
+/** Guards the save against the JSON round-trip retyping documented on LOSSY_TYPES in item-normalizer. */
 async function assertNoLossyAttributes(
   tableName: string,
   keyInfo: KeyInfo,

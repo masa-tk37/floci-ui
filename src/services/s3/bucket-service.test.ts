@@ -97,7 +97,6 @@ describe("deleteBucket", () => {
 
 describe("getBucketSettings", () => {
   it("should return bucket settings with defaults", async () => {
-    // Promise.all of 7 parallel calls
     mockSend
       .mockResolvedValueOnce({}) // GetBucketVersioning
       .mockResolvedValueOnce({ ServerSideEncryptionConfiguration: null }) // GetBucketEncryption

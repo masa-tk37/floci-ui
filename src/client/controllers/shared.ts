@@ -176,12 +176,10 @@ export function createThemeToggleController() {
         .matchMedia("(prefers-color-scheme: dark)")
         .addEventListener("change", (event) => {
           // Follow the OS only while the user has no explicit preference.
-          // localStorage can throw where storage is blocked; treat a failed
-          // read as "no preference" and fall through to the OS value.
           try {
             if (localStorage.getItem("theme")) return
           } catch {
-            // ignore: storage unavailable
+            // ignore: storage unavailable, so there is no preference to honor
           }
           this.isDark = event.matches
           document.documentElement.setAttribute(

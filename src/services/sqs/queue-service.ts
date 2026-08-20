@@ -265,7 +265,7 @@ export async function getQueueSettings(
       dlqTargetArn = rp.deadLetterTargetArn ?? ""
       dlqMaxReceiveCount = Number(rp.maxReceiveCount) || 3
     } catch {
-      /* ignore */
+      /* Unparsable RedrivePolicy reads as no DLQ rather than failing the detail page. */
     }
   }
 
