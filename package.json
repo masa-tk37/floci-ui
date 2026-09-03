@@ -28,7 +28,7 @@
     "pdfjs-dist": "6.2.108"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.10",
+    "@biomejs/biome": "2.5.11",
     "@kitajs/ts-html-plugin": "^4.1.4",
     "@types/alpinejs": "^3.13.11",
     "@types/mime-types": "^3.0.1",
