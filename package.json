@@ -22,7 +22,7 @@
     "@aws-sdk/util-dynamodb": "^3.996.9",
     "@elysiajs/html": "^1.4.2",
     "@elysiajs/static": "^1.4.10",
-    "alpinejs": "^3.16.2",
+    "alpinejs": "^3.17.0",
     "elysia": "^1.4.30",
     "mime-types": "^3.0.2",
     "pdfjs-dist": "6.3.289"

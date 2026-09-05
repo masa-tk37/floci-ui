@@ -14,7 +14,7 @@
         "@aws-sdk/util-dynamodb": "^3.996.9",
         "@elysiajs/html": "^1.4.2",
         "@elysiajs/static": "^1.4.10",
-        "alpinejs": "^3.16.2",
+        "alpinejs": "^3.17.0",
         "elysia": "^1.4.30",
         "mime-types": "^3.0.2",
         "pdfjs-dist": "6.3.289",
@@ -206,7 +206,7 @@
 
     "@vue/shared": ["@vue/shared@3.5.41", "", {}, "sha512-IOnwSCma8j+9xJT6b8H0dEYidC80NsYmNMlZxRsukYcSoGaDBohog5hDxzeUXdFeGWFA++vWvxqOmrr96VlqMA=="],
 
-    "alpinejs": ["alpinejs@3.16.2", "", { "dependencies": { "@vue/reactivity": "~3.5.40" } }, "sha512-6kbqqrRK7iGPYx5upTfqc8Tcl1xhpcurLCxTdn4/ym2Kb68+cYj+2I5Zji53vUIPf7zj3C1DoIvrDkgrNDCXdA=="],
+    "alpinejs": ["alpinejs@3.17.0", "", { "dependencies": { "@vue/reactivity": "~3.5.40" } }, "sha512-LDLcfqFsiQrdFCNqK7zWyfjx2QE2sjPw0bIPThLVHMIQATAp1dNRKga1xPSqC+71UYFiosIYblLszzzo9r9k6A=="],
 
     "ansi-regex": ["ansi-regex@6.2.2", "", {}, "sha512-Bq3SmSpyFHaWjPk8If9yc6svM8c56dB5BAtW4Qbw5jHTwwXXcTLoRMkpDJp6VL0XzlWaCHTXrkFURMYmD0sLqg=="],
 
