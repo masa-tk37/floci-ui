@@ -13,16 +13,16 @@
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@aws-sdk/client-cognito-identity-provider": "^3.1121.0",
-    "@aws-sdk/client-dynamodb": "^3.1121.0",
-    "@aws-sdk/client-s3": "^3.1121.0",
-    "@aws-sdk/client-secrets-manager": "^3.1121.0",
-    "@aws-sdk/client-sqs": "^3.1121.0",
-    "@aws-sdk/client-ssm": "^3.1121.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.1130.0",
+    "@aws-sdk/client-dynamodb": "^3.1130.0",
+    "@aws-sdk/client-s3": "^3.1130.0",
+    "@aws-sdk/client-secrets-manager": "^3.1130.0",
+    "@aws-sdk/client-sqs": "^3.1130.0",
+    "@aws-sdk/client-ssm": "^3.1130.0",
     "@aws-sdk/util-dynamodb": "^3.996.9",
     "@elysiajs/html": "^1.4.2",
     "@elysiajs/static": "^1.4.10",
-    "alpinejs": "^3.17.1",
+    "alpinejs": "^3.17.2",
     "elysia": "^1.4.30",
     "mime-types": "^3.0.2",
     "pdfjs-dist": "6.3.289"
