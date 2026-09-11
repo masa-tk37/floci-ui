@@ -61,9 +61,7 @@ export function QueueDetail({
         { label: "SQS", href: "/sqs" },
         { label: name, href: queuePath },
       ]}
-      mainClass="main--resource-workspace"
-      contentClass="content--resource-workspace"
-      stylesheets={["/public/styles/views/sqs/queue-detail.css"]}
+      contentMode="workspace"
     >
       <div
         class="sqs-queue-detail-page"
@@ -79,7 +77,7 @@ export function QueueDetail({
             initialAttributes: attributes,
           }}
         />
-        <div class="resource-workspace sqs-queue-detail-page__workspace">
+        <div class="resource-workspace sqs-queue-detail-page__workspace l--withSide">
           {queues.length > 0 ? (
             <ResourceRail
               title="Queues"

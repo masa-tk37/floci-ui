@@ -42,10 +42,6 @@ export function serviceFromPath(pathname: string): Service | undefined {
     : undefined
 }
 
-/**
- * Rendered inside Layout so the sidebar survives the failure and the user can
- * navigate away instead of landing on a bare framework 500.
- */
 export function ErrorPage({
   service,
   status,
@@ -59,11 +55,7 @@ export function ErrorPage({
     status >= 500 && (awsCode === undefined || UNREACHABLE_CODES.has(awsCode))
 
   return (
-    <Layout
-      title={`エラー — ${target}`}
-      active={service}
-      stylesheets={["/public/styles/views/error-page.css"]}
-    >
+    <Layout title={`エラー — ${target}`} active={service} contentMode="narrow">
       <section class="error-page">
         <p class="error-page__eyebrow">{status === 404 ? "404" : "エラー"}</p>
         <h1 class="error-page__title" safe>

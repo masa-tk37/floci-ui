@@ -5,7 +5,6 @@ import { IconSearch } from "./icons"
 
 interface ColumnBase {
   label: string
-  /** Extra class on both the header and body cells, e.g. "mono". */
   className?: string
 }
 
@@ -22,7 +21,6 @@ interface ResourceTableProps<T> {
   columns: TableColumn<T>[]
   filterText: (item: T) => string
   actions?: (item: T) => JSX.Element
-  /** Noun used in the count, the search placeholder and the empty messages. */
   resourceLabel: string
   /** Overrides "まだ {resourceLabel} がありません" when the wording differs. */
   emptyMessage?: string
@@ -53,13 +51,14 @@ export function ResourceTable<T>({
 
   return (
     <div {...mountComponentAttrs("list-filter")}>
-      <div class="list-toolbar">
+      <div class="list-toolbar l--cluster">
         <label class="list-filter">
           <span class="list-filter__icon">{IconSearch}</span>
           <input
             type="search"
             class="input list-filter__input"
             placeholder={`${resourceLabel} を検索`}
+            aria-label={`${resourceLabel} を検索`}
             {...{ "x-model.debounce.120ms": "query" }}
           />
         </label>
@@ -67,7 +66,7 @@ export function ResourceTable<T>({
       <p class="list-count" safe>
         {`${items.length} 件の ${resourceLabel}`}
       </p>
-      <div class="data-table-wrap data-table-wrap--sticky">
+      <div class="data-table-wrap data-table-wrap--sticky b--tableWrap">
         <table class="data-table">
           <thead>
             <tr>

@@ -14,6 +14,7 @@ export function QueryBuilder({ tableName }: QueryBuilderProps) {
     <Layout
       title={`DynamoDB · ${tableName} · Query`}
       active="dynamodb"
+      contentMode="form"
       crumbs={[
         { label: "DynamoDB", href: "/dynamodb" },
         { label: tableName, href: tablePath },

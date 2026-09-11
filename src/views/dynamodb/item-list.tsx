@@ -105,12 +105,10 @@ export function ItemList({
         { label: "DynamoDB", href: "/dynamodb" },
         { label: tableName, href: tablePath },
       ]}
-      mainClass="main--resource-workspace"
-      contentClass="content--resource-workspace"
-      stylesheets={["/public/styles/views/dynamodb/item-list.css"]}
+      contentMode="workspace"
     >
       <div
-        class="resource-workspace ddb-item-list-page__workspace"
+        class="resource-workspace ddb-item-list-page__workspace l--withSide"
         {...mountComponentAttrs("ddb-item-list")}
       >
         {tables.length > 0 ? (

@@ -26,8 +26,11 @@ export function ResourceRail({
   emptyLabel,
 }: ResourceRailProps) {
   return (
-    <aside class="resource-rail" {...mountComponentAttrs("list-filter")}>
-      <div class="resource-rail__head">
+    <aside
+      class="resource-rail c--resourceRail l--stack is--side"
+      {...mountComponentAttrs("list-filter")}
+    >
+      <div class="resource-rail__head l--cluster">
         <h2 class="resource-rail__title">{title}</h2>
         {items.length > 0 ? <span class="badge">{items.length}</span> : null}
       </div>
@@ -37,10 +40,11 @@ export function ResourceRail({
           type="search"
           class="input list-filter__input"
           placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
           {...{ "x-model.debounce.120ms": "query" }}
         />
       </label>
-      <nav class="resource-rail__list">
+      <nav class="resource-rail__list l--stack" aria-label={title}>
         {items.map((item) => (
           <a
             href={item.href}

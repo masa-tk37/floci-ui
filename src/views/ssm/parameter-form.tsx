@@ -19,7 +19,7 @@ export function ParameterForm({ init }: ParameterFormProps) {
         init.mode === "create" ? "SSM Parameter を作成" : `編集 · ${init.name}`
       }
       active="ssm"
-      stylesheets={["/public/styles/views/ssm/parameter-form.css"]}
+      contentMode="form"
       crumbs={
         init.mode === "create"
           ? [

@@ -3,9 +3,13 @@
   "private": true,
   "scripts": {
     "dev": "sh -c 'bun run dev:client & bun run dev:server'",
-    "dev:client": "bun build ./src/client/app.ts --outdir ./public/assets --target browser --format esm --sourcemap --watch & bun run copy:pdf-worker",
+    "dev:client": "bun build ./src/client/app.ts --outdir ./public/assets --target browser --format esm --sourcemap --watch & bun run dev:css & bun run copy:vendor",
+    "dev:css": "bun build ./public/styles/app.css --outdir ./public/assets --watch",
     "dev:server": "bun run --watch src/index.ts",
-    "build:client": "bun build ./src/client/app.ts --outfile ./public/assets/app.js --target browser --format esm && bun run copy:pdf-worker",
+    "build:client": "bun build ./src/client/app.ts --outfile ./public/assets/app.js --target browser --format esm && bun run build:css && bun run copy:vendor",
+    "build:css": "bun build ./public/styles/app.css --outdir ./public/assets",
+    "copy:vendor": "mkdir -p public/assets && bun run copy:lism-css && bun run copy:pdf-worker",
+    "copy:lism-css": "cp node_modules/lism-css/dist/css/main.css public/assets/lism.css",
     "copy:pdf-worker": "cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/assets/pdf.worker.min.mjs",
     "start": "bun run build:client && bun run src/index.ts",
     "typecheck": "tsc --noEmit",
@@ -24,6 +28,7 @@
     "@elysiajs/static": "^1.4.10",
     "alpinejs": "^3.17.2",
     "elysia": "^1.4.30",
+    "lism-css": "0.26.0",
     "mime-types": "^3.0.2",
     "pdfjs-dist": "6.3.289"
   },

@@ -63,7 +63,6 @@ export function UserPoolDetail({
     <Layout
       title={`Cognito · ${pool.name}`}
       active="cognito"
-      stylesheets={["/public/styles/views/cognito/pool-detail.css"]}
       crumbs={[
         { label: "Cognito", href: "/cognito" },
         { label: pool.name, href: poolPath },

@@ -1,120 +1,30 @@
-/* ============================================================
-   Utilities
-   ============================================================ */
-
-.row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.row--end {
-  justify-content: flex-end;
-}
-
-.row--between {
-  justify-content: space-between;
-}
-
-.stack > * + * {
-  margin-top: 0.75rem;
-}
-
-.muted {
-  color: var(--color-text-muted);
-}
-
 .mono {
   font-family: var(--font-mono);
 }
 
-/* ============================================================
-   Responsive
-   ============================================================ */
-
-@media (max-width: 800px) {
-  .resource-workspace {
-    grid-template-columns: 1fr;
-    height: auto;
-    overflow: visible;
-  }
-
-  .resource-rail {
-    max-height: none;
-    overflow: visible;
-  }
-
-  .resource-main {
-    max-height: none;
-    overflow: visible;
-  }
-
-  .sidebar {
-    width: 180px;
-    min-width: 180px;
-  }
-
-  .content {
-    padding: 1.5rem 1rem;
-  }
-
-  .page-title {
-    font-size: 1.3rem;
-  }
-
-  .dashboard-title {
-    font-size: 1.5rem;
-  }
-
-  .stat-value {
-    font-size: 2rem;
-  }
-
-  .card-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .attr-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .inline-form {
-    flex-direction: column;
-    max-width: 100%;
-  }
-}
-
-@media (max-width: 600px) {
-  .sidebar {
-    display: none;
-  }
-
-  .app {
-    flex-direction: column;
-  }
-}
-
-/* ============================================================
-   Modal
-   ============================================================ */
+/* Breakpoints live only here. 799px is where the sidebar goes away and the
+   resource workspace stops being a two-pane row; 479px is the phone pass. */
 
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
+  padding: var(--s20);
+  background: rgb(7 13 18 / 56%);
+  backdrop-filter: blur(3px);
 }
 
 .modal {
   background: var(--color-surface-raised);
-  border-radius: var(--radius-xl);
-  padding: 2rem;
   max-width: 440px;
   width: 90%;
   box-shadow: var(--shadow-lift);
+  padding: var(--s30);
+  border: 1px solid var(--divider);
+  border-radius: var(--bdrs--20);
 }
 
 .modal__title {
@@ -142,25 +52,17 @@
 
 .modal__actions {
   display: flex;
-  gap: 0.75rem;
   justify-content: flex-end;
+  gap: var(--s10);
 }
 
 .modal--wide {
   max-width: 640px;
 }
 
-/* ============================================================
-   Alpine cloak
-   ============================================================ */
-
 [x-cloak] {
   display: none !important;
 }
-
-/* ============================================================
-   Toast notifications
-   ============================================================ */
 
 .toast-stack {
   position: fixed;
@@ -169,8 +71,8 @@
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
   pointer-events: none;
+  gap: var(--s10);
 }
 
 .toast {
@@ -179,13 +81,13 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   min-width: 260px;
   max-width: 420px;
   pointer-events: auto;
   overflow: hidden;
   animation: toast-slide-in 0.2s ease-out;
+  border-radius: var(--bdrs--20);
+  box-shadow: var(--shadow-md);
 }
 
 .toast::after {
@@ -262,4 +164,88 @@
 .toast__close:hover {
   opacity: 1;
   background: rgba(0, 0, 0, 0.06);
+}
+
+@media (max-width: 799px) {
+  .sidebar {
+    display: none;
+  }
+
+  .toolbar {
+    padding-inline: var(--s20);
+  }
+
+  .content,
+  .content--workspace {
+    width: 100%;
+    max-width: none;
+    padding: var(--s25) var(--s20);
+  }
+
+  .page-header--row {
+    align-items: stretch;
+  }
+
+  .page-header__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .resource-workspace {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+
+  .resource-rail {
+    max-height: 15rem;
+    margin-bottom: var(--s20);
+    overflow-y: auto;
+  }
+
+  .resource-main {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .attr-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 479px) {
+  .toolbar {
+    min-height: 3.25rem;
+    padding-inline: var(--s15);
+  }
+
+  .content,
+  .content--workspace {
+    padding: var(--s20) var(--s15);
+  }
+
+  .page-header__actions > * {
+    flex: 1 1 auto;
+  }
+
+  .attr-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .query-form,
+  .modal {
+    padding: var(--s20);
+  }
+
+  .toast-stack {
+    inset: var(--s10) var(--s10) auto;
+  }
+
+  .toast {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
 }

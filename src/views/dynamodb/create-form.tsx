@@ -8,7 +8,7 @@ export function CreateTableForm() {
     <Layout
       title="Create DynamoDB Table"
       active="dynamodb"
-      stylesheets={["/public/styles/views/dynamodb/create-form.css"]}
+      contentMode="form"
       crumbs={[
         { label: "DynamoDB", href: "/dynamodb" },
         { label: "Table を作成", href: "/dynamodb/new" },

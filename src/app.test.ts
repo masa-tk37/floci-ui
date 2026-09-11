@@ -549,7 +549,7 @@ describe("page error handling", () => {
 
     expect(response.status).toBe(500)
     expect(response.headers.get("content-type")).toContain("text/html")
-    expect(body).toContain('<aside class="sidebar">')
+    expect(body).toContain('<aside class="sidebar c--sidebar l--stack">')
     expect(body).toContain("ECONNREFUSED")
     expect(body).toContain(FLOCI_ENDPOINT)
     expect(body).toContain("floci が起動していない可能性がある")
@@ -583,7 +583,7 @@ describe("page error handling", () => {
 
     expect(response.status).toBe(404)
     expect(response.headers.get("content-type")).toContain("text/html")
-    expect(body).toContain('<aside class="sidebar">')
+    expect(body).toContain('<aside class="sidebar c--sidebar l--stack">')
   })
 
   it("still answers JSON API failures with the JSON envelope", async () => {

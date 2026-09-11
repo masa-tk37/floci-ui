@@ -67,11 +67,7 @@ export function Dashboard({
   const healthLabel = online ? "オンライン" : "オフライン"
 
   return (
-    <Layout
-      title="Dashboard"
-      active="dashboard"
-      stylesheets={["/public/styles/views/dashboard.css"]}
-    >
+    <Layout title="Dashboard" active="dashboard">
       <div class="dashboard-page">
         <div class="dashboard-header">
           <div>
@@ -88,7 +84,7 @@ export function Dashboard({
           </div>
         </div>
 
-        <div class="service-grid">
+        <div class="service-grid l--grid">
           <ServiceCard
             title="DynamoDB Tables"
             service="dynamodb"

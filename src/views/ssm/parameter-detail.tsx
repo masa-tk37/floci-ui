@@ -19,7 +19,6 @@ export function ParameterDetail({ detail }: ParameterDetailProps) {
     <Layout
       title={`SSM · ${detail.name}`}
       active="ssm"
-      stylesheets={["/public/styles/views/ssm/parameter-detail.css"]}
       crumbs={[
         { label: "SSM", href: "/ssm" },
         { label: detail.name, href: parameterPath },

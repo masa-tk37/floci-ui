@@ -1,99 +1,74 @@
-/* ============================================================
-   Page header
-   ============================================================ */
-
 .page-header {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: 2rem;
+}
+
+.page-header,
+.dashboard-header {
+  gap: var(--s10);
+  margin-bottom: var(--s30);
 }
 
 .page-header--row {
   flex-direction: row;
-  align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 1rem;
+  align-items: flex-start;
+  gap: var(--s20);
 }
 
 .page-header__actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   flex-shrink: 0;
-}
-
-.page-header__eyebrow {
-  display: block;
-  margin: 0 0 var(--space-1);
-  font-size: var(--font-size-2xs);
-  font-weight: 700;
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  color: var(--color-theme);
+  gap: var(--s10);
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .page-title {
   font-family: var(--font-display);
-  font-size: var(--font-size-2xl);
   font-weight: 700;
-  line-height: 1.2;
   margin: 0;
   color: var(--color-text);
 }
 
 .page-subtitle {
-  font-size: var(--font-size-base);
   color: var(--color-text-muted);
   margin: 0;
-  line-height: 1.5;
 }
-
-.back-link {
-  display: inline-block;
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  margin-bottom: 0.5rem;
-}
-
-.back-link:hover {
-  color: var(--color-theme-hover);
-}
-
-/* ============================================================
-   Buttons
-   ============================================================ */
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  padding: 0.5rem 1rem;
   font-family: var(--font-sans);
-  font-size: 0.875rem;
-  font-weight: 500;
   line-height: 1.2;
-  border-radius: var(--radius-lg);
-  border: none;
   cursor: pointer;
-  background: var(--color-warm-sand);
   color: var(--color-text);
-  box-shadow: var(--shadow-ring);
   text-decoration: none;
   transition:
     background-color 0.15s,
     box-shadow 0.15s,
     transform 0.05s;
   white-space: nowrap;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--divider);
+  border-radius: var(--bdrs--20);
+  background: var(--base-2);
+  box-shadow: none;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .btn:hover {
   text-decoration: none;
-  background: var(--color-border-strong);
-  box-shadow: 0 0 0 1px var(--color-border-strong);
   color: var(--color-text);
+  border-color: var(--color-ring);
+  background: var(--color-surface-sunken);
+  box-shadow: none;
 }
 
 .btn:active {
@@ -113,29 +88,17 @@
 }
 
 .btn--primary {
+  box-shadow: 0 0 0 1px var(--color-accent);
+  border-color: var(--color-accent);
   background: var(--color-accent);
   color: var(--color-ink-on-accent);
-  box-shadow: 0 0 0 1px var(--color-accent);
 }
 
 .btn--primary:hover {
-  background: var(--color-accent-hover);
   box-shadow: 0 0 0 1px var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
   color: var(--color-ink-on-accent);
-}
-
-/* Buttons carry a single accent on purpose. Service identity lives in the
-   sidebar, the rail and chips — do not reintroduce .btn--<service>. */
-
-.btn--secondary {
-  background: var(--color-surface-raised);
-  color: var(--color-text);
-  box-shadow: 0 0 0 1px var(--color-border-strong);
-}
-
-.btn--secondary:hover {
-  background: var(--color-warm-sand);
-  color: var(--color-text);
 }
 
 .btn--ghost {
@@ -175,14 +138,10 @@
 }
 
 .btn--sm {
-  padding: 0.3rem 0.65rem;
-  font-size: 0.8rem;
-  border-radius: var(--radius-md);
+  min-height: 2.25rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
 }
-
-/* ============================================================
-   Forms
-   ============================================================ */
 
 .form-row {
   margin-bottom: 1.25rem;
@@ -192,20 +151,17 @@
   display: block;
   margin-bottom: 0.375rem;
   font-weight: 500;
-  font-size: 0.85rem;
   color: var(--color-text-muted);
   letter-spacing: 0.01em;
 }
 
 .form-label__hint {
   font-weight: 400;
-  color: var(--color-text-dim);
 }
 
 .form-help {
   margin-top: 0.3rem;
   font-size: 0.78rem;
-  color: var(--color-text-dim);
 }
 
 .input,
@@ -214,15 +170,28 @@
   width: 100%;
   padding: 0.6rem 0.875rem;
   font-family: var(--font-sans);
-  font-size: 0.9rem;
   color: var(--color-text);
-  background: var(--color-surface-raised);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-lg);
   transition:
     border-color 0.15s,
     box-shadow 0.15s;
   appearance: none;
+}
+
+.input,
+.textarea,
+.select,
+.send-form__textarea {
+  min-height: 2.625rem;
+  border-color: var(--divider);
+  border-radius: var(--bdrs--20);
+  background: var(--base-2);
+  font-size: 0.875rem;
+}
+
+.textarea,
+.send-form__textarea {
+  min-height: 7.5rem;
 }
 
 .input:focus,
@@ -244,60 +213,30 @@
 }
 
 .textarea {
-  min-height: 120px;
   font-family: var(--font-mono);
-  font-size: 0.85rem;
   resize: vertical;
   line-height: 1.5;
 }
 
 .form-actions {
   display: flex;
-  gap: 0.75rem;
   align-items: center;
   margin-top: 1.5rem;
+  gap: var(--s10);
+  padding-top: var(--s10);
+  flex-wrap: wrap;
 }
-
-/* Inline form (bucket / queue create) */
-
-.inline-form {
-  display: flex;
-  gap: 0.625rem;
-  align-items: stretch;
-  margin-bottom: 1.75rem;
-  max-width: 480px;
-}
-
-.inline-form__input {
-  flex: 1;
-  padding: 0.55rem 0.875rem;
-  font-family: var(--font-sans);
-  font-size: 0.9rem;
-  color: var(--color-text);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-lg);
-  transition: border-color 0.15s;
-}
-
-.inline-form__input:focus {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 1px;
-  border-color: transparent;
-}
-
-/* Radio group */
 
 .radio-group {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .radio {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.9rem;
   color: var(--color-text-muted);
   cursor: pointer;
 }
@@ -306,8 +245,6 @@
   accent-color: var(--color-accent);
 }
 
-/* Checkbox */
-
 input[type="checkbox"] {
   accent-color: var(--color-accent);
   width: 15px;
@@ -315,14 +252,10 @@ input[type="checkbox"] {
   cursor: pointer;
 }
 
-/* ============================================================
-   Data table
-   ============================================================ */
-
 .data-table-wrap {
   overflow-x: auto;
-  border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-strong);
+  background: var(--base-2);
 }
 
 /* List pages only. overflow-x already makes the wrap a scroll container, so a
@@ -335,8 +268,8 @@ input[type="checkbox"] {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  background: var(--color-surface);
-  font-size: var(--font-size-sm);
+  background: var(--base-2);
+  font-size: 0.875rem;
 }
 
 .data-table td.mono {
@@ -347,19 +280,20 @@ input[type="checkbox"] {
 .data-table th,
 .data-table td {
   text-align: left;
-  padding: 0.6rem 0.875rem;
   border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
+  height: 2.875rem;
+  padding: var(--s10) var(--s15);
 }
 
 .data-table th {
   font-weight: 700;
-  font-size: var(--font-size-2xs);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-dim);
-  background: var(--color-warm-sand);
   white-space: nowrap;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  letter-spacing: var(--tracking-caps);
 }
 
 .data-table-wrap--sticky .data-table th {
@@ -368,20 +302,16 @@ input[type="checkbox"] {
   z-index: 1;
 }
 
-.data-table tbody tr:hover {
-  background: var(--color-border);
-}
-
-.data-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
 .data-table td {
   max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--color-text-muted);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .data-table__row td:first-child {
@@ -399,26 +329,21 @@ input[type="checkbox"] {
   margin-left: 0.375rem;
 }
 
-/* ============================================================
-   Badges
-   ============================================================ */
-
-/* Badges and status pills share one recipe so they line up when they sit side
-   by side. */
 .badge,
 .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.3em;
-  height: 1.5rem;
   padding: 0 var(--space-2);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
   line-height: 1;
   letter-spacing: 0.01em;
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   white-space: nowrap;
+  min-height: 1.625rem;
+  height: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .badge {
@@ -474,11 +399,6 @@ input[type="checkbox"] {
   color: var(--color-text-muted);
 }
 
-.badge--depth-active {
-  background: var(--color-dynamodb-soft);
-  color: var(--color-dynamodb-ink);
-}
-
 .status-pill {
   width: fit-content;
   border-color: var(--color-border-strong);
@@ -519,51 +439,21 @@ input[type="checkbox"] {
   color: var(--color-text-muted);
 }
 
-/* ============================================================
-   Breadcrumbs
-   ============================================================ */
-
-.breadcrumbs {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-  margin-bottom: 1rem;
-}
-
-.breadcrumbs a {
-  color: var(--color-text-muted);
-}
-
-.breadcrumbs a:hover {
-  color: var(--color-theme);
-  text-decoration: none;
-}
-
-.breadcrumbs__sep {
-  color: var(--color-text-dim);
-}
-
-/* ============================================================
-   Empty state
-   ============================================================ */
-
 .list-count {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
   margin: 0 0 0.5rem;
+  margin-bottom: var(--s10);
+  font-size: 0.8125rem;
 }
 
 .empty-state {
   text-align: center;
-  padding: 3rem 1.5rem;
   color: var(--color-text-dim);
   border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
-  font-size: 0.9rem;
+  padding: var(--s40) var(--s20);
+  border-color: var(--divider);
+  border-radius: var(--bdrs--20);
+  background: var(--base-2);
+  font-size: 0.875rem;
 }
 
 .empty-state--plain {
@@ -577,14 +467,14 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  margin: -0.5rem 0 0.75rem;
+  gap: var(--s15);
+  margin: 0 0 var(--s15);
 }
 
 .list-filter {
   position: relative;
   display: block;
-  width: min(100%, 360px);
+  width: min(100%, 24rem);
 }
 
 .list-filter--compact {
@@ -618,14 +508,18 @@ input[type="checkbox"] {
   min-height: 0;
 }
 
+/* The rail and the main pane each scroll inside a fixed-height box, so the row
+   must never wrap — a wrapped line would be clipped by `overflow: hidden`.
+   Below the breakpoint the workspace switches to `block`. */
 .resource-workspace {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  gap: 1.25rem;
+  --sideW: 17.5rem;
+  --mainW: 32rem;
+  display: flex;
+  flex-wrap: nowrap;
   align-items: start;
-  height: 100%;
+  gap: var(--s20);
   min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -635,36 +529,36 @@ input[type="checkbox"] {
   max-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 1rem;
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-whisper);
+  flex-basis: var(--sideW);
+  flex-grow: 1;
+  gap: var(--s15);
+  padding: var(--s15);
+  background: var(--base-2);
 }
 
 .resource-rail__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--s10);
 }
 
 .resource-rail__title {
   margin: 0;
-  font-size: 0.9rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  letter-spacing: var(--tracking-caps);
 }
 
 .resource-rail__list {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: var(--s5);
 }
 
 .resource-rail__link {
@@ -672,10 +566,11 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.55rem 0.65rem;
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
   color: var(--color-text-muted);
+  min-height: 2.5rem;
+  padding: var(--s10);
+  border-radius: var(--bdrs--20);
 }
 
 .resource-rail__link:hover {
@@ -695,8 +590,8 @@ input[type="checkbox"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.86rem;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .resource-rail__meta {
@@ -704,15 +599,6 @@ input[type="checkbox"] {
   align-items: center;
   gap: 0.3rem;
   flex-shrink: 0;
-}
-
-.resource-rail__meta-id {
-  max-width: 7.5rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--color-text-dim);
-  font-size: 0.68rem;
 }
 
 .resource-rail__empty {
@@ -728,8 +614,9 @@ input[type="checkbox"] {
   max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 0.25rem;
-  padding-bottom: 2rem;
+  flex-basis: min(100%, var(--mainW));
+  flex-grow: 9999;
+  padding: 0 var(--s5) var(--s30) 0;
 }
 
 .content--resource-workspace > .resource-workspace,
@@ -739,45 +626,6 @@ input[type="checkbox"] {
   min-height: 0;
 }
 
-/* Legacy .empty variants */
-.empty {
-  text-align: center;
-  padding: 2.5rem 1rem;
-  color: var(--color-text-muted);
-}
-
-.empty__title {
-  font-size: 1rem;
-  font-weight: 500;
-  margin-bottom: 0.35rem;
-  color: var(--color-text);
-}
-
-.empty__hint {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-}
-
-/* ============================================================
-   Confirm inline
-   ============================================================ */
-
-.confirm-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.confirm-inline__text {
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-}
-
-/* ============================================================
-   Pagination
-   ============================================================ */
-
 .pagination {
   display: flex;
   gap: 0.75rem;
@@ -785,16 +633,12 @@ input[type="checkbox"] {
   margin-top: 1.5rem;
 }
 
-/* ============================================================
-   Query builder
-   ============================================================ */
-
 .query-form {
-  background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-xl);
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
+  min-width: 0;
+  padding: var(--s25);
+  background: var(--base-2);
+  overflow-wrap: anywhere;
 }
 
 .query-error {
@@ -812,32 +656,37 @@ input[type="checkbox"] {
 }
 
 .section-title {
-  font-size: 1.05rem;
   font-weight: 700;
   color: var(--color-text);
   margin: 0 0 1rem;
 }
 
-/* ============================================================
-   SQS Attr grid
-   ============================================================ */
-
 .attr-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 0.875rem;
-  margin-bottom: 1.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--s15);
 }
 
 .attr-card {
-  background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-lg);
-  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  box-shadow: var(--shadow-whisper);
+  min-height: 5.5rem;
+  padding: var(--s20);
+  gap: var(--s5);
+  background: var(--base-2);
+}
+
+.query-form,
+.panel,
+.attr-card,
+.service-card,
+.resource-rail,
+.data-table-wrap,
+.s3-preview-page__panel {
+  border-color: var(--divider);
+  border-radius: var(--bdrs--20);
+  box-shadow: none;
 }
 
 .attr-card--dlq {
@@ -847,19 +696,19 @@ input[type="checkbox"] {
 }
 
 .attr-card__label {
-  font-size: 0.75rem;
-  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--color-text-dim);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
 }
 
 .attr-card__value {
   font-family: var(--font-mono);
-  font-size: 1.4rem;
   font-weight: 400;
   color: var(--color-text);
   line-height: 1.2;
+  font-size: 1.25rem;
 }
 
 .attr-card__link {
@@ -867,17 +716,10 @@ input[type="checkbox"] {
   color: var(--color-theme-hover);
 }
 
-/* ============================================================
-   Panel
-   ============================================================ */
-
 .panel {
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-xl);
   overflow: hidden;
-  margin-bottom: 1.25rem;
-  box-shadow: var(--shadow-whisper);
 }
 
 .panel__header {
@@ -885,13 +727,13 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--color-border);
+  min-height: 3.5rem;
+  padding: var(--s15) var(--s20);
   background: var(--color-surface-sunken);
 }
 
 .panel__title {
-  font-size: 1rem;
   font-weight: 700;
   margin: 0;
   color: var(--color-text);
@@ -903,10 +745,6 @@ input[type="checkbox"] {
   gap: 0.5rem;
 }
 
-/* ============================================================
-   Send form (SQS)
-   ============================================================ */
-
 .send-form {
   padding: 1.25rem;
 }
@@ -915,12 +753,8 @@ input[type="checkbox"] {
   width: 100%;
   padding: 0.65rem 0.875rem;
   font-family: var(--font-mono);
-  font-size: 0.85rem;
   color: var(--color-text);
-  background: var(--color-surface-raised);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-lg);
-  min-height: 120px;
   resize: vertical;
   line-height: 1.5;
   display: block;
@@ -934,20 +768,10 @@ input[type="checkbox"] {
   border-color: transparent;
 }
 
-.send-form__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
 .send-form__feedback {
   font-size: 0.82rem;
   color: var(--color-text-muted);
 }
-
-/* ============================================================
-   Msg body (SQS peek)
-   ============================================================ */
 
 .msg-body {
   font-size: 0.8rem;
@@ -980,29 +804,20 @@ input[type="checkbox"] {
   background: var(--color-primary-soft);
 }
 
-/* ============================================================
-   Dashboard
-   ============================================================ */
-
 .dashboard-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1.5rem;
-  margin-bottom: 2.5rem;
   flex-wrap: wrap;
 }
 
 .dashboard-title {
-  font-size: 2rem;
   font-weight: 700;
-  line-height: 1.1;
   margin: 0 0 0.5rem;
   color: var(--color-text);
 }
 
 .dashboard-subtitle {
-  font-size: 0.9rem;
   color: var(--color-text-muted);
   display: flex;
   align-items: center;
@@ -1041,12 +856,6 @@ input[type="checkbox"] {
   box-shadow: 0 0 0 2px var(--color-danger-border);
 }
 
-.health-dot--unknown {
-  background: var(--color-text-dim);
-}
-
-/* Error state */
-
 .error-inline {
   background: var(--color-danger-bg);
   border: 1px solid var(--color-danger-border);
@@ -1055,4 +864,72 @@ input[type="checkbox"] {
   font-size: 0.85rem;
   color: var(--color-danger);
   margin-top: 0.5rem;
+}
+
+.dashboard-page,
+.ddb-create-page,
+.ddb-item-edit-page,
+.ddb-update-page,
+.cognito-form-page,
+.cognito-pool-detail-page,
+.cognito-user-detail-page,
+.s3-create-page,
+.s3-settings-page,
+.s3-preview-page,
+.secrets-form-page,
+.secret-detail-page,
+.sqs-create-page,
+.sqs-settings-page,
+.ssm-parameter-form-page,
+.ssm-parameter-detail-page {
+  width: 100%;
+  max-width: none;
+}
+
+.page-title,
+.dashboard-title {
+  max-width: 32ch;
+  font-size: var(--font-size-2xl);
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+
+.page-subtitle,
+.dashboard-subtitle {
+  max-width: 72ch;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.query-form,
+.panel,
+.attr-grid {
+  margin-bottom: var(--s30);
+}
+
+.section-title,
+.panel__title {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.btn--danger,
+.btn--danger:hover {
+  border-color: var(--color-danger);
+}
+
+.form-label,
+.radio {
+  font-size: 0.875rem;
+}
+
+.form-help,
+.form-label__hint,
+.list-count,
+.muted {
+  color: var(--text-2);
+}
+
+.data-table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-theme-soft) 45%, transparent);
 }

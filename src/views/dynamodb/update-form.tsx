@@ -15,7 +15,7 @@ export function UpdateTableForm({ init }: UpdateTableFormProps) {
     <Layout
       title={`Table を編集 · ${init.tableName}`}
       active="dynamodb"
-      stylesheets={["/public/styles/views/dynamodb/update-form.css"]}
+      contentMode="form"
       crumbs={[
         { label: "DynamoDB", href: "/dynamodb" },
         { label: init.tableName, href: tablePath },

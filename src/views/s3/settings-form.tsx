@@ -15,7 +15,7 @@ export function S3SettingsForm({ init }: S3SettingsFormProps) {
     <Layout
       title={`Settings · ${init.bucket}`}
       active="s3"
-      stylesheets={["/public/styles/views/s3/settings-form.css"]}
+      contentMode="form"
       crumbs={[
         { label: "S3", href: "/s3" },
         { label: init.bucket, href: bucketPath },

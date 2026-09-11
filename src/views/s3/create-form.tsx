@@ -8,7 +8,7 @@ export function CreateBucketForm() {
     <Layout
       title="Create S3 Bucket"
       active="s3"
-      stylesheets={["/public/styles/views/s3/create-form.css"]}
+      contentMode="form"
       crumbs={[
         { label: "S3", href: "/s3" },
         { label: "Bucket を作成", href: "/s3/new" },

@@ -20,9 +20,7 @@ interface LayoutProps {
   title: string
   active?: Service
   crumbs?: Crumb[]
-  mainClass?: string
-  contentClass?: string
-  stylesheets?: string[]
+  contentMode?: "standard" | "form" | "workspace" | "narrow"
   children: JSX.Element | JSX.Element[] | string
 }
 
@@ -30,11 +28,11 @@ export function Layout({
   title,
   active,
   crumbs,
-  mainClass,
-  contentClass,
-  stylesheets,
+  contentMode = "standard",
   children,
 }: LayoutProps) {
+  const workspace = contentMode === "workspace"
+
   return (
     <html lang="ja">
       <head>
@@ -53,21 +51,21 @@ export function Layout({
           crossorigin=""
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=M+PLUS+1:wght@400;500;700&family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=M+PLUS+1:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        <link rel="stylesheet" href="/public/styles/app.css" />
-        {stylesheets?.map((href) => (
-          <link rel="stylesheet" href={href} />
-        ))}
+        <link rel="stylesheet" href="/public/assets/lism.css" />
+        <link rel="stylesheet" href="/public/assets/app.css" />
         <script type="module" src="/public/assets/app.js" />
       </head>
-      <body class="app" data-service={active}>
+      <body class="app c--appShell l--flex is--container" data-service={active}>
         <Sidebar active={active} />
-        <div class={mainClass ? `main ${mainClass}` : "main"}>
-          <header class="toolbar">
+        <div
+          class={`main c--main l--stack${workspace ? " main--resource-workspace" : ""}`}
+        >
+          <header class="toolbar c--toolbar l--cluster">
             {crumbs && crumbs.length > 0 ? (
-              <nav class="toolbar__breadcrumb">
+              <nav class="toolbar__breadcrumb l--cluster" aria-label="パンくず">
                 {crumbs.map((crumb, i) => (
                   <>
                     {i > 0 ? <span class="breadcrumb__sep">/</span> : null}
@@ -125,7 +123,9 @@ export function Layout({
               </svg>
             </button>
           </header>
-          <main class={contentClass ? `content ${contentClass}` : "content"}>
+          <main
+            class={`content c--content content--${contentMode}${workspace ? " content--resource-workspace" : ""}`}
+          >
             {children}
           </main>
         </div>
@@ -140,8 +140,21 @@ export function Layout({
             class="modal-overlay"
             {...{ "x-on:click": "cancel()" }}
           >
-            <div class="modal" {...{ "x-on:click.stop": "" }}>
-              <h2 class="modal__title">削除の確認</h2>
+            <div
+              class="modal b--modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-modal-title"
+              tabindex="-1"
+              x-ref="dialog"
+              {...{
+                "x-effect": "isOpen && $nextTick(() => $refs.dialog.focus())",
+              }}
+              {...{ "x-on:click.stop": "" }}
+            >
+              <h2 id="delete-modal-title" class="modal__title">
+                削除の確認
+              </h2>
               <p class="modal__body">
                 <strong x-text="resourceName" />{" "}
                 を削除しますか？この操作は取り消せません。
@@ -156,7 +169,7 @@ export function Layout({
               <div class="modal__error error-inline" x-show="error" x-cloak="">
                 <span x-text="error" />
               </div>
-              <div class="modal__actions">
+              <div class="modal__actions l--cluster">
                 <button
                   class="btn btn--danger"
                   {...{ "x-on:click": "confirm()" }}
@@ -177,7 +190,7 @@ export function Layout({
           </div>
         </div>
         <div
-          class="toast-stack"
+          class="toast-stack l--stack"
           {...mountComponentAttrs("toast")}
           {...{ "x-on:floci:toast.window": "push($event.detail)" }}
           x-cloak

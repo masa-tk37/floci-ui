@@ -8,7 +8,7 @@ export function CreateQueueForm() {
     <Layout
       title="SQS キューを作成"
       active="sqs"
-      stylesheets={["/public/styles/views/sqs/create-form.css"]}
+      contentMode="form"
       crumbs={[
         { label: "SQS", href: "/sqs" },
         { label: "Queue を作成", href: "/sqs/new" },

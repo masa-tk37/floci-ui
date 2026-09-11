@@ -25,7 +25,7 @@ export function SecretForm({ init }: SecretFormProps) {
             : `編集 · ${init.name}`
       }
       active="secrets"
-      stylesheets={["/public/styles/views/secrets/secret-form.css"]}
+      contentMode="form"
       crumbs={
         init.mode === "create"
           ? [

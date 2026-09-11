@@ -15,7 +15,7 @@ export function SQSSettingsForm({ init }: SQSSettingsFormProps) {
     <Layout
       title={`設定 · ${init.name}`}
       active="sqs"
-      stylesheets={["/public/styles/views/sqs/settings-form.css"]}
+      contentMode="form"
       crumbs={[
         { label: "SQS", href: "/sqs" },
         { label: init.name, href: queuePath },

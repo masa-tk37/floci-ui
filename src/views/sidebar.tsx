@@ -15,7 +15,7 @@ interface SidebarProps {
 
 export function Sidebar({ active }: SidebarProps) {
   return (
-    <aside class="sidebar">
+    <aside class="sidebar c--sidebar l--stack">
       <a
         href="/"
         class={`sidebar__brand${active === "dashboard" ? " is-active" : ""}`}
@@ -23,7 +23,7 @@ export function Sidebar({ active }: SidebarProps) {
         <span class="sidebar__dot sidebar__dot--dashboard" />
         floci-ui
       </a>
-      <nav class="sidebar__nav">
+      <nav class="sidebar__nav l--stack" aria-label="AWS サービス">
         <a
           href="/dynamodb"
           class={`sidebar__section-header${active === "dynamodb" ? " is-active" : ""}`}

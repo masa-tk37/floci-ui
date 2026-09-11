@@ -13,7 +13,7 @@ export function UserPoolForm({ init }: UserPoolFormProps) {
     <Layout
       title="User Pool を作成"
       active="cognito"
-      stylesheets={["/public/styles/views/cognito/pool-form.css"]}
+      contentMode="form"
       crumbs={[
         { label: "Cognito", href: "/cognito" },
         { label: "User Pool を作成", href: "/cognito/new" },

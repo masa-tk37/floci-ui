@@ -80,12 +80,6 @@
   margin-top: var(--form-label-block);
 }
 
-.sqs-settings-page__success {
-  background: var(--color-success-soft);
-  border-color: var(--color-success);
-  color: var(--color-success-ink);
-}
-
 @media (max-width: 700px) {
   .sqs-settings-page__message-grid,
   .sqs-settings-page__dlq-grid,

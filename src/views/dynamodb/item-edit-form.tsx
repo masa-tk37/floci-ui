@@ -18,7 +18,7 @@ export function ItemEditForm({ init }: ItemEditFormProps) {
     <Layout
       title={`Item を編集 · ${init.tableName}`}
       active="dynamodb"
-      stylesheets={["/public/styles/views/dynamodb/item-edit-form.css"]}
+      contentMode="form"
       crumbs={[
         { label: "DynamoDB", href: "/dynamodb" },
         { label: init.tableName, href: tablePath },

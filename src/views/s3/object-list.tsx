@@ -111,16 +111,14 @@ export function ObjectList({
       title={`S3 · ${bucket}`}
       active="s3"
       crumbs={layoutCrumbs}
-      mainClass="main--resource-workspace"
-      contentClass="content--resource-workspace"
-      stylesheets={["/public/styles/views/s3/object-list.css"]}
+      contentMode="workspace"
     >
       <div
         class="s3-object-list-page"
         {...mountComponentAttrs("s3-object-list")}
       >
         <ClientProps props={{ bucket, prefix, fileKeys, folderPrefixes }} />
-        <div class="resource-workspace s3-object-list-page__workspace">
+        <div class="resource-workspace s3-object-list-page__workspace l--withSide">
           {buckets.length > 0 ? (
             <ResourceRail
               title="Buckets"

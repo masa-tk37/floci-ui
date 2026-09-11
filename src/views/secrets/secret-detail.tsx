@@ -19,7 +19,6 @@ export function SecretDetail({ detail }: SecretDetailProps) {
     <Layout
       title={`Secret · ${detail.name}`}
       active="secrets"
-      stylesheets={["/public/styles/views/secrets/secret-detail.css"]}
       crumbs={[
         { label: "Secrets", href: "/secrets" },
         { label: detail.name, href: secretPath },

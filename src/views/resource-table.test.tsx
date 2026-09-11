@@ -104,4 +104,18 @@ describe("ResourceTable", () => {
 
     expect(html).toContain('<a href="/x">bucket</a>')
   })
+
+  it("labels the filter and uses the shared table surface", () => {
+    const html = render(
+      <ResourceTable
+        items={[{ name: "bucket" }]}
+        columns={columns}
+        resourceLabel="Bucket"
+        filterText={(row) => row.name}
+      />,
+    )
+
+    expect(html).toContain('aria-label="Bucket を検索"')
+    expect(html).toContain("b--tableWrap")
+  })
 })

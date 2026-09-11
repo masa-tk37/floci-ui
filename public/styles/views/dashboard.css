@@ -1,7 +1,7 @@
 .service-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--s20);
 }
 
 /* The edge bar takes --color-service from the [data-service] token block, so
@@ -11,16 +11,14 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-xl);
-  padding: var(--space-5);
-  box-shadow:
-    inset 3px 0 0 var(--color-service),
-    var(--shadow-xs);
   transition:
     box-shadow var(--duration-base) var(--ease-standard),
     transform var(--duration-base) var(--ease-standard);
+  min-height: 8rem;
+  padding: var(--s20);
+  border-width: 1px;
+  background: var(--base-2);
 }
 
 .service-card:hover {
@@ -32,10 +30,10 @@
 
 .service-card__title {
   font-family: var(--font-display);
-  font-size: var(--font-size-md);
   font-weight: 700;
   color: var(--color-text);
   margin: 0;
+  font-size: 1rem;
 }
 
 .service-card__status {
@@ -47,4 +45,8 @@
 
 .service-card__status .status-pill {
   white-space: nowrap;
+}
+
+.service-card::before {
+  width: 3px;
 }

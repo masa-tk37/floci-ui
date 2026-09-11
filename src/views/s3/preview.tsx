@@ -51,7 +51,6 @@ export function Preview({
           : []),
         { label: objectKey.split("/").pop() ?? objectKey, href: "#" },
       ]}
-      stylesheets={["/public/styles/views/s3/preview.css"]}
     >
       <div class="s3-preview-page" {...mountComponentAttrs("s3-preview")}>
         <ClientProps props={{ downloadHref, mode }} />
