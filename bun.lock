@@ -16,7 +16,7 @@
         "@elysiajs/static": "^1.4.10",
         "alpinejs": "^3.17.3",
         "elysia": "^1.4.30",
-        "lism-css": "0.26.0",
+        "lism-css": "0.29.1",
         "mime-types": "^3.0.2",
         "pdfjs-dist": "6.3.289",
       },
@@ -245,7 +245,7 @@
 
     "ieee754": ["ieee754@1.2.1", "", {}, "sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA=="],
 
-    "lism-css": ["lism-css@0.26.0", "", { "dependencies": { "csstype": "^3.2.3" }, "peerDependencies": { "@types/react": "*", "@types/react-dom": "*", "react": "^18 || ^19", "react-dom": "^18 || ^19" }, "optionalPeers": ["@types/react", "@types/react-dom"] }, "sha512-3EozBUSvIyCIcIBHUY5rpK2GscPGjYRoGn72v4vsNVKMm6oCOxCgnNRZc82yivDrpCs5D7DVPZCLo1Y4sJs52g=="],
+    "lism-css": ["lism-css@0.29.1", "", { "dependencies": { "csstype": "^3.2.3" }, "peerDependencies": { "@types/react": "*", "@types/react-dom": "*", "react": "^18 || ^19", "react-dom": "^18 || ^19" }, "optionalPeers": ["@types/react", "@types/react-dom"] }, "sha512-4Oss846wBPYkuFYolWwIZVHJCC1aUd8wFaIvlDir23K24bC2cX+t3Lh439yrKfsCSfRhzsFvDgkskqTz2LA8KQ=="],
 
     "memoirist": ["memoirist@0.4.0", "", {}, "sha512-zxTgA0mSYELa66DimuNQDvyLq36AwDlTuVRbnQtB+VuTcKWm5Qc4z3WkSpgsFWHNhexqkIooqpv4hdcqrX5Nmg=="],
 
