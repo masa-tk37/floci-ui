@@ -175,7 +175,6 @@ export function createThemeToggleController() {
       window
         .matchMedia("(prefers-color-scheme: dark)")
         .addEventListener("change", (event) => {
-          // Follow the OS only while the user has no explicit preference.
           try {
             if (localStorage.getItem("theme")) return
           } catch {

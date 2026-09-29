@@ -77,8 +77,8 @@ describe("createBucket", () => {
 
   it("should accumulate warnings for optional settings failures", async () => {
     mockSend
-      .mockResolvedValueOnce({}) // CreateBucket
-      .mockRejectedValueOnce(new Error("Versioning not supported")) // PutBucketVersioning
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error("Versioning not supported"))
     const result = await createBucket("my-bucket", { versioning: "Enabled" })
     expect(result.warnings).toHaveLength(1)
     expect(result.warnings[0]).toContain("Versioning")
@@ -106,13 +106,13 @@ describe("deleteBucket", () => {
 describe("getBucketSettings", () => {
   it("should return bucket settings with defaults", async () => {
     mockSend
-      .mockResolvedValueOnce({}) // GetBucketVersioning
-      .mockResolvedValueOnce({ ServerSideEncryptionConfiguration: null }) // GetBucketEncryption
-      .mockResolvedValueOnce({ TagSet: [] }) // GetBucketTagging
-      .mockResolvedValueOnce({ PublicAccessBlockConfiguration: null }) // GetPublicAccessBlock
-      .mockResolvedValueOnce({ OwnershipControls: null }) // GetBucketOwnershipControls
-      .mockResolvedValueOnce({ CORSRules: [] }) // GetBucketCors
-      .mockResolvedValueOnce({ Rules: [] }) // GetBucketLifecycleConfiguration
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ ServerSideEncryptionConfiguration: null })
+      .mockResolvedValueOnce({ TagSet: [] })
+      .mockResolvedValueOnce({ PublicAccessBlockConfiguration: null })
+      .mockResolvedValueOnce({ OwnershipControls: null })
+      .mockResolvedValueOnce({ CORSRules: [] })
+      .mockResolvedValueOnce({ Rules: [] })
     const result = await getBucketSettings("my-bucket")
     expect(result.bucket).toBe("my-bucket")
     expect(result.versioning).toBe("Suspended")
@@ -122,7 +122,7 @@ describe("getBucketSettings", () => {
 
 describe("updateBucketSettings", () => {
   it("should apply versioning setting and return no warnings", async () => {
-    mockSend.mockResolvedValueOnce({}) // PutBucketVersioning
+    mockSend.mockResolvedValueOnce({})
     const result = await updateBucketSettings("my-bucket", {
       versioning: "Enabled",
     })
@@ -131,8 +131,8 @@ describe("updateBucketSettings", () => {
 
   it("should accumulate warnings for failed sub-operations", async () => {
     mockSend
-      .mockResolvedValueOnce({}) // PutBucketVersioning
-      .mockRejectedValueOnce(new Error("Encryption error")) // PutBucketEncryption
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error("Encryption error"))
     const result = await updateBucketSettings("my-bucket", {
       versioning: "Enabled",
       encryption: { type: "AES256" },
@@ -143,10 +143,10 @@ describe("updateBucketSettings", () => {
 
   it("should delete encryption, cors, and lifecycle when removed", async () => {
     mockSend
-      .mockResolvedValueOnce({}) // PutBucketVersioning
-      .mockResolvedValueOnce({}) // DeleteBucketEncryption
-      .mockResolvedValueOnce({}) // DeleteBucketCors
-      .mockResolvedValueOnce({}) // DeleteBucketLifecycle
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
     const result = await updateBucketSettings("my-bucket", {
       versioning: "Enabled",
       encryption: null,
@@ -168,7 +168,7 @@ describe("updateBucketSettings", () => {
 
   it("should return warnings when delete operations fail", async () => {
     mockSend
-      .mockResolvedValueOnce({}) // PutBucketVersioning
+      .mockResolvedValueOnce({})
       .mockRejectedValueOnce(new Error("Delete encryption failed"))
       .mockRejectedValueOnce(new Error("Delete cors failed"))
       .mockRejectedValueOnce(new Error("Delete lifecycle failed"))
@@ -341,15 +341,15 @@ describe("getObjectDetails", () => {
 describe("renameObject", () => {
   it("should copy then delete the source object", async () => {
     mockSend
-      .mockResolvedValueOnce({}) // Head source
+      .mockResolvedValueOnce({})
       .mockRejectedValueOnce(
         Object.assign(new Error("missing"), {
           name: "NotFound",
           $metadata: { httpStatusCode: 404 },
         }),
-      ) // Head target
-      .mockResolvedValueOnce({}) // Copy
-      .mockResolvedValueOnce({}) // Delete
+      )
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
 
     const result = await renameObject("my-bucket", "old.txt", "new.txt")
     expect(result.key).toBe("new.txt")
@@ -384,16 +384,16 @@ describe("renameObject", () => {
 
   it("should rollback the copy when delete fails", async () => {
     mockSend
-      .mockResolvedValueOnce({}) // Head source
+      .mockResolvedValueOnce({})
       .mockRejectedValueOnce(
         Object.assign(new Error("missing"), {
           name: "NotFound",
           $metadata: { httpStatusCode: 404 },
         }),
       ) // Head target (objectExists → false)
-      .mockResolvedValueOnce({}) // Copy (success)
-      .mockRejectedValueOnce(new Error("delete failed")) // Delete source (fail)
-      .mockResolvedValueOnce({}) // Rollback: delete copy
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error("delete failed"))
+      .mockResolvedValueOnce({})
 
     await expect(
       renameObject("my-bucket", "old.txt", "new.txt"),
@@ -474,11 +474,11 @@ describe("renameFolder", () => {
         NextContinuationToken: undefined,
       })
       .mockResolvedValueOnce({ Contents: [] })
-      .mockResolvedValueOnce({}) // copy a.txt (success)
-      .mockRejectedValueOnce(new Error("Network timeout")) // copy b.txt (fail)
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error("Network timeout"))
       .mockResolvedValueOnce({
         Deleted: [{ Key: "archive/a.txt" }],
-      }) // rollback DeleteObjectsCommand
+      })
 
     const result = await renameFolder("my-bucket", "reports/", "archive/")
     expect(result.copiedCount).toBe(0)
@@ -504,8 +504,8 @@ describe("updateObjectProperties", () => {
         ContentLanguage: "ja",
         Expires: new Date("2026-04-12T00:00:00.000Z"),
         Metadata: { owner: "team-a" },
-      }) // HEAD before copy
-      .mockResolvedValueOnce({}) // COPY
+      })
+      .mockResolvedValueOnce({})
 
     await updateObjectProperties("my-bucket", "file.txt", {
       contentType: "application/json",
@@ -595,8 +595,8 @@ describe("uploadObjects", () => {
 
   it("should return errors for files that fail to upload", async () => {
     mockSend
-      .mockResolvedValueOnce({}) // alpha.txt success
-      .mockRejectedValueOnce(new Error("S3 write error")) // beta.json fail
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error("S3 write error"))
 
     const first = new File(["alpha"], "alpha.txt", { type: "text/plain" })
     const second = new File(["beta"], "beta.json", { type: "application/json" })
@@ -706,7 +706,7 @@ describe("deleteSelectedObjects", () => {
       .mockRejectedValueOnce(new Error("list failed")) // listKeysForPrefix for bad-folder/
       .mockResolvedValueOnce({
         Deleted: [{ Key: "direct.txt" }],
-      }) // delete file
+      })
 
     const result = await deleteSelectedObjects("my-bucket", {
       files: ["direct.txt"],

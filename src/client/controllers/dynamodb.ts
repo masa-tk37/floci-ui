@@ -411,9 +411,7 @@ export function createDynamoItemListController() {
       if (!this.selectedCell) return
       try {
         await navigator.clipboard.writeText(this.selectedCell.raw)
-      } catch {
-        // clipboard API が使えない環境では何もしない
-      }
+      } catch {}
     },
   }
 }

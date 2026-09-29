@@ -240,7 +240,6 @@ describe("updateQueueSettings", () => {
   })
 
   it("should skip tag update when tags is empty", async () => {
-    // ListQueueTagsCommand (existing tags fetch) + SetQueueAttributesCommand
     mockSend.mockResolvedValueOnce({ Tags: {} }).mockResolvedValueOnce({})
     await expect(
       updateQueueSettings("my-queue", { VisibilityTimeout: "60" }, {}),

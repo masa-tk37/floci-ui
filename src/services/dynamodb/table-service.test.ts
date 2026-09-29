@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test"
 
-// Mock the dynamodb client before importing table-service
 const mockSend = mock(() => Promise.resolve({}))
 mock.module("../../infrastructure/floci-clients", () => ({
   dynamodb: { send: mockSend },
@@ -52,7 +51,6 @@ describe("listTables", () => {
 
 describe("getTableDetail", () => {
   it("should return table detail", async () => {
-    // Promise.all calls: [DescribeTable, DescribeTimeToLive]
     mockSend
       .mockResolvedValueOnce({
         Table: {

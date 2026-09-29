@@ -2,9 +2,6 @@
   font-family: var(--font-mono);
 }
 
-/* Breakpoints live only here. 799px is where the sidebar goes away and the
-   resource workspace stops being a two-pane row; 479px is the phone pass. */
-
 .modal-overlay {
   position: fixed;
   inset: 0;

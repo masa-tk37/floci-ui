@@ -1,15 +1,7 @@
-/* ============================================================
-   floci-ui design tokens, layered on Lism CSS.
-
-   Lism's own utilities read the short names (--base, --text,
-   --link, --ff--base, --s*, --bdrs--*, --sz--*); the long
-   --color-* / --font-* / --space-* names are this app's
-   vocabulary and alias onto them. Declare a value once, here.
-
-   The primary accent is a DARK teal fill carrying white text.
-   Service identity (macaron-6) survives only in dots, badges
-   and card accents — the page accent is a single teal.
-   ============================================================ */
+/* floci-ui design tokens, layered on Lism CSS. Lism's own utilities read the
+   short names (--base, --text, --link, --ff--base, --s*, --bdrs--*, --sz--*);
+   the long --color-* / --font-* / --space-* names are this app's vocabulary
+   and alias onto them. Declare a value once, here. */
 
 :root {
   color-scheme: light;
@@ -44,7 +36,6 @@
   --font-size-3xl: 2rem;
   --tracking-caps: 0.045em;
 
-  /* Spacing — aliases onto Lism's --s* scale (--s-unit = 0.5rem) */
   --space-1: var(--s5);
   --space-2: var(--s10);
   --space-3: var(--s15);
@@ -93,13 +84,10 @@
   --color-primary-soft: var(--accent);
   --color-primary-ink: #154d42;
 
-  /* Theme tokens — [data-service] below swaps these per service */
   --color-theme: var(--link);
   --color-theme-hover: #105347;
   --color-theme-soft: var(--accent);
   --color-theme-ink: #154d42;
-  /* Decorative service colour: the pastel base, for rules and bars where the
-     ink variants read as mud. Text keeps --color-theme-ink for contrast. */
   --color-service: #6ea899;
 
   --color-focus: #197562;
@@ -125,7 +113,6 @@
   --color-cognito-soft: #ddeef8;
   --color-cognito-ink: #1f5778;
 
-  /* Semantic — danger / success / warning (functional, AA-verified) */
   --color-danger: #c2342f; /* filled bg / text; #fff = 5.3:1 */
   --color-danger-hover: #a82a26;
   --color-danger-bg: #fbe8e8;
@@ -139,7 +126,6 @@
   --color-warning-border: #ead79a;
   --color-warning-ink: #7a5f14;
 
-  /* Radius — aliases onto Lism's --bdrs-- scale */
   --radius-sm: var(--bdrs--10);
   --radius-md: var(--bdrs--10);
   --radius-lg: var(--bdrs--20);
@@ -147,8 +133,6 @@
   --radius-2xl: var(--bdrs--30);
   --radius-pill: var(--bdrs--99);
 
-  /* Elevation — in-flow surfaces are flat; popovers and toasts use md,
-     modals lg. */
   --shadow-ring: 0 0 0 1px var(--color-border-strong);
   --shadow-xs: 0 1px 2px rgb(23 33 43 / 5%);
   --shadow-sm: 0 2px 8px rgb(23 33 43 / 6%);
@@ -158,13 +142,8 @@
   --shadow-lift: var(--shadow-md);
 }
 
-/* ============================================================
-   Dark theme
-
-   Kept at :root[data-theme] rather than [data-theme] so it also
-   outranks the :root aliases above, which are otherwise a
-   specificity tie decided by source order.
-   ============================================================ */
+/* Kept at :root[data-theme] rather than [data-theme] so it outranks the :root
+   aliases above, which would otherwise tie on specificity and fall to source order. */
 
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -194,7 +173,6 @@
   --color-accent-hover: #91cebf;
   --color-accent-soft: var(--accent);
   --color-accent-ink: #a4dbce;
-  /* The fill is light in dark mode, so its text flips to dark ink. */
   --color-ink-on-accent: #0d2923;
   --color-accent-text: var(--link);
   --color-accent-text-strong: #a3ddcf;
@@ -248,11 +226,9 @@
   --shadow-lg: 0 18px 48px rgb(0 0 0 / 52%);
 }
 
-/* ============================================================
-   Service identity — scoped by body[data-service] so the sidebar,
-   resource rail and toolbar pick up the active service colour.
-   --color-accent is deliberately left alone (see .btn in components.css).
-   ============================================================ */
+/* Scoped by body[data-service] so the sidebar, resource rail and toolbar pick up
+   the active service colour. --color-accent is deliberately left alone (see .btn
+   in components.css). */
 
 [data-service="dynamodb"] {
   --color-theme: var(--color-dynamodb-ink);

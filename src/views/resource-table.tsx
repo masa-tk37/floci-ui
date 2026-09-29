@@ -8,10 +8,7 @@ interface ColumnBase {
   className?: string
 }
 
-/**
- * A column either yields plain text, which this component escapes, or markup the
- * view already made safe. Escaping is not a per-view decision to forget.
- */
+/** `text` is escaped by ResourceTable; `cell` must return markup the view already made safe. */
 export type TableColumn<T> =
   | (ColumnBase & { text: (item: T) => string; cell?: never })
   | (ColumnBase & { cell: (item: T) => JSX.Element; text?: never })
@@ -22,15 +19,10 @@ interface ResourceTableProps<T> {
   filterText: (item: T) => string
   actions?: (item: T) => JSX.Element
   resourceLabel: string
-  /** Overrides "まだ {resourceLabel} がありません" when the wording differs. */
   emptyMessage?: string
 }
 
-/**
- * Filterable list table shared by every service index page. Emits the
- * data-filter-text / x-show pair that the list-filter controller drives, so the
- * client side needs no per-service wiring.
- */
+/** Emits the data-filter-text / x-show pair that the list-filter controller drives, so no per-service client wiring is needed. */
 export function ResourceTable<T>({
   items,
   columns,

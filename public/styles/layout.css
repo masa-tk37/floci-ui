@@ -153,8 +153,6 @@ body {
   backdrop-filter: blur(12px);
 }
 
-/* アクティブサービスのアクセントライン — data-service が設定されているページのみ */
-
 .toolbar__breadcrumb {
   display: flex;
   align-items: center;

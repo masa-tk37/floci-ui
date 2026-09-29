@@ -423,8 +423,6 @@ export function createS3ObjectListController(
         await requestJson(uploadPath, { method: "POST", body: formData })
         this.uploadSubmitting = false
         this.closeUploadModal()
-        // Uploading outside the current folder would otherwise reload a listing
-        // that cannot show the new files.
         if (destination === normalizePrefix(this.prefix)) {
           window.location.reload()
           return
