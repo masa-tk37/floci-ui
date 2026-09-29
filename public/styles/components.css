@@ -63,6 +63,13 @@
   font-weight: 600;
 }
 
+/* lism reset's percentage max-inline-size zeroes the icon's min-content
+   contribution, so auto-layout table cells size too narrow for the button. */
+.btn > svg {
+  max-inline-size: none;
+  flex-shrink: 0;
+}
+
 .btn:hover {
   text-decoration: none;
   color: var(--color-text);
