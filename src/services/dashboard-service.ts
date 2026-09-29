@@ -2,7 +2,7 @@ import { listUserPools } from "./cognito/cognito-service"
 import { listTables } from "./dynamodb/table-service"
 import { listBuckets } from "./s3/bucket-service"
 import { listSecrets } from "./secrets/secret-service"
-import { listQueues } from "./sqs/queue-service"
+import { listQueueNames } from "./sqs/queue-service"
 import { listParameters } from "./ssm/parameter-service"
 
 const CONNECTION_ERROR = "floci に接続できませんでした。"
@@ -24,7 +24,7 @@ export interface DashboardData {
 export interface DashboardLoaders {
   listTables: typeof listTables
   listBuckets: typeof listBuckets
-  listQueues: typeof listQueues
+  listQueueNames: typeof listQueueNames
   listParameters: typeof listParameters
   listSecrets: typeof listSecrets
   listUserPools: typeof listUserPools
@@ -44,7 +44,7 @@ export async function loadDashboardData(
   loaders: DashboardLoaders = {
     listTables,
     listBuckets,
-    listQueues,
+    listQueueNames,
     listParameters,
     listSecrets,
     listUserPools,
@@ -60,7 +60,7 @@ export async function loadDashboardData(
   ] = await Promise.allSettled([
     loaders.listTables(),
     loaders.listBuckets(),
-    loaders.listQueues(),
+    loaders.listQueueNames(),
     loaders.listParameters(),
     loaders.listSecrets(),
     loaders.listUserPools(),

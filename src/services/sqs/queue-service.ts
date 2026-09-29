@@ -68,7 +68,9 @@ async function listQueueUrls(): Promise<string[]> {
     for (const url of result.QueueUrls ?? []) urls.push(url)
     nextToken = result.NextToken
   } while (nextToken)
-  return urls
+  return urls.sort((left, right) =>
+    queueNameFromUrl(left).localeCompare(queueNameFromUrl(right)),
+  )
 }
 
 export async function listQueueNames(): Promise<string[]> {

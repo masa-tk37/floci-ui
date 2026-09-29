@@ -1,11 +1,31 @@
 import type { ItemEditFormInitial } from "../../views/dynamodb/item-edit-form-state"
 import type { UpdateFormInitial } from "../../views/dynamodb/update-form-state"
-import { errorMessage, requestJson, splitCommaList } from "../lib/floci"
+import { errorMessage, sendJson, splitCommaList } from "../lib/floci"
 
 type CreateTableProps = Record<string, never>
 
 interface QueryBuilderProps {
   tableName: string
+}
+
+function keySchema(hashKey: string, rangeKey: string) {
+  const schema = [{ AttributeName: hashKey, KeyType: "HASH" }]
+  if (rangeKey) schema.push({ AttributeName: rangeKey, KeyType: "RANGE" })
+  return schema
+}
+
+function projection(projectionType: string, nonKeyAttrs: string) {
+  if (projectionType === "INCLUDE" && nonKeyAttrs) {
+    return {
+      ProjectionType: projectionType,
+      NonKeyAttributes: splitCommaList(nonKeyAttrs),
+    }
+  }
+  return { ProjectionType: projectionType }
+}
+
+function throughput(rcu: number, wcu: number) {
+  return { ReadCapacityUnits: Number(rcu), WriteCapacityUnits: Number(wcu) }
 }
 
 export function createDynamoCreateTableController(
@@ -94,83 +114,35 @@ export function createDynamoCreateTableController(
         }),
       )
 
-      const keySchema: Array<{ AttributeName: string; KeyType: string }> = [
-        { AttributeName: this.pk.name, KeyType: "HASH" },
-      ]
-      if (this.hasSk && this.sk.name) {
-        keySchema.push({ AttributeName: this.sk.name, KeyType: "RANGE" })
-      }
-
       const payload: Record<string, unknown> = {
         TableName: this.tableName,
         AttributeDefinitions: attributeDefinitions,
-        KeySchema: keySchema,
+        KeySchema: keySchema(this.pk.name, this.hasSk ? this.sk.name : ""),
         BillingMode: this.billingMode,
       }
 
-      if (this.billingMode === "PROVISIONED") {
-        payload.ProvisionedThroughput = {
-          ReadCapacityUnits: Number(this.rcu),
-          WriteCapacityUnits: Number(this.wcu),
-        }
+      const provisioned = this.billingMode === "PROVISIONED"
+      if (provisioned) {
+        payload.ProvisionedThroughput = throughput(this.rcu, this.wcu)
       }
 
       if (this.gsi.length > 0) {
-        payload.GlobalSecondaryIndexes = this.gsi.map((gsi) => {
-          const gsiKeySchema: Array<{
-            AttributeName: string
-            KeyType: string
-          }> = [{ AttributeName: gsi.pk.name, KeyType: "HASH" }]
-          if (gsi.hasSk && gsi.sk.name) {
-            gsiKeySchema.push({
-              AttributeName: gsi.sk.name,
-              KeyType: "RANGE",
-            })
-          }
-
-          const projection: Record<string, unknown> = {
-            ProjectionType: gsi.projectionType,
-          }
-          if (gsi.projectionType === "INCLUDE" && gsi.nonKeyAttrs) {
-            projection.NonKeyAttributes = splitCommaList(gsi.nonKeyAttrs)
-          }
-
-          const index: Record<string, unknown> = {
-            IndexName: gsi.indexName,
-            KeySchema: gsiKeySchema,
-            Projection: projection,
-          }
-
-          if (this.billingMode === "PROVISIONED") {
-            index.ProvisionedThroughput = {
-              ReadCapacityUnits: Number(gsi.rcu),
-              WriteCapacityUnits: Number(gsi.wcu),
-            }
-          }
-
-          return index
-        })
+        payload.GlobalSecondaryIndexes = this.gsi.map((gsi) => ({
+          IndexName: gsi.indexName,
+          KeySchema: keySchema(gsi.pk.name, gsi.hasSk ? gsi.sk.name : ""),
+          Projection: projection(gsi.projectionType, gsi.nonKeyAttrs),
+          ...(provisioned && {
+            ProvisionedThroughput: throughput(gsi.rcu, gsi.wcu),
+          }),
+        }))
       }
 
       if (this.lsi.length > 0) {
-        payload.LocalSecondaryIndexes = this.lsi.map((lsi) => {
-          const projection: Record<string, unknown> = {
-            ProjectionType: lsi.projectionType,
-          }
-
-          if (lsi.projectionType === "INCLUDE" && lsi.nonKeyAttrs) {
-            projection.NonKeyAttributes = splitCommaList(lsi.nonKeyAttrs)
-          }
-
-          return {
-            IndexName: lsi.indexName,
-            KeySchema: [
-              { AttributeName: this.pk.name, KeyType: "HASH" },
-              { AttributeName: lsi.sk.name, KeyType: "RANGE" },
-            ],
-            Projection: projection,
-          }
-        })
+        payload.LocalSecondaryIndexes = this.lsi.map((lsi) => ({
+          IndexName: lsi.indexName,
+          KeySchema: keySchema(this.pk.name, lsi.sk.name),
+          Projection: projection(lsi.projectionType, lsi.nonKeyAttrs),
+        }))
       }
 
       if (this.streamEnabled) {
@@ -208,11 +180,7 @@ export function createDynamoCreateTableController(
       this.submitting = true
 
       try {
-        await requestJson("/dynamodb/tables", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(this.buildPayload()),
-        })
+        await sendJson("/dynamodb/tables", this.buildPayload())
         window.location.href = "/dynamodb"
       } catch (error) {
         this.error = errorMessage(error)
@@ -243,21 +211,17 @@ export function createDynamoUpdateTableController(
       this.error = null
       this.submitting = true
       try {
-        await requestJson(
+        await sendJson(
           `/dynamodb/tables/${encodeURIComponent(this.tableName)}/update`,
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              billingMode: this.billingMode,
-              rcu: Number(this.rcu),
-              wcu: Number(this.wcu),
-              streamEnabled: this.streamEnabled,
-              streamViewType: this.streamViewType,
-              ttlEnabled: this.ttlEnabled,
-              ttlAttr: this.ttlAttr,
-              deletionProtection: this.deletionProtection,
-            }),
+            billingMode: this.billingMode,
+            rcu: Number(this.rcu),
+            wcu: Number(this.wcu),
+            streamEnabled: this.streamEnabled,
+            streamViewType: this.streamViewType,
+            ttlEnabled: this.ttlEnabled,
+            ttlAttr: this.ttlAttr,
+            deletionProtection: this.deletionProtection,
           },
         )
         window.location.href = `/dynamodb/${encodeURIComponent(this.tableName)}`
@@ -302,11 +266,7 @@ export function createDynamoItemEditController(
       this.error = null
       this.submitting = true
       try {
-        await requestJson(`${init.itemPath}/edit`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ itemJson: this.itemJson }),
-        })
+        await sendJson(`${init.itemPath}/edit`, { itemJson: this.itemJson })
         window.location.href = init.itemPath
       } catch (error) {
         this.error = errorMessage(error)
@@ -355,14 +315,10 @@ export function createDynamoQueryBuilderController(
       this.error = ""
 
       try {
-        const data = await requestJson<{
+        const data = await sendJson<{
           items: Record<string, unknown>[]
           cursor?: string
-        }>(queryPath, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(this.buildPayload(cursor)),
-        })
+        }>(queryPath, this.buildPayload(cursor))
         this.loading = false
         this.results = data.items || []
         this.columns =

@@ -45,6 +45,14 @@ describe("listBuckets", () => {
     expect(result[0].name).toBe("bucket1")
   })
 
+  it("should sort buckets by name", async () => {
+    mockSend.mockResolvedValueOnce({
+      Buckets: [{ Name: "logs" }, { Name: "assets" }],
+    })
+    const result = await listBuckets()
+    expect(result.map((bucket) => bucket.name)).toEqual(["assets", "logs"])
+  })
+
   it("should return empty array when no buckets", async () => {
     mockSend.mockResolvedValueOnce({ Buckets: undefined })
     const result = await listBuckets()
@@ -409,18 +417,7 @@ describe("renameFolder", () => {
         Contents: [{ Key: "reports/a.txt" }, { Key: "reports/nested/b.txt" }],
         NextContinuationToken: undefined,
       })
-      .mockRejectedValueOnce(
-        Object.assign(new Error("missing"), {
-          name: "NotFound",
-          $metadata: { httpStatusCode: 404 },
-        }),
-      )
-      .mockRejectedValueOnce(
-        Object.assign(new Error("missing"), {
-          name: "NotFound",
-          $metadata: { httpStatusCode: 404 },
-        }),
-      )
+      .mockResolvedValueOnce({ Contents: [] })
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({
@@ -450,6 +447,16 @@ describe("renameFolder", () => {
     expect(mockSend).not.toHaveBeenCalled()
   })
 
+  it("should reject when a target key already exists", async () => {
+    mockSend
+      .mockResolvedValueOnce({ Contents: [{ Key: "reports/a.txt" }] })
+      .mockResolvedValueOnce({ Contents: [{ Key: "archive/a.txt" }] })
+    await expect(
+      renameFolder("my-bucket", "reports/", "archive/"),
+    ).rejects.toMatchObject({ code: "AlreadyExists" })
+    expect(mockSend).toHaveBeenCalledTimes(2)
+  })
+
   it("should reject when the source folder contains no objects", async () => {
     mockSend.mockResolvedValueOnce({
       Contents: [],
@@ -461,17 +468,12 @@ describe("renameFolder", () => {
   })
 
   it("should rollback successfully copied targets on partial copy failure", async () => {
-    const notFound = Object.assign(new Error("missing"), {
-      name: "NotFound",
-      $metadata: { httpStatusCode: 404 },
-    })
     mockSend
       .mockResolvedValueOnce({
         Contents: [{ Key: "reports/a.txt" }, { Key: "reports/b.txt" }],
         NextContinuationToken: undefined,
-      }) // listKeysForPrefix
-      .mockRejectedValueOnce(notFound) // objectExists archive/a.txt → false
-      .mockRejectedValueOnce(notFound) // objectExists archive/b.txt → false
+      })
+      .mockResolvedValueOnce({ Contents: [] })
       .mockResolvedValueOnce({}) // copy a.txt (success)
       .mockRejectedValueOnce(new Error("Network timeout")) // copy b.txt (fail)
       .mockResolvedValueOnce({
@@ -483,17 +485,16 @@ describe("renameFolder", () => {
     expect(result.deletedCount).toBe(0)
     expect(result.errors).toHaveLength(1)
     expect(result.errors[0]?.message).toBe("Network timeout")
-    expect(mockSend).toHaveBeenCalledTimes(6)
+    expect(mockSend).toHaveBeenCalledTimes(5)
     const calls = mockSend.mock.calls as unknown[][]
     expect(
-      (calls[5]?.[0] as { constructor?: { name?: string } })?.constructor?.name,
+      (calls[4]?.[0] as { constructor?: { name?: string } })?.constructor?.name,
     ).toBe("DeleteObjectsCommand")
   })
 })
 
 describe("updateObjectProperties", () => {
   it("should replace content type while preserving metadata", async () => {
-    const lastModified = new Date("2026-04-11T10:20:30.000Z")
     mockSend
       .mockResolvedValueOnce({
         ContentType: "text/plain",
@@ -505,22 +506,12 @@ describe("updateObjectProperties", () => {
         Metadata: { owner: "team-a" },
       }) // HEAD before copy
       .mockResolvedValueOnce({}) // COPY
-      .mockResolvedValueOnce({
-        ContentType: "application/json",
-        ContentLength: 42,
-        LastModified: lastModified,
-        ETag: '"etag"',
-        Metadata: { owner: "team-a" },
-      }) // HEAD after copy (re-fetch)
 
-    const result = await updateObjectProperties("my-bucket", "file.txt", {
+    await updateObjectProperties("my-bucket", "file.txt", {
       contentType: "application/json",
     })
 
-    expect(result.contentType).toBe("application/json")
-    expect(result.size).toBe(42)
-    expect(result.lastModified).toEqual(lastModified)
-    expect(result.eTag).toBe('"etag"')
+    expect(mockSend).toHaveBeenCalledTimes(2)
     const calls = mockSend.mock.calls as unknown[][]
     expect(
       (

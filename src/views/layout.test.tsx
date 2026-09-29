@@ -36,7 +36,7 @@ describe("Layout", () => {
     )
 
     expect(html).toContain("main--resource-workspace")
-    expect(html).toContain("content--workspace content--resource-workspace")
+    expect(html).toContain("content--workspace")
     expect(html).toContain("c--appShell l--flex is--container")
   })
 

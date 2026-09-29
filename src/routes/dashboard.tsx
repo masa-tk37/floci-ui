@@ -32,5 +32,3 @@ export function createDashboardRoutes(
     )
   })
 }
-
-export const dashboardRoutes = createDashboardRoutes()

@@ -6,9 +6,7 @@ const listTablesMock = mock(() => Promise.resolve(["users", "orders"]))
 const listBucketsMock = mock(() =>
   Promise.resolve([{ name: "archive" }, { name: "uploads" }]),
 )
-const listQueuesMock = mock(() =>
-  Promise.resolve([{ name: "jobs", depth: 0, dlqName: null }]),
-)
+const listQueueNamesMock = mock(() => Promise.resolve(["jobs"]))
 const listParametersMock = mock(() =>
   Promise.resolve([
     {
@@ -42,7 +40,7 @@ const listUserPoolsMock = mock(() =>
 beforeEach(() => {
   listTablesMock.mockClear()
   listBucketsMock.mockClear()
-  listQueuesMock.mockClear()
+  listQueueNamesMock.mockClear()
   listParametersMock.mockClear()
   listSecretsMock.mockClear()
   listUserPoolsMock.mockClear()
@@ -51,7 +49,7 @@ beforeEach(() => {
 const allLoaders = {
   listTables: listTablesMock,
   listBuckets: listBucketsMock,
-  listQueues: listQueuesMock,
+  listQueueNames: listQueueNamesMock,
   listParameters: listParametersMock,
   listSecrets: listSecretsMock,
   listUserPools: listUserPoolsMock,

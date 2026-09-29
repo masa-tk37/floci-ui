@@ -4,8 +4,6 @@ import { ServiceError } from "./errors"
 import { FLOCI_ENDPOINT } from "./infrastructure/floci-clients"
 import { encodeResourceName } from "./infrastructure/resource-name-codec"
 
-const sidebarDataMock = mock(async () => undefined)
-
 const loadDashboardDataMock = mock(async () => ({
   dynamodb: { count: 1 },
   s3: { count: 1 },
@@ -195,14 +193,7 @@ const renameObjectMock = mock(async () => ({ key: "renamed.txt" }))
 const updateBucketSettingsMock = mock(async () => ({
   warnings: [] as string[],
 }))
-const updateObjectPropertiesMock = mock(async () => ({
-  key: "notes.txt",
-  contentType: "text/plain",
-  size: 12,
-  lastModified: undefined,
-  eTag: '"etag"',
-  metadata: {},
-}))
+const updateObjectPropertiesMock = mock(async () => {})
 const uploadObjectsMock = mock(async () => ({ uploadedCount: 1, errors: [] }))
 const getObjectTagsMock = mock(async () => ({ tags: [] }))
 const putObjectTagsMock = mock(async () => undefined)
@@ -315,7 +306,6 @@ function buildTestApp() {
       listBuckets: listBucketsMock,
       listObjectVersions: listObjectVersionsMock,
       listObjects: listObjectsMock,
-      loadSidebarSafe: sidebarDataMock,
       putObjectTags: putObjectTagsMock,
       renameFolder: renameFolderMock,
       renameObject: renameObjectMock,
@@ -330,7 +320,6 @@ function buildTestApp() {
       getItem: getItemMock,
       getTableDetail: getTableDetailMock,
       listTables: listTablesMock,
-      loadSidebarSafe: sidebarDataMock,
       queryItems: queryItemsMock,
       saveItem: saveItemMock,
       scanItems: scanItemsMock,

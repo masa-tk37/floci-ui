@@ -31,7 +31,7 @@ import {
   type UserType,
   type VerifiedAttributeType,
 } from "@aws-sdk/client-cognito-identity-provider"
-import { ServiceError } from "../../errors"
+import { ServiceError, toOperationFailed } from "../../errors"
 import { cognitoIdentityProvider } from "../../infrastructure/floci-clients"
 
 const DEFAULT_EXPLICIT_AUTH_FLOWS: ExplicitAuthFlowsType[] = [
@@ -332,11 +332,7 @@ function toCognitoError(
     }
   }
 
-  throw new ServiceError(
-    "OperationFailed",
-    error instanceof Error ? error.message : String(error),
-    error,
-  )
+  toOperationFailed(error)
 }
 
 export async function listUserPools(): Promise<UserPoolSummary[]> {

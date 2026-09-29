@@ -14,14 +14,13 @@ import {
   scanItems,
   updateTable,
 } from "../services/dynamodb/table-service"
-import { loadSidebarSafe } from "../services/sidebar-service"
 import { CreateTableForm } from "../views/dynamodb/create-form"
 import { ItemEditForm } from "../views/dynamodb/item-edit-form"
 import { ItemList } from "../views/dynamodb/item-list"
 import { QueryBuilder } from "../views/dynamodb/query-builder"
 import { TableList } from "../views/dynamodb/table-list"
 import { UpdateTableForm } from "../views/dynamodb/update-form"
-import { loadPageData, runJsonAction } from "./route-utils"
+import { loadRailItems, runJsonAction } from "./route-utils"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -138,7 +137,6 @@ export interface DynamodbRouteDeps {
   getItem: typeof getItem
   getTableDetail: typeof getTableDetail
   listTables: typeof listTables
-  loadSidebarSafe: typeof loadSidebarSafe
   queryItems: typeof queryItems
   saveItem: typeof saveItem
   scanItems: typeof scanItems
@@ -152,7 +150,6 @@ const defaultDynamodbRouteDeps: DynamodbRouteDeps = {
   getItem,
   getTableDetail,
   listTables,
-  loadSidebarSafe,
   queryItems,
   saveItem,
   scanItems,
@@ -220,13 +217,14 @@ export function createDynamodbRoutes(
     .get(
       "/:table",
       async ({ params, query }) => {
-        const { data: result, sidebar } = await loadPageData(deps, () =>
+        const [result, tables] = await Promise.all([
           deps.scanItems(params.table, query.cursor),
-        )
+          loadRailItems(deps.listTables),
+        ])
         return (
           <ItemList
             tableName={params.table}
-            tables={sidebar?.tables ?? []}
+            tables={tables}
             items={result.items}
             hashKey={result.hashKey}
             sortKey={result.sortKey}
@@ -349,5 +347,3 @@ export function createDynamodbRoutes(
       }),
     )
 }
-
-export const dynamodbRoutes = createDynamodbRoutes()

@@ -24,17 +24,13 @@ import {
   uploadObjects,
 } from "../services/s3/bucket-service"
 import { buildAttachmentContentDisposition } from "../services/s3/content-disposition"
-import { loadSidebarSafe } from "../services/sidebar-service"
 import { BucketList } from "../views/s3/bucket-list"
 import { CreateBucketForm } from "../views/s3/create-form"
 import { ObjectList } from "../views/s3/object-list"
 import { Preview } from "../views/s3/preview"
 import { S3SettingsForm } from "../views/s3/settings-form"
 import {
-  jsonData,
-  jsonError,
-  loadPageData,
-  respondWithError,
+  loadRailItems,
   respondWithFrameworkError,
   runJsonAction,
 } from "./route-utils"
@@ -161,7 +157,6 @@ export interface S3RouteDeps {
   listBuckets: typeof listBuckets
   listObjectVersions: typeof listObjectVersions
   listObjects: typeof listObjects
-  loadSidebarSafe: typeof loadSidebarSafe
   putObjectTags: typeof putObjectTags
   renameFolder: typeof renameFolder
   renameObject: typeof renameObject
@@ -185,7 +180,6 @@ const defaultS3RouteDeps: S3RouteDeps = {
   listBuckets,
   listObjectVersions,
   listObjects,
-  loadSidebarSafe,
   putObjectTags,
   renameFolder,
   renameObject,
@@ -267,24 +261,14 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
     .get("/:bucket/object-details", async ({ params, query, set }) => {
       const key = query.key
       if (!key) {
-        return respondWithFrameworkError(
-          "InvalidInput",
-          "Missing key",
-          set,
-          400,
-        )
+        return respondWithFrameworkError("InvalidInput", "Missing key", set)
       }
       return runJsonAction(set, () => deps.getObjectDetails(params.bucket, key))
     })
     .get("/:bucket/object-tags", async ({ params, query, set }) => {
       const key = query.key
       if (!key) {
-        return respondWithFrameworkError(
-          "InvalidInput",
-          "Missing key",
-          set,
-          400,
-        )
+        return respondWithFrameworkError("InvalidInput", "Missing key", set)
       }
       return runJsonAction(set, () => deps.getObjectTags(params.bucket, key))
     })
@@ -311,8 +295,8 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
         }),
       { body: createFolderSchema },
     )
-    .post("/:bucket/upload", async ({ params, request, set }) => {
-      try {
+    .post("/:bucket/upload", async ({ params, request, set }) =>
+      runJsonAction(set, async () => {
         const formData = await request.formData()
         const prefix = String(formData.get("prefix") ?? "")
         const files = formData
@@ -321,17 +305,14 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
 
         const result = await deps.uploadObjects(params.bucket, prefix, files)
         if (result.errors.length > 0) {
-          set.status = 400
-          return jsonError(
+          throw new ServiceError(
             "InvalidInput",
             `${result.errors.length} file(s) failed to upload`,
           )
         }
-        return jsonData({ uploadedCount: result.uploadedCount })
-      } catch (e) {
-        return respondWithError(e, set)
-      }
-    })
+        return { uploadedCount: result.uploadedCount }
+      }),
+    )
     .post(
       "/:bucket/rename-object",
       async ({ params, body, set }) =>
@@ -347,51 +328,42 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
     )
     .post(
       "/:bucket/rename-folder",
-      async ({ params, body, set }) => {
-        try {
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
           const result = await deps.renameFolder(
             params.bucket,
             body.fromPrefix,
             body.toPrefix,
           )
           if (result.errors.length > 0) {
-            set.status = 400
-            return jsonError(
+            throw new ServiceError(
               "InvalidInput",
               `${result.errors.length} item(s) failed during folder rename`,
             )
           }
-          return jsonData({
+          return {
             copiedCount: result.copiedCount,
             deletedCount: result.deletedCount,
             prefix: result.prefix,
-          })
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+          }
+        }),
       { body: renameFolderSchema },
     )
     .post(
       "/:bucket/object-properties",
       async ({ params, body, set }) =>
-        runJsonAction(set, async () => ({
-          object: await deps.updateObjectProperties(params.bucket, body.key, {
+        runJsonAction(set, async () => {
+          await deps.updateObjectProperties(params.bucket, body.key, {
             contentType: body.contentType,
-          }),
-        })),
+          })
+        }),
       { body: updateObjectPropertiesSchema },
     )
     .delete("/:bucket/object", async ({ params, query, set }) => {
       const key = query.key
       const versionId = query.versionId
       if (!key) {
-        return respondWithFrameworkError(
-          "InvalidInput",
-          "Missing key",
-          set,
-          400,
-        )
+        return respondWithFrameworkError("InvalidInput", "Missing key", set)
       }
       return runJsonAction(set, async () => {
         await deps.deleteObject(params.bucket, key, versionId)
@@ -399,21 +371,17 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
     })
     .post(
       "/:bucket/delete-objects",
-      async ({ params, body, set }) => {
-        try {
+      async ({ params, body, set }) =>
+        runJsonAction(set, async () => {
           const result = await deps.deleteSelectedObjects(params.bucket, body)
           if (result.errors.length > 0) {
-            set.status = 400
-            return jsonError(
+            throw new ServiceError(
               "InvalidInput",
               `${result.errors.length} item(s) failed to delete`,
             )
           }
-          return jsonData({ deletedCount: result.deletedCount })
-        } catch (e) {
-          return respondWithError(e, set)
-        }
-      },
+          return { deletedCount: result.deletedCount }
+        }),
       { body: deleteObjectsSchema },
     )
     .get("/:bucket/preview", async ({ params, query }) => {
@@ -442,10 +410,9 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
       const prefix = query.prefix ?? ""
       const cursor = query.cursor
       const showVersions = query.versions === "1"
-      const [{ data: result, sidebar }, versioningEnabled] = await Promise.all([
-        loadPageData(deps, () =>
-          deps.listObjects(params.bucket, prefix, cursor),
-        ),
+      const [result, buckets, versioningEnabled] = await Promise.all([
+        deps.listObjects(params.bucket, prefix, cursor),
+        loadRailItems(deps.listBuckets),
         deps.getBucketVersioningEnabled(params.bucket),
       ])
       let versionResult:
@@ -454,11 +421,10 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
       if (showVersions && versioningEnabled) {
         versionResult = await deps.listObjectVersions(params.bucket, prefix)
       }
-      const buckets = (sidebar?.buckets ?? []).map((name) => ({ Name: name }))
       return (
         <ObjectList
           bucket={params.bucket}
-          buckets={buckets}
+          buckets={buckets.map((bucket) => ({ Name: bucket.name }))}
           prefix={prefix}
           objects={result.objects.map((object) => ({
             Key: object.key,
@@ -474,5 +440,3 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
       )
     })
 }
-
-export const s3Routes = createS3Routes()

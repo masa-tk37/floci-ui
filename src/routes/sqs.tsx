@@ -186,5 +186,3 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
       }),
     )
 }
-
-export const sqsRoutes = createSqsRoutes()

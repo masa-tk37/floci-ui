@@ -6,8 +6,9 @@ import {
   ListObjectsV2Command,
 } from "@aws-sdk/client-s3"
 import mime from "mime-types"
-import { ServiceError } from "../../errors"
+import { ServiceError, toOperationFailed } from "../../errors"
 import { s3 } from "../../infrastructure/floci-clients"
+import { normalizePrefix } from "./prefix"
 
 export const PREVIEW_TEXT_LIMIT = 50 * 1024
 
@@ -162,12 +163,6 @@ export function sanitizeContentType(contentType: string | undefined): string {
   return (contentType ?? "application/octet-stream").trim().toLowerCase()
 }
 
-export function normalizePrefix(prefix: string): string {
-  const trimmed = prefix.trim().replace(/^\/+/, "")
-  if (!trimmed) return ""
-  return trimmed.endsWith("/") ? trimmed : `${trimmed}/`
-}
-
 export function normalizeObjectKey(key: string): string {
   const normalized = key.trim().replace(/^\/+/, "")
   if (!normalized) {
@@ -282,11 +277,7 @@ export async function getHeadObject(
         error,
       )
     }
-    throw new ServiceError(
-      "OperationFailed",
-      error instanceof Error ? error.message : String(error),
-      error,
-    )
+    toOperationFailed(error)
   }
 }
 
@@ -301,11 +292,7 @@ export async function objectExists(
     if (isNotFoundError(error)) {
       return false
     }
-    throw new ServiceError(
-      "OperationFailed",
-      error instanceof Error ? error.message : String(error),
-      error,
-    )
+    toOperationFailed(error)
   }
 }
 

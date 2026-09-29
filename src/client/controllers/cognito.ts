@@ -1,4 +1,4 @@
-import { errorMessage, requestJson } from "../lib/floci"
+import { errorMessage, requestJson, sendJson } from "../lib/floci"
 
 interface CreateModalProps {
   poolPath: string
@@ -42,11 +42,7 @@ function createModalFormController(
       this.submitting = true
 
       try {
-        await requestJson(this.actionUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        })
+        await sendJson(this.actionUrl, payload)
         window.location.reload()
       } catch (error) {
         this.error = errorMessage(error)
@@ -122,13 +118,9 @@ export function createCognitoPoolDetailController(
         this.error = null
         this.adding = true
         try {
-          await requestJson(
+          await sendJson(
             `${props.poolPath}/groups/${this.groupNameEncoded}/users`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ username }),
-            },
+            { username },
           )
           this.newUsername = ""
           await this.fetchMembers()

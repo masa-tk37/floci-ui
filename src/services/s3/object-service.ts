@@ -1,20 +1,21 @@
 import {
+  type _Object,
+  type CommonPrefix,
   CopyObjectCommand,
+  type DeleteMarkerEntry,
   DeleteObjectCommand,
   GetBucketVersioningCommand,
   GetObjectCommand,
   GetObjectTaggingCommand,
-  ListObjectVersionsCommand,
   ListObjectsV2Command,
+  ListObjectVersionsCommand,
+  type ObjectVersion,
   PutObjectCommand,
   PutObjectTaggingCommand,
-  type CommonPrefix,
-  type DeleteMarkerEntry,
-  type ObjectVersion,
-  type _Object,
 } from "@aws-sdk/client-s3"
-import { ServiceError } from "../../errors"
+import { ServiceError, toOperationFailed } from "../../errors"
 import { s3 } from "../../infrastructure/floci-clients"
+import { normalizePrefix } from "./prefix"
 import type {
   DeleteSelectedObjectsResult,
   DownloadResult,
@@ -30,7 +31,6 @@ import type {
   VersionListResult,
 } from "./shared"
 import {
-  PREVIEW_TEXT_LIMIT,
   copySource,
   deleteKeysInBatches,
   directChildRemainder,
@@ -44,9 +44,9 @@ import {
   normalizeFolderKey,
   normalizeFolderPrefix,
   normalizeObjectKey,
-  normalizePrefix,
   objectExists,
   objectKeyFromPrefix,
+  PREVIEW_TEXT_LIMIT,
   sanitizeContentType,
   uniqueNonEmpty,
 } from "./shared"
@@ -251,11 +251,7 @@ export async function deleteObject(
       }),
     )
   } catch (error: unknown) {
-    throw new ServiceError(
-      "OperationFailed",
-      error instanceof Error ? error.message : String(error),
-      error,
-    )
+    toOperationFailed(error)
   }
 }
 
@@ -276,11 +272,7 @@ export async function createFolderObject(
       }),
     )
   } catch (error: unknown) {
-    throw new ServiceError(
-      "OperationFailed",
-      error instanceof Error ? error.message : String(error),
-      error,
-    )
+    toOperationFailed(error)
   }
 
   return { key }
@@ -339,11 +331,7 @@ export async function renameObject(
       }),
     )
   } catch (error: unknown) {
-    throw new ServiceError(
-      "OperationFailed",
-      error instanceof Error ? error.message : String(error),
-      error,
-    )
+    toOperationFailed(error)
   }
 
   try {
@@ -359,11 +347,7 @@ export async function renameObject(
       // Rollback failed; object exists at both keys and must be cleaned up manually.
     }
 
-    throw new ServiceError(
-      "OperationFailed",
-      deleteError instanceof Error ? deleteError.message : String(deleteError),
-      deleteError,
-    )
+    toOperationFailed(deleteError)
   }
 
   return { key: normalizedToKey }
@@ -417,17 +401,14 @@ export async function renameFolder(
     }
   }
 
-  const existenceResults = await Promise.all(
-    renamePairs.map(async (pair) => ({
-      pair,
-      exists: await objectExists(bucket, pair.to),
-    })),
+  const targetKeySet = new Set(
+    await listKeysForPrefix(bucket, normalizedToPrefix),
   )
-  const conflict = existenceResults.find((result) => result.exists)
+  const conflict = renamePairs.find((pair) => targetKeySet.has(pair.to))
   if (conflict) {
     throw new ServiceError(
       "AlreadyExists",
-      `Object ${conflict.pair.to} already exists in bucket ${bucket}`,
+      `Object ${conflict.to} already exists in bucket ${bucket}`,
     )
   }
 
@@ -491,7 +472,7 @@ export async function updateObjectProperties(
   bucket: string,
   key: string,
   input: UpdateObjectPropertiesInput,
-): Promise<ObjectDetailsResult> {
+): Promise<void> {
   const normalizedKey = normalizeObjectKey(key)
   const requestedContentType = input.contentType.trim().toLowerCase()
 
@@ -518,21 +499,7 @@ export async function updateObjectProperties(
       }),
     )
   } catch (error: unknown) {
-    throw new ServiceError(
-      "OperationFailed",
-      error instanceof Error ? error.message : String(error),
-      error,
-    )
-  }
-
-  const updatedHead = await getHeadObject(bucket, normalizedKey)
-  return {
-    key: normalizedKey,
-    contentType: requestedContentType,
-    size: updatedHead.ContentLength ?? 0,
-    lastModified: updatedHead.LastModified,
-    eTag: updatedHead.ETag,
-    metadata: updatedHead.Metadata ?? {},
+    toOperationFailed(error)
   }
 }
 
@@ -551,11 +518,7 @@ export async function getObjectTags(
       })),
     }
   } catch (error: unknown) {
-    throw new ServiceError(
-      "OperationFailed",
-      error instanceof Error ? error.message : String(error),
-      error,
-    )
+    toOperationFailed(error)
   }
 }
 
@@ -575,11 +538,7 @@ export async function putObjectTags(
       }),
     )
   } catch (error: unknown) {
-    throw new ServiceError(
-      "OperationFailed",
-      error instanceof Error ? error.message : String(error),
-      error,
-    )
+    toOperationFailed(error)
   }
 }
 

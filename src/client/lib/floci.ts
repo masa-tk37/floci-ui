@@ -95,6 +95,18 @@ export async function requestJson<T>(
   throw error
 }
 
+export function sendJson<T>(
+  url: string,
+  body: unknown,
+  method = "POST",
+): Promise<T> {
+  return requestJson<T>(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+}
+
 export function dispatchToast(detail: ToastDetail): void {
   window.dispatchEvent(new CustomEvent("floci:toast", { detail }))
 }

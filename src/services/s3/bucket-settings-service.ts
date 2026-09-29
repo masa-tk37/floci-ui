@@ -20,20 +20,22 @@ import {
   PutBucketVersioningCommand,
   PutPublicAccessBlockCommand,
 } from "@aws-sdk/client-s3"
-import { ServiceError } from "../../errors"
+import { ServiceError, toOperationFailed } from "../../errors"
 import { s3 } from "../../infrastructure/floci-clients"
 import type { S3SettingsInitial } from "../../views/s3/settings-form-state"
 import type {
+  BucketSettingsInput,
   BucketSummary,
   CreateBucketOptions,
-  BucketSettingsInput,
   UpdateSettingsResult,
 } from "./shared"
 import { runOps } from "./shared"
 
 export async function listBuckets(): Promise<BucketSummary[]> {
   const { Buckets } = await s3.send(new ListBucketsCommand({}))
-  return (Buckets ?? []).map((bucket) => ({ name: bucket.Name ?? "" }))
+  return (Buckets ?? [])
+    .map((bucket) => ({ name: bucket.Name ?? "" }))
+    .sort((left, right) => left.name.localeCompare(right.name))
 }
 
 export async function createBucket(
@@ -43,11 +45,7 @@ export async function createBucket(
   try {
     await s3.send(new CreateBucketCommand({ Bucket: name }))
   } catch (error: unknown) {
-    throw new ServiceError(
-      "OperationFailed",
-      error instanceof Error ? error.message : String(error),
-      error,
-    )
+    toOperationFailed(error)
   }
 
   const ops: { label: string; promise: Promise<unknown> }[] = []
@@ -157,11 +155,7 @@ export async function deleteBucket(name: string): Promise<void> {
     if (error instanceof Error && error.name === "NoSuchBucket") {
       throw new ServiceError("NotFound", `Bucket ${name} not found`, error)
     }
-    throw new ServiceError(
-      "OperationFailed",
-      error instanceof Error ? error.message : String(error),
-      error,
-    )
+    toOperationFailed(error)
   }
 }
 

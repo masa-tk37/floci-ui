@@ -225,7 +225,7 @@ export async function listTables(): Promise<string[]> {
     names.push(...(result.TableNames ?? []))
     lastTableName = result.LastEvaluatedTableName
   } while (lastTableName !== undefined)
-  return names
+  return names.sort((left, right) => left.localeCompare(right))
 }
 
 export async function getTableDetail(tableName: string): Promise<TableDetail> {

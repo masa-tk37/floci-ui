@@ -172,10 +172,6 @@
 }
 
 .s3-object-list-page__actions-cell {
-  max-width: none;
-  overflow: visible;
-  text-overflow: clip;
-  white-space: nowrap;
   position: relative;
 }
 

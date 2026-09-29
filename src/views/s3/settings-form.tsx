@@ -180,7 +180,9 @@ export function S3SettingsForm({ init }: S3SettingsFormProps) {
                         <button
                           type="button"
                           class="btn btn--danger-ghost btn--xs"
-                          {...{ "@click": `removeCorsMethod(i, mi)` }}
+                          {...{
+                            "@click": `removeCorsValue(i, 'allowedMethods', mi)`,
+                          }}
                         >
                           ✕
                         </button>
@@ -189,7 +191,7 @@ export function S3SettingsForm({ init }: S3SettingsFormProps) {
                     <button
                       type="button"
                       class="btn btn--sm"
-                      {...{ "@click": `addCorsMethod(i)` }}
+                      {...{ "@click": `addCorsValue(i, 'allowedMethods')` }}
                     >
                       + メソッド
                     </button>
@@ -212,7 +214,9 @@ export function S3SettingsForm({ init }: S3SettingsFormProps) {
                         <button
                           type="button"
                           class="btn btn--danger-ghost btn--xs"
-                          {...{ "@click": `removeCorsOrigin(i, oi)` }}
+                          {...{
+                            "@click": `removeCorsValue(i, 'allowedOrigins', oi)`,
+                          }}
                         >
                           ✕
                         </button>
@@ -221,7 +225,7 @@ export function S3SettingsForm({ init }: S3SettingsFormProps) {
                     <button
                       type="button"
                       class="btn btn--sm"
-                      {...{ "@click": `addCorsOrigin(i)` }}
+                      {...{ "@click": `addCorsValue(i, 'allowedOrigins')` }}
                     >
                       + オリジン
                     </button>
@@ -247,7 +251,9 @@ export function S3SettingsForm({ init }: S3SettingsFormProps) {
                         <button
                           type="button"
                           class="btn btn--danger-ghost btn--xs"
-                          {...{ "@click": `removeCorsHeader(i, hi)` }}
+                          {...{
+                            "@click": `removeCorsValue(i, 'allowedHeaders', hi)`,
+                          }}
                         >
                           ✕
                         </button>
@@ -256,7 +262,7 @@ export function S3SettingsForm({ init }: S3SettingsFormProps) {
                     <button
                       type="button"
                       class="btn btn--sm"
-                      {...{ "@click": `addCorsHeader(i)` }}
+                      {...{ "@click": `addCorsValue(i, 'allowedHeaders')` }}
                     >
                       + ヘッダー
                     </button>

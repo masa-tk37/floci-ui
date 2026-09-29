@@ -123,9 +123,7 @@ export function Layout({
               </svg>
             </button>
           </header>
-          <main
-            class={`content c--content content--${contentMode}${workspace ? " content--resource-workspace" : ""}`}
-          >
+          <main class={`content c--content content--${contentMode}`}>
             {children}
           </main>
         </div>

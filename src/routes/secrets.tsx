@@ -120,5 +120,3 @@ export function createSecretsRoutes(
       }),
     )
 }
-
-export const secretsRoutes = createSecretsRoutes()

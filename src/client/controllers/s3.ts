@@ -1,3 +1,4 @@
+import { normalizePrefix } from "../../services/s3/prefix"
 import { formatBytes, PLACEHOLDER } from "../../views/format"
 import type { S3SettingsInitial } from "../../views/s3/settings-form-state"
 import {
@@ -6,6 +7,7 @@ import {
   errorMessage,
   openDeleteModal,
   requestJson,
+  sendJson,
   tagMixin,
 } from "../lib/floci"
 
@@ -17,12 +19,6 @@ function buildEncryptionPayload(encryption: string, kmsKeyId: string) {
   }
 }
 
-export function normalizeUploadPrefix(raw: string): string {
-  const trimmed = raw.trim().replace(/^\/+/, "")
-  if (!trimmed) return ""
-  return trimmed.endsWith("/") ? trimmed : `${trimmed}/`
-}
-
 function buildS3TagsPayload(tags: { key: string; value: string }[]) {
   return tags
     .filter((tag) => tag.key.trim())
@@ -30,6 +26,8 @@ function buildS3TagsPayload(tags: { key: string; value: string }[]) {
 }
 
 type CreateBucketProps = Record<string, never>
+
+type CorsListField = "allowedMethods" | "allowedOrigins" | "allowedHeaders"
 
 interface S3ObjectListProps {
   bucket: string
@@ -87,11 +85,10 @@ export function createS3CreateBucketController(
       this.submitting = true
 
       try {
-        const data = await requestJson<{ warnings?: string[] }>("/s3/bucket", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(this.buildPayload()),
-        })
+        const data = await sendJson<{ warnings?: string[] }>(
+          "/s3/bucket",
+          this.buildPayload(),
+        )
 
         if (data.warnings?.length) {
           this.warnings = data.warnings
@@ -138,23 +135,15 @@ export function createS3SettingsController(
         maxAge: 0,
       })
     },
-    addCorsMethod(ruleIndex: number) {
-      this.corsRules[ruleIndex].allowedMethods.push("")
+    addCorsValue(ruleIndex: number, field: CorsListField) {
+      this.corsRules[ruleIndex][field].push("")
     },
-    removeCorsMethod(ruleIndex: number, methodIndex: number) {
-      this.corsRules[ruleIndex].allowedMethods.splice(methodIndex, 1)
-    },
-    addCorsOrigin(ruleIndex: number) {
-      this.corsRules[ruleIndex].allowedOrigins.push("")
-    },
-    removeCorsOrigin(ruleIndex: number, originIndex: number) {
-      this.corsRules[ruleIndex].allowedOrigins.splice(originIndex, 1)
-    },
-    addCorsHeader(ruleIndex: number) {
-      this.corsRules[ruleIndex].allowedHeaders.push("")
-    },
-    removeCorsHeader(ruleIndex: number, headerIndex: number) {
-      this.corsRules[ruleIndex].allowedHeaders.splice(headerIndex, 1)
+    removeCorsValue(
+      ruleIndex: number,
+      field: CorsListField,
+      valueIndex: number,
+    ) {
+      this.corsRules[ruleIndex][field].splice(valueIndex, 1)
     },
     removeCors(index: number) {
       this.corsRules.splice(index, 1)
@@ -200,13 +189,9 @@ export function createS3SettingsController(
       this.submitting = true
 
       try {
-        const data = await requestJson<{ warnings?: string[] }>(
+        const data = await sendJson<{ warnings?: string[] }>(
           `/s3/${encodeURIComponent(this.bucket)}/settings`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(this.buildPayload()),
-          },
+          this.buildPayload(),
         )
 
         if (data.warnings?.length) {
@@ -375,11 +360,7 @@ export function createS3ObjectListController(
       this.folderSubmitting = true
       this.folderError = ""
       try {
-        await requestJson(folderPath, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prefix: this.prefix, folderName }),
-        })
+        await sendJson(folderPath, { prefix: this.prefix, folderName })
         this.folderSubmitting = false
         this.closeFolderModal()
         window.location.reload()
@@ -416,7 +397,7 @@ export function createS3ObjectListController(
       this.uploadError = ""
     },
     get uploadTargetKey(): string {
-      const normalized = normalizeUploadPrefix(this.uploadPrefix)
+      const normalized = normalizePrefix(this.uploadPrefix)
       const first = this.uploadFiles[0]
       if (!first) return `${normalized}…`
       const suffix =
@@ -432,7 +413,7 @@ export function createS3ObjectListController(
       }
       this.uploadSubmitting = true
       this.uploadError = ""
-      const destination = normalizeUploadPrefix(this.uploadPrefix)
+      const destination = normalizePrefix(this.uploadPrefix)
       try {
         const formData = new FormData()
         formData.append("prefix", destination)
@@ -444,7 +425,7 @@ export function createS3ObjectListController(
         this.closeUploadModal()
         // Uploading outside the current folder would otherwise reload a listing
         // that cannot show the new files.
-        if (destination === normalizeUploadPrefix(this.prefix)) {
+        if (destination === normalizePrefix(this.prefix)) {
           window.location.reload()
           return
         }
@@ -494,20 +475,14 @@ export function createS3ObjectListController(
       this.renameSubmitting = true
       this.renameError = ""
       try {
-        await requestJson(
+        await sendJson(
           this.renameKind === "folder" ? renameFolderPath : renameObjectPath,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(
-              this.renameKind === "folder"
-                ? {
-                    fromPrefix: this.renameSource,
-                    toPrefix: destination,
-                  }
-                : { fromKey: this.renameSource, toKey: destination },
-            ),
-          },
+          this.renameKind === "folder"
+            ? {
+                fromPrefix: this.renameSource,
+                toPrefix: destination,
+              }
+            : { fromKey: this.renameSource, toKey: destination },
         )
         this.renameSubmitting = false
         this.closeRenameModal()
@@ -618,18 +593,13 @@ export function createS3ObjectListController(
       this.propertyError = ""
       try {
         await Promise.all([
-          requestJson(objectPropertiesPath, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ key: this.propertyKey, contentType }),
+          sendJson(objectPropertiesPath, {
+            key: this.propertyKey,
+            contentType,
           }),
-          requestJson(objectTagsPath, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              key: this.propertyKey,
-              tags: this.propertyTags.filter((t) => t.key.trim()),
-            }),
+          sendJson(objectTagsPath, {
+            key: this.propertyKey,
+            tags: buildS3TagsPayload(this.propertyTags),
           }),
         ])
         this.propertySubmitting = false

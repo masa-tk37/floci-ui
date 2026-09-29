@@ -140,5 +140,3 @@ export function createSsmRoutes(deps: SsmRouteDeps = defaultSsmRouteDeps) {
       }),
     )
 }
-
-export const ssmRoutes = createSsmRoutes()

@@ -37,6 +37,12 @@ describe("listTables", () => {
     expect(result).toEqual(["table1", "table2"])
   })
 
+  it("should sort table names", async () => {
+    mockSend.mockResolvedValueOnce({ TableNames: ["users", "orders"] })
+    const result = await listTables()
+    expect(result).toEqual(["orders", "users"])
+  })
+
   it("should return empty array when no tables", async () => {
     mockSend.mockResolvedValueOnce({ TableNames: undefined })
     const result = await listTables()

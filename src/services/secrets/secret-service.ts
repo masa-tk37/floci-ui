@@ -4,18 +4,22 @@ import {
   DescribeSecretCommand,
   GetSecretValueCommand,
   ListSecretsCommand,
-  type Tag,
   TagResourceCommand,
   UntagResourceCommand,
   UpdateSecretCommand,
 } from "@aws-sdk/client-secrets-manager"
-import { ServiceError } from "../../errors"
+import { ServiceError, toOperationFailed } from "../../errors"
 import { secretsManager } from "../../infrastructure/floci-clients"
+import {
+  diffTags,
+  normalizeDescription,
+  normalizeTags,
+  optionalTrimmed,
+  type ResourceTag,
+  toAwsTags,
+} from "../resource-tags"
 
-export interface SecretTag {
-  key: string
-  value: string
-}
+export type SecretTag = ResourceTag
 
 export interface SecretSummary {
   name: string
@@ -57,48 +61,6 @@ function normalizeName(name: string): string {
   return normalized
 }
 
-function normalizeDescription(
-  value: string | undefined,
-  { allowBlank }: { allowBlank: boolean },
-): string | undefined {
-  if (value === undefined) {
-    return allowBlank ? "" : undefined
-  }
-
-  const normalized = value.trim()
-  if (!normalized) {
-    return allowBlank ? "" : undefined
-  }
-
-  return normalized
-}
-
-function normalizeKmsKeyId(value: string | undefined): string | undefined {
-  const normalized = value?.trim()
-  return normalized || undefined
-}
-
-function normalizeTags(tags: SecretTag[] | undefined): SecretTag[] {
-  const map = new Map<string, string>()
-
-  for (const tag of tags ?? []) {
-    const key = tag.key.trim()
-    if (!key) continue
-    map.set(key, tag.value.trim())
-  }
-
-  return [...map.entries()].map(([key, value]) => ({ key, value }))
-}
-
-function toAwsTags(tags: SecretTag[]): Tag[] | undefined {
-  if (tags.length === 0) return undefined
-  return tags.map((tag) => ({ Key: tag.key, Value: tag.value }))
-}
-
-function toTagMap(tags: SecretTag[]): Map<string, string> {
-  return new Map(tags.map((tag) => [tag.key, tag.value]))
-}
-
 function toSecretError(error: unknown, name?: string): never {
   if (error instanceof ServiceError) throw error
 
@@ -127,11 +89,7 @@ function toSecretError(error: unknown, name?: string): never {
     }
   }
 
-  throw new ServiceError(
-    "OperationFailed",
-    error instanceof Error ? error.message : String(error),
-    error,
-  )
+  toOperationFailed(error)
 }
 
 async function listSecretSummaries(): Promise<SecretSummary[]> {
@@ -201,13 +159,7 @@ async function syncSecretTags(
 ): Promise<void> {
   const normalizedName = normalizeName(name)
   const currentTags = (await describeSecret(normalizedName)).tags
-  const current = toTagMap(currentTags)
-  const next = toTagMap(nextTags)
-
-  const removeKeys = [...current.keys()].filter((key) => !next.has(key))
-  const upsertTags = [...next.entries()]
-    .filter(([key, value]) => current.get(key) !== value)
-    .map(([key, value]) => ({ Key: key, Value: value }))
+  const { removeKeys, upsertTags } = diffTags(currentTags, nextTags)
 
   try {
     if (removeKeys.length > 0) {
@@ -272,7 +224,7 @@ export async function createSecret(input: CreateSecretInput): Promise<void> {
   const description = normalizeDescription(input.description, {
     allowBlank: false,
   })
-  const kmsKeyId = normalizeKmsKeyId(input.kmsKeyId)
+  const kmsKeyId = optionalTrimmed(input.kmsKeyId)
   const tags = normalizeTags(input.tags)
 
   try {
@@ -298,7 +250,7 @@ export async function updateSecret(
   const description = normalizeDescription(input.description, {
     allowBlank: true,
   })
-  const kmsKeyId = normalizeKmsKeyId(input.kmsKeyId)
+  const kmsKeyId = optionalTrimmed(input.kmsKeyId)
   const tags = normalizeTags(input.tags)
 
   try {

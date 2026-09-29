@@ -1,12 +1,7 @@
 import type { UserPoolFormInitial } from "../../views/cognito/pool-form-state"
 import type { SecretFormInitial } from "../../views/secrets/secret-form-state"
 import type { ParameterFormInitial } from "../../views/ssm/parameter-form-state"
-import {
-  dispatchToast,
-  errorMessage,
-  requestJson,
-  tagMixin,
-} from "../lib/floci"
+import { dispatchToast, errorMessage, sendJson, tagMixin } from "../lib/floci"
 
 export function createSecretFormController(
   _el: HTMLElement,
@@ -45,11 +40,10 @@ export function createSecretFormController(
       this.submitting = true
 
       try {
-        const data = await requestJson<{ id?: string }>(this.actionUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(this.buildPayload()),
-        })
+        const data = await sendJson<{ id?: string }>(
+          this.actionUrl,
+          this.buildPayload(),
+        )
 
         if (this.mode === "create") {
           window.location.href = data.id ? `/secrets/${data.id}` : "/secrets"
@@ -111,11 +105,10 @@ export function createParameterFormController(
       this.submitting = true
 
       try {
-        const data = await requestJson<{ id?: string }>(this.actionUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(this.buildPayload()),
-        })
+        const data = await sendJson<{ id?: string }>(
+          this.actionUrl,
+          this.buildPayload(),
+        )
 
         if (this.mode === "create") {
           window.location.href = data.id ? `/ssm/${data.id}` : "/ssm"
@@ -169,11 +162,10 @@ export function createUserPoolFormController(
       this.submitting = true
 
       try {
-        const data = await requestJson<{ id?: string }>(this.actionUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(this.buildPayload()),
-        })
+        const data = await sendJson<{ id?: string }>(
+          this.actionUrl,
+          this.buildPayload(),
+        )
 
         window.location.href = data.id
           ? `/cognito/${encodeURIComponent(data.id)}`

@@ -7,18 +7,22 @@ import {
   type ParameterMetadata,
   PutParameterCommand,
   RemoveTagsFromResourceCommand,
-  type Tag,
 } from "@aws-sdk/client-ssm"
-import { ServiceError } from "../../errors"
+import { ServiceError, toOperationFailed } from "../../errors"
 import { ssm } from "../../infrastructure/floci-clients"
+import {
+  diffTags,
+  normalizeDescription,
+  normalizeTags,
+  optionalTrimmed,
+  type ResourceTag,
+  toAwsTags,
+} from "../resource-tags"
 
 export type ParameterType = "String" | "StringList" | "SecureString"
 export type ParameterTier = "Standard" | "Advanced" | "Intelligent-Tiering"
 
-export interface ParameterTag {
-  key: string
-  value: string
-}
+export type ParameterTag = ResourceTag
 
 export interface ParameterSummary {
   name: string
@@ -64,15 +68,6 @@ function normalizeName(name: string): string {
   return normalized
 }
 
-function normalizeDescription(
-  value: string | undefined,
-  { allowBlank }: { allowBlank: boolean },
-): string | undefined {
-  const normalized = value?.trim() ?? ""
-  if (!normalized) return allowBlank ? "" : undefined
-  return normalized
-}
-
 function normalizeTier(value: string | undefined): ParameterTier | undefined {
   const normalized = value?.trim()
   if (!normalized) return undefined
@@ -88,23 +83,6 @@ function normalizeTier(value: string | undefined): ParameterTier | undefined {
   throw new ServiceError("InvalidInput", `Unsupported parameter tier: ${value}`)
 }
 
-function normalizeKeyId(value: string | undefined): string | undefined {
-  const normalized = value?.trim()
-  return normalized || undefined
-}
-
-function normalizeTags(tags: ParameterTag[] | undefined): ParameterTag[] {
-  const map = new Map<string, string>()
-
-  for (const tag of tags ?? []) {
-    const key = tag.key.trim()
-    if (!key) continue
-    map.set(key, tag.value.trim())
-  }
-
-  return [...map.entries()].map(([key, value]) => ({ key, value }))
-}
-
 function mapMetadata(metadata: ParameterMetadata): ParameterSummary {
   return {
     name: metadata.Name ?? "",
@@ -114,15 +92,6 @@ function mapMetadata(metadata: ParameterMetadata): ParameterSummary {
     keyId: metadata.KeyId ?? "",
     lastModifiedDate: metadata.LastModifiedDate,
   }
-}
-
-function toAwsTags(tags: ParameterTag[]): Tag[] | undefined {
-  if (tags.length === 0) return undefined
-  return tags.map((tag) => ({ Key: tag.key, Value: tag.value }))
-}
-
-function toTagMap(tags: ParameterTag[]): Map<string, string> {
-  return new Map(tags.map((tag) => [tag.key, tag.value]))
 }
 
 function toParameterError(error: unknown, name?: string): never {
@@ -153,11 +122,7 @@ function toParameterError(error: unknown, name?: string): never {
     }
   }
 
-  throw new ServiceError(
-    "OperationFailed",
-    error instanceof Error ? error.message : String(error),
-    error,
-  )
+  toOperationFailed(error)
 }
 
 async function listParameterMetadata(): Promise<ParameterSummary[]> {
@@ -250,13 +215,7 @@ async function syncParameterTags(
 ): Promise<void> {
   const normalizedName = normalizeName(name)
   const currentTags = await listParameterTags(normalizedName)
-  const current = toTagMap(currentTags)
-  const next = toTagMap(nextTags)
-
-  const removeKeys = [...current.keys()].filter((key) => !next.has(key))
-  const upsertTags = [...next.entries()]
-    .filter(([key, value]) => current.get(key) !== value)
-    .map(([key, value]) => ({ Key: key, Value: value }))
+  const { removeKeys, upsertTags } = diffTags(currentTags, nextTags)
 
   try {
     if (removeKeys.length > 0) {
@@ -339,7 +298,7 @@ export async function createParameter(
   })
   const tier = normalizeTier(input.tier)
   const keyId =
-    type === "SecureString" ? normalizeKeyId(input.keyId) : undefined
+    type === "SecureString" ? optionalTrimmed(input.keyId) : undefined
   const tags = normalizeTags(input.tags)
 
   try {
@@ -369,7 +328,7 @@ export async function updateParameter(
   })
   const tier = normalizeTier(input.tier)
   const keyId =
-    input.type === "SecureString" ? normalizeKeyId(input.keyId) : undefined
+    input.type === "SecureString" ? optionalTrimmed(input.keyId) : undefined
   const tags = normalizeTags(input.tags)
 
   try {

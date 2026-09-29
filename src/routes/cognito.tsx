@@ -297,5 +297,3 @@ export function createCognitoRoutes(
       { body: setPasswordSchema },
     )
 }
-
-export const cognitoRoutes = createCognitoRoutes()

@@ -1,9 +1,10 @@
+import { formatJsonValue, PLACEHOLDER } from "../../views/format"
 import type { SQSSettingsInitial } from "../../views/sqs/settings-form-state"
-import { PLACEHOLDER } from "../../views/format"
 import {
   dispatchToast,
   errorMessage,
   requestJson,
+  sendJson,
   tagMixin,
 } from "../lib/floci"
 
@@ -205,11 +206,7 @@ export function createSqsCreateQueueController(
 
       this.submitting = true
       try {
-        await requestJson("/sqs", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(this.buildPayload()),
-        })
+        await sendJson("/sqs", this.buildPayload())
         window.location.href = "/sqs"
       } catch (error) {
         this.error = errorMessage(error)
@@ -265,11 +262,10 @@ export function createSqsSettingsController(
       this.submitting = true
 
       try {
-        await requestJson(`/sqs/${encodeURIComponent(name)}/settings`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(this.buildPayload()),
-        })
+        await sendJson(
+          `/sqs/${encodeURIComponent(name)}/settings`,
+          this.buildPayload(),
+        )
         dispatchToast({ kind: "success", message: "設定を保存しました" })
         this.submitting = false
       } catch (error) {
@@ -349,16 +345,12 @@ export function createSqsQueueDetailController(
       }))
 
       try {
-        const data = await requestJson<{
+        const data = await sendJson<{
           result: {
             successful: { id: string; messageId: string }[]
             failed: { id: string; code: string; message?: string }[]
           }
-        }>(`${props.queuePath}/send-batch`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ entries }),
-        })
+        }>(`${props.queuePath}/send-batch`, { entries })
         const { successful, failed } = data.result
         this.batchResult = `成功 ${successful.length} 件 / 失敗 ${failed.length} 件`
         this.batchBodies = ""
@@ -393,13 +385,9 @@ export function createSqsQueueDetailController(
       }
 
       try {
-        const data = await requestJson<{ messageId: string }>(
+        const data = await sendJson<{ messageId: string }>(
           `${props.queuePath}/send`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          },
+          payload,
         )
         this.lastId = data.messageId
         this.body = ""
@@ -452,11 +440,11 @@ export function createSqsQueueDetailController(
       this.deleteError = ""
 
       try {
-        await requestJson(`${props.queuePath}/message`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messageId: this.selectedMsg.id }),
-        })
+        await sendJson(
+          `${props.queuePath}/message`,
+          { messageId: this.selectedMsg.id },
+          "DELETE",
+        )
         this.selectedMsg = null
         this.deleting = false
         await this.refreshState()
@@ -467,12 +455,7 @@ export function createSqsQueueDetailController(
     },
 
     get formattedBody(): string {
-      const body = this.selectedMsg?.body ?? ""
-      try {
-        return JSON.stringify(JSON.parse(body), null, 2)
-      } catch {
-        return body
-      }
+      return formatJsonValue(this.selectedMsg?.body ?? "")
     },
 
     copyBody() {

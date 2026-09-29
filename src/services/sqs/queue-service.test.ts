@@ -71,6 +71,20 @@ describe("listQueues", () => {
     expect(result[0].dlqName).toBeNull()
   })
 
+  it("should sort queues by name", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        QueueUrls: [
+          "http://localhost:4566/000000000000/orders",
+          "http://localhost:4566/000000000000/alerts",
+        ],
+      })
+      .mockResolvedValueOnce({ Attributes: {} })
+      .mockResolvedValueOnce({ Attributes: {} })
+    const result = await listQueues()
+    expect(result.map((queue) => queue.name)).toEqual(["alerts", "orders"])
+  })
+
   it("should return empty array when no queues", async () => {
     mockSend.mockResolvedValueOnce({ QueueUrls: undefined })
     const result = await listQueues()
@@ -100,8 +114,8 @@ describe("listQueueNames", () => {
   it("returns queue names without loading per-queue attributes", async () => {
     mockSend.mockResolvedValueOnce({
       QueueUrls: [
-        "http://localhost:4566/000000000000/queue1",
         "http://localhost:4566/000000000000/queue2",
+        "http://localhost:4566/000000000000/queue1",
       ],
     })
 

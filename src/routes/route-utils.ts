@@ -1,6 +1,5 @@
 import type { ServiceErrorCode } from "../errors"
 import { httpStatusFor, ServiceError } from "../errors"
-import type { SidebarData } from "../services/sidebar-service"
 
 export interface JsonError {
   code: ServiceErrorCode | "InternalServerError"
@@ -39,9 +38,8 @@ export function respondWithFrameworkError(
   code: ServiceErrorCode,
   message: string,
   set: { status?: number | string },
-  status = httpStatusFor(code),
 ): JsonErrorResponse {
-  set.status = status
+  set.status = httpStatusFor(code)
   return jsonError(code, message)
 }
 
@@ -58,17 +56,15 @@ export function respondWithError(
   return jsonError("InternalServerError", "Internal server error")
 }
 
-export interface PageData<T> {
-  data: T
-  sidebar: SidebarData | undefined
-}
-
-export async function loadPageData<T>(
-  deps: { loadSidebarSafe: () => Promise<SidebarData | undefined> },
-  loader: () => Promise<T>,
-): Promise<PageData<T>> {
-  const [data, sidebar] = await Promise.all([loader(), deps.loadSidebarSafe()])
-  return { data, sidebar }
+export async function loadRailItems<T>(
+  loader: () => Promise<T[]>,
+): Promise<T[]> {
+  try {
+    return await loader()
+  } catch (error) {
+    console.error("[resource-rail] failed to load:", error)
+    return []
+  }
 }
 
 export async function runJsonAction(
