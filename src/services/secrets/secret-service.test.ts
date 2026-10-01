@@ -135,6 +135,35 @@ describe("updateSecret", () => {
       Tags: [{ Key: "Environment", Value: "dev" }],
     })
   })
+
+  it("sends TagResource only after UntagResource has finished", async () => {
+    let finishUntag = () => {}
+    sendMock
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({
+        Name: "app/dev/db",
+        Tags: [{ Key: "Team", Value: "platform" }],
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishUntag = () => resolve({})
+          }),
+      )
+      .mockResolvedValueOnce({})
+
+    const pending = updateSecret("app/dev/db", {
+      secretString: "next-secret",
+      description: "",
+      tags: [{ key: "Environment", value: "dev" }],
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(sendMock).toHaveBeenCalledTimes(3)
+
+    finishUntag()
+    await pending
+    expect(sendMock).toHaveBeenCalledTimes(4)
+  })
 })
 
 describe("deleteSecret", () => {

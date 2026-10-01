@@ -14,9 +14,8 @@ export const FLOCI_ACCOUNT_ID =
 const credentials = { accessKeyId: "test", secretAccessKey: "test" }
 
 /**
- * Bounds how long a page waits on an unreachable emulator. requestTimeout is a
- * socket-inactivity timeout, so a slow but progressing scan or download is not
- * cut off — this only catches a runtime that never answers.
+ * requestTimeout is a socket-inactivity timeout, so a slow but progressing scan
+ * or download is not cut off — only a runtime that never answers.
  */
 const requestHandler = { connectionTimeout: 3_000, requestTimeout: 10_000 }
 

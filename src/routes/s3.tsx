@@ -33,12 +33,8 @@ import {
   loadRailItems,
   respondWithFrameworkError,
   runJsonAction,
+  tagSchema,
 } from "./route-utils"
-
-const s3TagSchema = t.Object({
-  key: t.String(),
-  value: t.String(),
-})
 
 const bucketEncryptionSchema = t.Union([
   t.Null(),
@@ -69,7 +65,7 @@ const createBucketSchema = t.Object({
   encryption: t.Optional(bucketEncryptionSchema),
   ownership: t.Optional(t.Union([t.Null(), bucketOwnershipSchema])),
   publicAccessBlock: t.Optional(publicAccessBlockSchema),
-  tags: t.Optional(t.Array(s3TagSchema)),
+  tags: t.Optional(t.Array(tagSchema)),
 })
 
 const bucketSettingsSchema = t.Object({
@@ -77,7 +73,7 @@ const bucketSettingsSchema = t.Object({
   encryption: t.Optional(bucketEncryptionSchema),
   ownership: t.Optional(bucketOwnershipSchema),
   publicAccessBlock: t.Optional(publicAccessBlockSchema),
-  tags: t.Optional(t.Array(s3TagSchema)),
+  tags: t.Optional(t.Array(tagSchema)),
   corsRules: t.Optional(
     t.Array(
       t.Object({
@@ -134,38 +130,10 @@ const deleteObjectsSchema = t.Object({
 
 const putObjectTagsSchema = t.Object({
   key: t.String({ minLength: 1 }),
-  tags: t.Array(
-    t.Object({
-      key: t.String({ minLength: 1 }),
-      value: t.String(),
-    }),
-  ),
+  tags: t.Array(tagSchema),
 })
 
-export interface S3RouteDeps {
-  createBucket: typeof createBucket
-  createFolderObject: typeof createFolderObject
-  deleteBucket: typeof deleteBucket
-  deleteObject: typeof deleteObject
-  deleteSelectedObjects: typeof deleteSelectedObjects
-  getBucketSettings: typeof getBucketSettings
-  getBucketVersioningEnabled: typeof getBucketVersioningEnabled
-  getObjectDetails: typeof getObjectDetails
-  getObjectForDownload: typeof getObjectForDownload
-  getObjectPreview: typeof getObjectPreview
-  getObjectTags: typeof getObjectTags
-  listBuckets: typeof listBuckets
-  listObjectVersions: typeof listObjectVersions
-  listObjects: typeof listObjects
-  putObjectTags: typeof putObjectTags
-  renameFolder: typeof renameFolder
-  renameObject: typeof renameObject
-  updateBucketSettings: typeof updateBucketSettings
-  updateObjectProperties: typeof updateObjectProperties
-  uploadObjects: typeof uploadObjects
-}
-
-const defaultS3RouteDeps: S3RouteDeps = {
+const defaultS3RouteDeps = {
   createBucket,
   createFolderObject,
   deleteBucket,
@@ -187,6 +155,8 @@ const defaultS3RouteDeps: S3RouteDeps = {
   updateObjectProperties,
   uploadObjects,
 }
+
+export type S3RouteDeps = typeof defaultS3RouteDeps
 
 export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
   return new Elysia({ prefix: "/s3" })

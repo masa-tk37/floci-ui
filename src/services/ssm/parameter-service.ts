@@ -12,17 +12,17 @@ import { ServiceError, toOperationFailed } from "../../errors"
 import { ssm } from "../../infrastructure/floci-clients"
 import {
   diffTags,
+  fromAwsTags,
   normalizeDescription,
   normalizeTags,
   optionalTrimmed,
   type ResourceTag,
+  requireTrimmed,
   toAwsTags,
 } from "../resource-tags"
 
 export type ParameterType = "String" | "StringList" | "SecureString"
 export type ParameterTier = "Standard" | "Advanced" | "Intelligent-Tiering"
-
-export type ParameterTag = ResourceTag
 
 export interface ParameterSummary {
   name: string
@@ -38,7 +38,7 @@ export interface ParameterDetail extends ParameterSummary {
   version: number
   arn: string
   dataType: string
-  tags: ParameterTag[]
+  tags: ResourceTag[]
 }
 
 export interface CreateParameterInput {
@@ -48,7 +48,7 @@ export interface CreateParameterInput {
   description?: string
   tier?: string
   keyId?: string
-  tags?: ParameterTag[]
+  tags?: ResourceTag[]
 }
 
 export interface UpdateParameterInput {
@@ -57,15 +57,7 @@ export interface UpdateParameterInput {
   description?: string
   tier?: string
   keyId?: string
-  tags?: ParameterTag[]
-}
-
-function normalizeName(name: string): string {
-  const normalized = name.trim()
-  if (!normalized) {
-    throw new ServiceError("InvalidInput", "Parameter name is required")
-  }
-  return normalized
+  tags?: ResourceTag[]
 }
 
 function normalizeTier(value: string | undefined): ParameterTier | undefined {
@@ -150,7 +142,7 @@ async function listParameterMetadata(): Promise<ParameterSummary[]> {
 }
 
 async function getParameterMetadata(name: string): Promise<ParameterSummary> {
-  const normalizedName = normalizeName(name)
+  const normalizedName = requireTrimmed(name, "Parameter name")
 
   try {
     const result = await ssm.send(
@@ -179,8 +171,8 @@ async function getParameterMetadata(name: string): Promise<ParameterSummary> {
   }
 }
 
-async function listParameterTags(name: string): Promise<ParameterTag[]> {
-  const normalizedName = normalizeName(name)
+async function listParameterTags(name: string): Promise<ResourceTag[]> {
+  const normalizedName = requireTrimmed(name, "Parameter name")
 
   try {
     const result = await ssm.send(
@@ -190,13 +182,9 @@ async function listParameterTags(name: string): Promise<ParameterTag[]> {
       }),
     )
 
-    return (result.TagList ?? [])
-      .map((tag) => ({
-        key: tag.Key ?? "",
-        value: tag.Value ?? "",
-      }))
-      .filter((tag) => tag.key)
-      .sort((left, right) => left.key.localeCompare(right.key))
+    return fromAwsTags(result.TagList).sort((left, right) =>
+      left.key.localeCompare(right.key),
+    )
   } catch (error) {
     if (error instanceof Error && error.name === "ParameterNotFound") {
       throw new ServiceError(
@@ -211,12 +199,13 @@ async function listParameterTags(name: string): Promise<ParameterTag[]> {
 
 async function syncParameterTags(
   name: string,
-  nextTags: ParameterTag[],
+  nextTags: ResourceTag[],
 ): Promise<void> {
-  const normalizedName = normalizeName(name)
+  const normalizedName = requireTrimmed(name, "Parameter name")
   const currentTags = await listParameterTags(normalizedName)
   const { removeKeys, upsertTags } = diffTags(currentTags, nextTags)
 
+  // Sequential: SSM rejects concurrent updates to one parameter with TooManyUpdates.
   try {
     if (removeKeys.length > 0) {
       await ssm.send(
@@ -253,7 +242,7 @@ export async function listParameters(): Promise<ParameterSummary[]> {
 export async function getParameterDetail(
   name: string,
 ): Promise<ParameterDetail> {
-  const normalizedName = normalizeName(name)
+  const normalizedName = requireTrimmed(name, "Parameter name")
 
   try {
     const [metadata, parameter, tags] = await Promise.all([
@@ -291,7 +280,7 @@ export async function getParameterDetail(
 export async function createParameter(
   input: CreateParameterInput,
 ): Promise<void> {
-  const name = normalizeName(input.name)
+  const name = requireTrimmed(input.name, "Parameter name")
   const type = input.type
   const description = normalizeDescription(input.description, {
     allowBlank: false,
@@ -322,7 +311,7 @@ export async function updateParameter(
   name: string,
   input: UpdateParameterInput,
 ): Promise<void> {
-  const normalizedName = normalizeName(name)
+  const normalizedName = requireTrimmed(name, "Parameter name")
   const description = normalizeDescription(input.description, {
     allowBlank: true,
   })
@@ -355,7 +344,7 @@ export async function updateParameter(
 }
 
 export async function deleteParameter(name: string): Promise<void> {
-  const normalizedName = normalizeName(name)
+  const normalizedName = requireTrimmed(name, "Parameter name")
 
   try {
     await ssm.send(new DeleteParameterCommand({ Name: normalizedName }))

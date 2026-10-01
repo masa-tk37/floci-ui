@@ -1,3 +1,5 @@
+import type { ResourceTag } from "../../services/resource-tags"
+
 export interface ParameterFormInitial {
   mode: "create" | "edit"
   actionUrl: string
@@ -7,5 +9,5 @@ export interface ParameterFormInitial {
   description: string
   tier: string
   keyId: string
-  tags: { key: string; value: string }[]
+  tags: ResourceTag[]
 }

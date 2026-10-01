@@ -1,6 +1,12 @@
 import type { ItemEditFormInitial } from "../../views/dynamodb/item-edit-form-state"
 import type { UpdateFormInitial } from "../../views/dynamodb/update-form-state"
-import { errorMessage, sendJson, splitCommaList } from "../lib/floci"
+import { formatJsonValue } from "../../views/format"
+import {
+  errorMessage,
+  sendJson,
+  splitCommaList,
+  submitJson,
+} from "../lib/floci"
 
 type CreateTableProps = Record<string, never>
 
@@ -177,15 +183,13 @@ export function createDynamoCreateTableController(
           return
         }
       }
-      this.submitting = true
-
-      try {
-        await sendJson("/dynamodb/tables", this.buildPayload())
-        window.location.href = "/dynamodb"
-      } catch (error) {
-        this.error = errorMessage(error)
-        this.submitting = false
-      }
+      const data = await submitJson(
+        this,
+        "/dynamodb/tables",
+        this.buildPayload(),
+      )
+      if (data === undefined) return
+      window.location.href = "/dynamodb"
     },
   }
 }
@@ -195,52 +199,36 @@ export function createDynamoUpdateTableController(
   init: UpdateFormInitial,
 ) {
   return {
-    tableName: init.tableName,
-    billingMode: init.billingMode,
-    rcu: init.rcu,
-    wcu: init.wcu,
-    streamEnabled: init.streamEnabled,
-    streamViewType: init.streamViewType,
-    ttlEnabled: init.ttlEnabled,
-    ttlAttr: init.ttlAttr,
-    deletionProtection: init.deletionProtection,
+    ...init,
     error: null as string | null,
     submitting: false,
 
     async submit() {
-      this.error = null
-      this.submitting = true
-      try {
-        await sendJson(
-          `/dynamodb/tables/${encodeURIComponent(this.tableName)}/update`,
-          {
-            billingMode: this.billingMode,
-            rcu: Number(this.rcu),
-            wcu: Number(this.wcu),
-            streamEnabled: this.streamEnabled,
-            streamViewType: this.streamViewType,
-            ttlEnabled: this.ttlEnabled,
-            ttlAttr: this.ttlAttr,
-            deletionProtection: this.deletionProtection,
-          },
-        )
-        window.location.href = `/dynamodb/${encodeURIComponent(this.tableName)}`
-      } catch (error) {
-        this.error = errorMessage(error)
-        this.submitting = false
-      }
+      const data = await submitJson(
+        this,
+        `/dynamodb/tables/${encodeURIComponent(this.tableName)}/update`,
+        {
+          billingMode: this.billingMode,
+          rcu: Number(this.rcu),
+          wcu: Number(this.wcu),
+          streamEnabled: this.streamEnabled,
+          streamViewType: this.streamViewType,
+          ttlEnabled: this.ttlEnabled,
+          ttlAttr: this.ttlAttr,
+          deletionProtection: this.deletionProtection,
+        },
+      )
+      if (data === undefined) return
+      window.location.href = `/dynamodb/${encodeURIComponent(this.tableName)}`
     },
   }
 }
 
 export function createDynamoItemEditController(
   _el: HTMLElement,
-  init: ItemEditFormInitial & { itemPath: string },
+  init: Pick<ItemEditFormInitial, "itemJson"> & { itemPath: string },
 ) {
   return {
-    tableName: init.tableName,
-    pk: init.pk,
-    sk: init.sk ?? "",
     itemJson: init.itemJson,
     error: null as string | null,
     submitting: false,
@@ -263,15 +251,11 @@ export function createDynamoItemEditController(
           (e instanceof Error ? e.message : String(e))
         return
       }
-      this.error = null
-      this.submitting = true
-      try {
-        await sendJson(`${init.itemPath}/edit`, { itemJson: this.itemJson })
-        window.location.href = init.itemPath
-      } catch (error) {
-        this.error = errorMessage(error)
-        this.submitting = false
-      }
+      const data = await submitJson(this, `${init.itemPath}/edit`, {
+        itemJson: this.itemJson,
+      })
+      if (data === undefined) return
+      window.location.href = init.itemPath
     },
   }
 }
@@ -394,13 +378,7 @@ export function createDynamoItemListController() {
     openCell(el: HTMLElement) {
       const raw = el.dataset.json ?? ""
       const fieldName = el.dataset.fieldName ?? ""
-      let formatted: string
-      try {
-        formatted = JSON.stringify(JSON.parse(raw), null, 2)
-      } catch {
-        formatted = raw
-      }
-      this.selectedCell = { fieldName, formatted, raw }
+      this.selectedCell = { fieldName, formatted: formatJsonValue(raw), raw }
     },
 
     closeCell() {

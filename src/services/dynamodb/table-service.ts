@@ -327,7 +327,7 @@ export async function updateTable(
         }),
       )
       .catch(() => {
-        /* LocalStack may not support TTL */
+        /* floci may not support TTL */
       })
   } catch (e: unknown) {
     toOperationFailed(e)

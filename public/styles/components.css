@@ -945,3 +945,51 @@ input[type="checkbox"] {
 .data-table tbody tr:hover {
   background: color-mix(in srgb, var(--color-theme-soft) 45%, transparent);
 }
+
+.tag-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.tag-editor__title {
+  margin: 0;
+}
+
+.tag-editor__empty {
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.tag-editor__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.tag-editor__row > .form-row {
+  margin-bottom: 0;
+}
+
+.tag-editor__remove {
+  margin-top: var(--form-label-block);
+}
+
+@media (max-width: 700px) {
+  .tag-editor__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tag-editor__row {
+    grid-template-columns: 1fr;
+  }
+
+  .tag-editor__remove {
+    margin-top: 0;
+  }
+}

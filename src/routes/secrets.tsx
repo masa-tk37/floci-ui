@@ -14,43 +14,32 @@ import {
 import { SecretDetail } from "../views/secrets/secret-detail"
 import { SecretForm } from "../views/secrets/secret-form"
 import { SecretList } from "../views/secrets/secret-list"
-import { runJsonAction } from "./route-utils"
-
-const secretTagSchema = t.Object({
-  key: t.String(),
-  value: t.String(),
-})
+import { runJsonAction, tagSchema } from "./route-utils"
 
 const createSecretSchema = t.Object({
   name: t.String({ minLength: 1 }),
   secretString: t.String({ minLength: 1 }),
   description: t.Optional(t.String()),
   kmsKeyId: t.Optional(t.String()),
-  tags: t.Optional(t.Array(secretTagSchema)),
+  tags: t.Optional(t.Array(tagSchema)),
 })
 
 const updateSecretSchema = t.Object({
   secretString: t.String({ minLength: 1 }),
   description: t.Optional(t.String()),
   kmsKeyId: t.Optional(t.String()),
-  tags: t.Optional(t.Array(secretTagSchema)),
+  tags: t.Optional(t.Array(tagSchema)),
 })
 
-export interface SecretsRouteDeps {
-  createSecret: typeof createSecret
-  deleteSecret: typeof deleteSecret
-  getSecretDetail: typeof getSecretDetail
-  listSecrets: typeof listSecrets
-  updateSecret: typeof updateSecret
-}
-
-const defaultSecretsRouteDeps: SecretsRouteDeps = {
+const defaultSecretsRouteDeps = {
   createSecret,
   deleteSecret,
   getSecretDetail,
   listSecrets,
   updateSecret,
 }
+
+export type SecretsRouteDeps = typeof defaultSecretsRouteDeps
 
 export function createSecretsRoutes(
   deps: SecretsRouteDeps = defaultSecretsRouteDeps,

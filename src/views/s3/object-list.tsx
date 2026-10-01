@@ -631,7 +631,7 @@ export function ObjectList({
                       {versions.map((v) => {
                         const shortVersionId = v.versionId
                           ? `${v.versionId.slice(0, 8)}…`
-                          : "—"
+                          : PLACEHOLDER
                         const encodedKey = encodeURIComponent(v.key)
                         const encodedVersionId = v.versionId
                           ? encodeURIComponent(v.versionId)
@@ -764,8 +764,8 @@ export function ObjectList({
                                 <span safe>{displayName}</span>
                               </a>
                             </td>
-                            <td class="data-table__num">—</td>
-                            <td>—</td>
+                            <td class="data-table__num">{PLACEHOLDER}</td>
+                            <td>{PLACEHOLDER}</td>
                             <td class="data-table__actions s3-object-list-page__actions-cell">
                               <div class="s3-object-list-page__action-menu">
                                 <button

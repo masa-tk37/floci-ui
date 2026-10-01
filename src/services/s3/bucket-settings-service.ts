@@ -4,6 +4,7 @@ import {
   DeleteBucketCorsCommand,
   DeleteBucketEncryptionCommand,
   DeleteBucketLifecycleCommand,
+  DeleteBucketTaggingCommand,
   GetBucketCorsCommand,
   GetBucketEncryptionCommand,
   GetBucketLifecycleConfigurationCommand,
@@ -23,10 +24,17 @@ import {
 import { ServiceError, toOperationFailed } from "../../errors"
 import { s3 } from "../../infrastructure/floci-clients"
 import type { S3SettingsInitial } from "../../views/s3/settings-form-state"
+import {
+  fromAwsTags,
+  normalizeTags,
+  type ResourceTag,
+  toAwsTags,
+} from "../resource-tags"
 import type {
   BucketSettingsInput,
   BucketSummary,
   CreateBucketOptions,
+  SettingOp,
   UpdateSettingsResult,
 } from "./shared"
 import { runOps } from "./shared"
@@ -36,6 +44,89 @@ export async function listBuckets(): Promise<BucketSummary[]> {
   return (Buckets ?? [])
     .map((bucket) => ({ name: bucket.Name ?? "" }))
     .sort((left, right) => left.name.localeCompare(right.name))
+}
+
+function putEncryptionOp(
+  bucket: string,
+  encryption: NonNullable<BucketSettingsInput["encryption"]>,
+): SettingOp {
+  return {
+    label: "Encryption",
+    promise: s3.send(
+      new PutBucketEncryptionCommand({
+        Bucket: bucket,
+        ServerSideEncryptionConfiguration: {
+          Rules: [
+            {
+              ApplyServerSideEncryptionByDefault: {
+                SSEAlgorithm: encryption.type as "AES256" | "aws:kms",
+                KMSMasterKeyID:
+                  encryption.type === "aws:kms" && encryption.kmsKeyId
+                    ? encryption.kmsKeyId
+                    : undefined,
+              },
+            },
+          ],
+        },
+      }),
+    ),
+  }
+}
+
+function ownershipOp(bucket: string, ownership: string): SettingOp {
+  return {
+    label: "Ownership",
+    promise: s3.send(
+      new PutBucketOwnershipControlsCommand({
+        Bucket: bucket,
+        OwnershipControls: {
+          Rules: [
+            {
+              ObjectOwnership: ownership as
+                | "BucketOwnerEnforced"
+                | "BucketOwnerPreferred"
+                | "ObjectWriter",
+            },
+          ],
+        },
+      }),
+    ),
+  }
+}
+
+function publicAccessBlockOp(
+  bucket: string,
+  block: NonNullable<BucketSettingsInput["publicAccessBlock"]>,
+): SettingOp {
+  return {
+    label: "PublicAccessBlock",
+    promise: s3.send(
+      new PutPublicAccessBlockCommand({
+        Bucket: bucket,
+        PublicAccessBlockConfiguration: {
+          BlockPublicAcls: block.blockPublicAcls,
+          IgnorePublicAcls: block.ignorePublicAcls,
+          BlockPublicPolicy: block.blockPublicPolicy,
+          RestrictPublicBuckets: block.restrictPublicBuckets,
+        },
+      }),
+    ),
+  }
+}
+
+function taggingOp(bucket: string, tags: ResourceTag[]): SettingOp {
+  const awsTags = toAwsTags(tags)
+  return {
+    label: "Tagging",
+    promise: awsTags
+      ? s3.send(
+          new PutBucketTaggingCommand({
+            Bucket: bucket,
+            Tagging: { TagSet: awsTags },
+          }),
+        )
+      : s3.send(new DeleteBucketTaggingCommand({ Bucket: bucket })),
+  }
 }
 
 export async function createBucket(
@@ -48,7 +139,7 @@ export async function createBucket(
     toOperationFailed(error)
   }
 
-  const ops: { label: string; promise: Promise<unknown> }[] = []
+  const ops: SettingOp[] = []
 
   if (options.versioning && options.versioning !== "Suspended") {
     ops.push({
@@ -65,84 +156,20 @@ export async function createBucket(
   }
 
   if (options.encryption && options.encryption.type !== "none") {
-    ops.push({
-      label: "Encryption",
-      promise: s3.send(
-        new PutBucketEncryptionCommand({
-          Bucket: name,
-          ServerSideEncryptionConfiguration: {
-            Rules: [
-              {
-                ApplyServerSideEncryptionByDefault: {
-                  SSEAlgorithm: options.encryption.type as "AES256" | "aws:kms",
-                  KMSMasterKeyID:
-                    options.encryption.type === "aws:kms" &&
-                    options.encryption.kmsKeyId
-                      ? options.encryption.kmsKeyId
-                      : undefined,
-                },
-              },
-            ],
-          },
-        }),
-      ),
-    })
+    ops.push(putEncryptionOp(name, options.encryption))
   }
 
   if (options.ownership) {
-    ops.push({
-      label: "Ownership",
-      promise: s3.send(
-        new PutBucketOwnershipControlsCommand({
-          Bucket: name,
-          OwnershipControls: {
-            Rules: [
-              {
-                ObjectOwnership: options.ownership as
-                  | "BucketOwnerEnforced"
-                  | "BucketOwnerPreferred"
-                  | "ObjectWriter",
-              },
-            ],
-          },
-        }),
-      ),
-    })
+    ops.push(ownershipOp(name, options.ownership))
   }
 
   if (options.publicAccessBlock) {
-    ops.push({
-      label: "PublicAccessBlock",
-      promise: s3.send(
-        new PutPublicAccessBlockCommand({
-          Bucket: name,
-          PublicAccessBlockConfiguration: {
-            BlockPublicAcls: options.publicAccessBlock.blockPublicAcls,
-            IgnorePublicAcls: options.publicAccessBlock.ignorePublicAcls,
-            BlockPublicPolicy: options.publicAccessBlock.blockPublicPolicy,
-            RestrictPublicBuckets:
-              options.publicAccessBlock.restrictPublicBuckets,
-          },
-        }),
-      ),
-    })
+    ops.push(publicAccessBlockOp(name, options.publicAccessBlock))
   }
 
-  if (options.tags && options.tags.length > 0) {
-    ops.push({
-      label: "Tagging",
-      promise: s3.send(
-        new PutBucketTaggingCommand({
-          Bucket: name,
-          Tagging: {
-            TagSet: options.tags.map((tag) => ({
-              Key: tag.key,
-              Value: tag.value,
-            })),
-          },
-        }),
-      ),
-    })
+  const tags = normalizeTags(options.tags)
+  if (tags.length > 0) {
+    ops.push(taggingOp(name, tags))
   }
 
   return { warnings: await runOps(ops) }
@@ -157,15 +184,6 @@ export async function deleteBucket(name: string): Promise<void> {
     }
     toOperationFailed(error)
   }
-}
-
-function toBucketTags(tags: { Key?: string; Value?: string }[] | undefined) {
-  return (tags ?? [])
-    .filter(
-      (tag): tag is { Key: string; Value: string } =>
-        Boolean(tag.Key) && tag.Value !== undefined,
-    )
-    .map((tag) => ({ key: tag.Key, value: tag.Value }))
 }
 
 function toCorsRules(
@@ -258,7 +276,7 @@ export async function getBucketSettings(
     ignorePublicAcls: publicAccessBlock.IgnorePublicAcls ?? false,
     blockPublicPolicy: publicAccessBlock.BlockPublicPolicy ?? false,
     restrictPublicBuckets: publicAccessBlock.RestrictPublicBuckets ?? false,
-    tags: toBucketTags(taggingResult.TagSet),
+    tags: fromAwsTags(taggingResult.TagSet),
     corsRules: toCorsRules(corsResult.CORSRules),
     lifecycleRules: toLifecycleRules(lifecycleResult.Rules),
   }
@@ -268,7 +286,7 @@ export async function updateBucketSettings(
   bucket: string,
   settings: BucketSettingsInput,
 ): Promise<UpdateSettingsResult> {
-  const ops: { label: string; promise: Promise<unknown> }[] = []
+  const ops: SettingOp[] = []
 
   ops.push({
     label: "Versioning",
@@ -284,30 +302,7 @@ export async function updateBucketSettings(
   })
 
   if (settings.encryption && settings.encryption.type !== "none") {
-    ops.push({
-      label: "Encryption",
-      promise: s3.send(
-        new PutBucketEncryptionCommand({
-          Bucket: bucket,
-          ServerSideEncryptionConfiguration: {
-            Rules: [
-              {
-                ApplyServerSideEncryptionByDefault: {
-                  SSEAlgorithm: settings.encryption.type as
-                    | "AES256"
-                    | "aws:kms",
-                  KMSMasterKeyID:
-                    settings.encryption.type === "aws:kms" &&
-                    settings.encryption.kmsKeyId
-                      ? settings.encryption.kmsKeyId
-                      : undefined,
-                },
-              },
-            ],
-          },
-        }),
-      ),
-    })
+    ops.push(putEncryptionOp(bucket, settings.encryption))
   } else if (settings.encryption === null) {
     ops.push({
       label: "Encryption",
@@ -316,59 +311,15 @@ export async function updateBucketSettings(
   }
 
   if (settings.ownership) {
-    ops.push({
-      label: "Ownership",
-      promise: s3.send(
-        new PutBucketOwnershipControlsCommand({
-          Bucket: bucket,
-          OwnershipControls: {
-            Rules: [
-              {
-                ObjectOwnership: settings.ownership as
-                  | "BucketOwnerEnforced"
-                  | "BucketOwnerPreferred"
-                  | "ObjectWriter",
-              },
-            ],
-          },
-        }),
-      ),
-    })
+    ops.push(ownershipOp(bucket, settings.ownership))
   }
 
   if (settings.publicAccessBlock) {
-    ops.push({
-      label: "PublicAccessBlock",
-      promise: s3.send(
-        new PutPublicAccessBlockCommand({
-          Bucket: bucket,
-          PublicAccessBlockConfiguration: {
-            BlockPublicAcls: settings.publicAccessBlock.blockPublicAcls,
-            IgnorePublicAcls: settings.publicAccessBlock.ignorePublicAcls,
-            BlockPublicPolicy: settings.publicAccessBlock.blockPublicPolicy,
-            RestrictPublicBuckets:
-              settings.publicAccessBlock.restrictPublicBuckets,
-          },
-        }),
-      ),
-    })
+    ops.push(publicAccessBlockOp(bucket, settings.publicAccessBlock))
   }
 
   if (settings.tags !== undefined) {
-    ops.push({
-      label: "Tagging",
-      promise: s3.send(
-        new PutBucketTaggingCommand({
-          Bucket: bucket,
-          Tagging: {
-            TagSet: (settings.tags ?? []).map((tag) => ({
-              Key: tag.key,
-              Value: tag.value,
-            })),
-          },
-        }),
-      ),
-    })
+    ops.push(taggingOp(bucket, normalizeTags(settings.tags)))
   }
 
   if (settings.corsRules !== undefined) {
@@ -417,7 +368,7 @@ export async function updateBucketSettings(
               Rules: settings.lifecycleRules.map((rule) => ({
                 ID: rule.id,
                 Status: "Enabled",
-                Filter: rule.prefix ? { Prefix: rule.prefix } : { Prefix: "" },
+                Filter: { Prefix: rule.prefix },
                 Expiration: { Days: rule.expirationDays },
               })),
             },

@@ -1,3 +1,4 @@
+import type { ResourceTag } from "../../services/resource-tags"
 import { formatJsonValue, PLACEHOLDER } from "../../views/format"
 import type { SQSSettingsInitial } from "../../views/sqs/settings-form-state"
 import {
@@ -5,6 +6,7 @@ import {
   errorMessage,
   requestJson,
   sendJson,
+  submitJson,
   tagMixin,
 } from "../lib/floci"
 
@@ -79,10 +81,8 @@ function validateSqsAttributes(input: SqsAttributesInput): string | null {
   return null
 }
 
-function buildSqsTagsPayload(tags: { key: string; value: string }[]) {
-  return Object.fromEntries(
-    tags.filter((tag) => tag.key.trim()).map((tag) => [tag.key, tag.value]),
-  )
+function buildSqsTagsPayload(tags: ResourceTag[]) {
+  return Object.fromEntries(tags.map((tag) => [tag.key, tag.value]))
 }
 
 type CreateQueueProps = Record<string, never>
@@ -168,7 +168,7 @@ export function createSqsCreateQueueController(
     dlqMaxReceiveCount: 3,
     kmsEnabled: false,
     kmsMasterKeyId: "",
-    tags: [] as { key: string; value: string }[],
+    tags: [] as ResourceTag[],
     error: null as string | null,
     submitting: false,
 
@@ -204,14 +204,9 @@ export function createSqsCreateQueueController(
       this.error = validateSqsAttributes(this)
       if (this.error) return
 
-      this.submitting = true
-      try {
-        await sendJson("/sqs", this.buildPayload())
-        window.location.href = "/sqs"
-      } catch (error) {
-        this.error = errorMessage(error)
-        this.submitting = false
-      }
+      const data = await submitJson(this, "/sqs", this.buildPayload())
+      if (data === undefined) return
+      window.location.href = "/sqs"
     },
   }
 }
@@ -220,19 +215,9 @@ export function createSqsSettingsController(
   _el: HTMLElement,
   init: SQSSettingsInitial,
 ) {
-  const { name } = init
+  const { name, ...rest } = init
   return {
-    isFifo: init.isFifo,
-    visibilityTimeout: init.visibilityTimeout,
-    messageRetentionPeriod: init.messageRetentionPeriod,
-    delaySeconds: init.delaySeconds,
-    receiveMessageWaitTimeSeconds: init.receiveMessageWaitTimeSeconds,
-    maximumMessageSize: init.maximumMessageSize,
-    dlqEnabled: init.dlqEnabled,
-    dlqTargetArn: init.dlqTargetArn,
-    dlqMaxReceiveCount: init.dlqMaxReceiveCount,
-    kmsEnabled: init.kmsEnabled,
-    kmsMasterKeyId: init.kmsMasterKeyId,
+    ...rest,
     deduplicationScope: init.deduplicationScope ?? "queue",
     fifoThroughputLimit: init.fifoThroughputLimit ?? "perQueue",
     tags: [...init.tags],
@@ -259,19 +244,14 @@ export function createSqsSettingsController(
       this.error = validateSqsAttributes(this)
       if (this.error) return
 
-      this.submitting = true
-
-      try {
-        await sendJson(
-          `/sqs/${encodeURIComponent(name)}/settings`,
-          this.buildPayload(),
-        )
-        dispatchToast({ kind: "success", message: "設定を保存しました" })
-        this.submitting = false
-      } catch (error) {
-        this.error = errorMessage(error)
-        this.submitting = false
-      }
+      const data = await submitJson(
+        this,
+        `/sqs/${encodeURIComponent(name)}/settings`,
+        this.buildPayload(),
+      )
+      if (data === undefined) return
+      dispatchToast({ kind: "success", message: "設定を保存しました" })
+      this.submitting = false
     },
   }
 }

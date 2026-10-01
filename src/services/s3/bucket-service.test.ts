@@ -166,6 +166,33 @@ describe("updateBucketSettings", () => {
     ).toBe("DeleteBucketLifecycleCommand")
   })
 
+  it("should delete bucket tagging when every tag is removed", async () => {
+    const result = await updateBucketSettings("my-bucket", {
+      versioning: "Enabled",
+      tags: [],
+    })
+    const calls = mockSend.mock.calls as unknown[][]
+    expect(result.warnings).toHaveLength(0)
+    expect(
+      (calls[1]?.[0] as { constructor?: { name?: string } })?.constructor?.name,
+    ).toBe("DeleteBucketTaggingCommand")
+  })
+
+  it("should put bucket tagging when tags remain", async () => {
+    await updateBucketSettings("my-bucket", {
+      versioning: "Enabled",
+      tags: [{ key: "env", value: "local" }],
+    })
+    const command = (mockSend.mock.calls as unknown[][])[1]?.[0] as {
+      constructor?: { name?: string }
+      input?: { Tagging?: { TagSet?: unknown } }
+    }
+    expect(command?.constructor?.name).toBe("PutBucketTaggingCommand")
+    expect(command?.input?.Tagging?.TagSet).toEqual([
+      { Key: "env", Value: "local" },
+    ])
+  })
+
   it("should return warnings when delete operations fail", async () => {
     mockSend
       .mockResolvedValueOnce({})
@@ -390,7 +417,7 @@ describe("renameObject", () => {
           name: "NotFound",
           $metadata: { httpStatusCode: 404 },
         }),
-      ) // Head target (objectExists → false)
+      )
       .mockResolvedValueOnce({})
       .mockRejectedValueOnce(new Error("delete failed"))
       .mockResolvedValueOnce({})
@@ -703,7 +730,7 @@ describe("deleteSelectedObjects", () => {
 
   it("should accumulate folder listing errors without aborting remaining deletions", async () => {
     mockSend
-      .mockRejectedValueOnce(new Error("list failed")) // listKeysForPrefix for bad-folder/
+      .mockRejectedValueOnce(new Error("list failed"))
       .mockResolvedValueOnce({
         Deleted: [{ Key: "direct.txt" }],
       })

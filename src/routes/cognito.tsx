@@ -73,31 +73,7 @@ const setPasswordSchema = t.Object({
   permanent: t.Boolean(),
 })
 
-export interface CognitoRouteDeps {
-  addUserToGroup: typeof addUserToGroup
-  confirmUserSignUp: typeof confirmUserSignUp
-  createGroup: typeof createGroup
-  createUser: typeof createUser
-  createUserPool: typeof createUserPool
-  createUserPoolClient: typeof createUserPoolClient
-  deleteGroup: typeof deleteGroup
-  deleteUser: typeof deleteUser
-  deleteUserPool: typeof deleteUserPool
-  deleteUserPoolClient: typeof deleteUserPoolClient
-  disableUser: typeof disableUser
-  enableUser: typeof enableUser
-  getUserDetail: typeof getUserDetail
-  getUserPoolDetail: typeof getUserPoolDetail
-  listGroups: typeof listGroups
-  listUserPoolClients: typeof listUserPoolClients
-  listUserPools: typeof listUserPools
-  listUsers: typeof listUsers
-  listUsersInGroup: typeof listUsersInGroup
-  removeUserFromGroup: typeof removeUserFromGroup
-  setUserPassword: typeof setUserPassword
-}
-
-const defaultCognitoRouteDeps: CognitoRouteDeps = {
+const defaultCognitoRouteDeps = {
   addUserToGroup,
   confirmUserSignUp,
   createGroup,
@@ -120,6 +96,8 @@ const defaultCognitoRouteDeps: CognitoRouteDeps = {
   removeUserFromGroup,
   setUserPassword,
 }
+
+export type CognitoRouteDeps = typeof defaultCognitoRouteDeps
 
 export function createCognitoRoutes(
   deps: CognitoRouteDeps = defaultCognitoRouteDeps,

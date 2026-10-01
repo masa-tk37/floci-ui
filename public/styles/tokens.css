@@ -226,9 +226,9 @@
   --shadow-lg: 0 18px 48px rgb(0 0 0 / 52%);
 }
 
-/* Scoped by body[data-service] so the sidebar, resource rail and toolbar pick up
-   the active service colour. --color-accent is deliberately left alone (see .btn
-   in components.css). */
+/* Applied via data-service on <body> and on each dashboard card, so the sidebar,
+   resource rail, toolbar and cards pick up the service colour. --color-accent is
+   deliberately left alone (see .btn in components.css). */
 
 [data-service="dynamodb"] {
   --color-theme: var(--color-dynamodb-ink);

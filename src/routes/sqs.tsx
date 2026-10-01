@@ -34,23 +34,7 @@ const updateQueueSettingsSchema = t.Object({
   tags: t.Optional(stringRecordSchema),
 })
 
-export interface SqsRouteDeps {
-  createQueue: typeof createQueue
-  deleteMessage: typeof deleteMessage
-  deleteMessageById: typeof deleteMessageById
-  deleteQueue: typeof deleteQueue
-  getQueueAttributes: typeof getQueueAttributes
-  getQueueDetail: typeof getQueueDetail
-  getQueueMessages: typeof getQueueMessages
-  getQueueSettings: typeof getQueueSettings
-  listQueues: typeof listQueues
-  purgeQueue: typeof purgeQueue
-  sendMessage: typeof sendMessage
-  sendMessageBatch: typeof sendMessageBatch
-  updateQueueSettings: typeof updateQueueSettings
-}
-
-const defaultSqsRouteDeps: SqsRouteDeps = {
+const defaultSqsRouteDeps = {
   createQueue,
   deleteMessage,
   deleteMessageById,
@@ -65,6 +49,8 @@ const defaultSqsRouteDeps: SqsRouteDeps = {
   sendMessageBatch,
   updateQueueSettings,
 }
+
+export type SqsRouteDeps = typeof defaultSqsRouteDeps
 
 export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
   return new Elysia({ prefix: "/sqs" })

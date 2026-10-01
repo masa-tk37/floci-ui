@@ -12,14 +12,14 @@ import { ServiceError, toOperationFailed } from "../../errors"
 import { secretsManager } from "../../infrastructure/floci-clients"
 import {
   diffTags,
+  fromAwsTags,
   normalizeDescription,
   normalizeTags,
   optionalTrimmed,
   type ResourceTag,
+  requireTrimmed,
   toAwsTags,
 } from "../resource-tags"
-
-export type SecretTag = ResourceTag
 
 export interface SecretSummary {
   name: string
@@ -35,7 +35,7 @@ export interface SecretDetail extends SecretSummary {
   versionId: string
   versionStages: string[]
   createdDate?: Date
-  tags: SecretTag[]
+  tags: ResourceTag[]
 }
 
 export interface CreateSecretInput {
@@ -43,22 +43,14 @@ export interface CreateSecretInput {
   secretString: string
   description?: string
   kmsKeyId?: string
-  tags?: SecretTag[]
+  tags?: ResourceTag[]
 }
 
 export interface UpdateSecretInput {
   secretString: string
   description?: string
   kmsKeyId?: string
-  tags?: SecretTag[]
-}
-
-function normalizeName(name: string): string {
-  const normalized = name.trim()
-  if (!normalized) {
-    throw new ServiceError("InvalidInput", "Secret name is required")
-  }
-  return normalized
+  tags?: ResourceTag[]
 }
 
 function toSecretError(error: unknown, name?: string): never {
@@ -124,8 +116,8 @@ async function listSecretSummaries(): Promise<SecretSummary[]> {
 
 async function describeSecret(
   name: string,
-): Promise<SecretSummary & { tags: SecretTag[] }> {
-  const normalizedName = normalizeName(name)
+): Promise<SecretSummary & { tags: ResourceTag[] }> {
+  const normalizedName = requireTrimmed(name, "Secret name")
 
   try {
     const result = await secretsManager.send(
@@ -140,13 +132,9 @@ async function describeSecret(
       description: result.Description ?? "",
       kmsKeyId: result.KmsKeyId ?? "",
       lastChangedDate: result.LastChangedDate,
-      tags: (result.Tags ?? [])
-        .map((tag) => ({
-          key: tag.Key ?? "",
-          value: tag.Value ?? "",
-        }))
-        .filter((tag) => tag.key)
-        .sort((left, right) => left.key.localeCompare(right.key)),
+      tags: fromAwsTags(result.Tags).sort((left, right) =>
+        left.key.localeCompare(right.key),
+      ),
     }
   } catch (error) {
     toSecretError(error, normalizedName)
@@ -155,9 +143,9 @@ async function describeSecret(
 
 async function syncSecretTags(
   name: string,
-  nextTags: SecretTag[],
+  nextTags: ResourceTag[],
 ): Promise<void> {
-  const normalizedName = normalizeName(name)
+  const normalizedName = requireTrimmed(name, "Secret name")
   const currentTags = (await describeSecret(normalizedName)).tags
   const { removeKeys, upsertTags } = diffTags(currentTags, nextTags)
 
@@ -193,7 +181,7 @@ export async function listSecrets(): Promise<SecretSummary[]> {
 }
 
 export async function getSecretDetail(name: string): Promise<SecretDetail> {
-  const normalizedName = normalizeName(name)
+  const normalizedName = requireTrimmed(name, "Secret name")
 
   try {
     const [metadata, valueResult] = await Promise.all([
@@ -220,7 +208,7 @@ export async function getSecretDetail(name: string): Promise<SecretDetail> {
 }
 
 export async function createSecret(input: CreateSecretInput): Promise<void> {
-  const name = normalizeName(input.name)
+  const name = requireTrimmed(input.name, "Secret name")
   const description = normalizeDescription(input.description, {
     allowBlank: false,
   })
@@ -246,7 +234,7 @@ export async function updateSecret(
   name: string,
   input: UpdateSecretInput,
 ): Promise<void> {
-  const normalizedName = normalizeName(name)
+  const normalizedName = requireTrimmed(name, "Secret name")
   const description = normalizeDescription(input.description, {
     allowBlank: true,
   })
@@ -274,7 +262,7 @@ export async function updateSecret(
 }
 
 export async function deleteSecret(name: string): Promise<void> {
-  const normalizedName = normalizeName(name)
+  const normalizedName = requireTrimmed(name, "Secret name")
 
   try {
     await secretsManager.send(

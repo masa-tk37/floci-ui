@@ -130,20 +130,7 @@ const updateTableSchema = t.Object({
   deletionProtection: t.Boolean(),
 })
 
-export interface DynamodbRouteDeps {
-  createTable: typeof createTable
-  deleteItem: typeof deleteItem
-  deleteTable: typeof deleteTable
-  getItem: typeof getItem
-  getTableDetail: typeof getTableDetail
-  listTables: typeof listTables
-  queryItems: typeof queryItems
-  saveItem: typeof saveItem
-  scanItems: typeof scanItems
-  updateTable: typeof updateTable
-}
-
-const defaultDynamodbRouteDeps: DynamodbRouteDeps = {
+const defaultDynamodbRouteDeps = {
   createTable,
   deleteItem,
   deleteTable,
@@ -155,6 +142,8 @@ const defaultDynamodbRouteDeps: DynamodbRouteDeps = {
   scanItems,
   updateTable,
 }
+
+export type DynamodbRouteDeps = typeof defaultDynamodbRouteDeps
 
 export function createDynamodbRoutes(
   deps: DynamodbRouteDeps = defaultDynamodbRouteDeps,

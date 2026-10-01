@@ -8,6 +8,7 @@ import {
 import mime from "mime-types"
 import { ServiceError, toOperationFailed } from "../../errors"
 import { s3 } from "../../infrastructure/floci-clients"
+import type { ResourceTag } from "../resource-tags"
 import { normalizePrefix } from "./prefix"
 
 export const PREVIEW_TEXT_LIMIT = 50 * 1024
@@ -94,11 +95,11 @@ export interface UpdateObjectPropertiesInput {
 }
 
 export interface ObjectTagsResult {
-  tags: { key: string; value: string }[]
+  tags: ResourceTag[]
 }
 
 export interface UpdateObjectTagsInput {
-  tags: { key: string; value: string }[]
+  tags: ResourceTag[]
 }
 
 export interface BucketSettingsInput {
@@ -111,7 +112,7 @@ export interface BucketSettingsInput {
     blockPublicPolicy: boolean
     restrictPublicBuckets: boolean
   }
-  tags?: { key: string; value: string }[]
+  tags?: ResourceTag[]
   corsRules?: {
     allowedMethods: string[]
     allowedOrigins: string[]
@@ -126,9 +127,12 @@ export type CreateBucketOptions = Pick<
   "versioning" | "encryption" | "ownership" | "publicAccessBlock" | "tags"
 >
 
-export async function runOps(
-  ops: { label: string; promise: Promise<unknown> }[],
-): Promise<string[]> {
+export interface SettingOp {
+  label: string
+  promise: Promise<unknown>
+}
+
+export async function runOps(ops: SettingOp[]): Promise<string[]> {
   const results = await Promise.allSettled(ops.map((op) => op.promise))
   return ops
     .map((op, i) => {

@@ -45,7 +45,7 @@ export function ItemEditForm({ init }: ItemEditFormProps) {
           {...mountComponentAttrs("ddb-item-edit")}
           class="ddb-item-edit-page__form"
         >
-          <ClientProps props={{ ...init, itemPath }} />
+          <ClientProps props={{ itemJson: init.itemJson, itemPath }} />
           <div class="query-form">
             <h2 class="section-title">キー</h2>
             <div class="ddb-item-edit-page__key-grid">

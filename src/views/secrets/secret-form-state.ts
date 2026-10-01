@@ -1,3 +1,5 @@
+import type { ResourceTag } from "../../services/resource-tags"
+
 export interface SecretFormInitial {
   mode: "create" | "edit"
   actionUrl: string
@@ -5,6 +7,6 @@ export interface SecretFormInitial {
   secretString: string
   description: string
   kmsKeyId: string
-  tags: { key: string; value: string }[]
+  tags: ResourceTag[]
   isBinary: boolean
 }

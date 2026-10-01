@@ -1,4 +1,5 @@
 import type Alpine from "alpinejs"
+import type { ResourceTag } from "../../services/resource-tags"
 
 export type AlpineMagic = Alpine.Magics<Record<string, unknown>>
 
@@ -107,6 +108,23 @@ export function sendJson<T>(
   })
 }
 
+/** On success `submitting` stays true so a caller that navigates away keeps its button disabled. */
+export async function submitJson<T>(
+  state: { error: string | null; submitting: boolean },
+  url: string,
+  body: unknown,
+): Promise<T | undefined> {
+  state.error = null
+  state.submitting = true
+  try {
+    return await sendJson<T>(url, body)
+  } catch (error) {
+    state.error = errorMessage(error)
+    state.submitting = false
+    return undefined
+  }
+}
+
 export function dispatchToast(detail: ToastDetail): void {
   window.dispatchEvent(new CustomEvent("floci:toast", { detail }))
 }
@@ -138,10 +156,10 @@ export function splitCommaList(str: string): string[] {
 }
 
 export const tagMixin = {
-  addTag(this: { tags: { key: string; value: string }[] }) {
+  addTag(this: { tags: ResourceTag[] }) {
     this.tags.push({ key: "", value: "" })
   },
-  removeTag(this: { tags: { key: string; value: string }[] }, index: number) {
+  removeTag(this: { tags: ResourceTag[] }, index: number) {
     this.tags.splice(index, 1)
   },
 }

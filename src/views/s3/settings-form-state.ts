@@ -1,3 +1,5 @@
+import type { ResourceTag } from "../../services/resource-tags"
+
 export interface S3SettingsInitial {
   bucket: string
   versioning: string
@@ -8,7 +10,7 @@ export interface S3SettingsInitial {
   ignorePublicAcls: boolean
   blockPublicPolicy: boolean
   restrictPublicBuckets: boolean
-  tags: { key: string; value: string }[]
+  tags: ResourceTag[]
   corsRules: {
     allowedMethods: string[]
     allowedOrigins: string[]

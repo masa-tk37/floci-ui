@@ -1,4 +1,4 @@
-import { errorMessage, requestJson, sendJson } from "../lib/floci"
+import { errorMessage, requestJson, sendJson, submitJson } from "../lib/floci"
 
 interface CreateModalProps {
   poolPath: string
@@ -38,16 +38,9 @@ function createModalFormController(
     },
 
     async submit(payload: Record<string, string>) {
-      this.error = null
-      this.submitting = true
-
-      try {
-        await sendJson(this.actionUrl, payload)
-        window.location.reload()
-      } catch (error) {
-        this.error = errorMessage(error)
-        this.submitting = false
-      }
+      const data = await submitJson(this, this.actionUrl, payload)
+      if (data === undefined) return
+      window.location.reload()
     },
   }
 }

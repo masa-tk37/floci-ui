@@ -22,7 +22,6 @@ interface ResourceTableProps<T> {
   emptyMessage?: string
 }
 
-/** Emits the data-filter-text / x-show pair that the list-filter controller drives, so no per-service client wiring is needed. */
 export function ResourceTable<T>({
   items,
   columns,

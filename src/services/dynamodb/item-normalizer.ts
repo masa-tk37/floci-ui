@@ -35,10 +35,7 @@ function roundTripsAsNumber(raw: string): boolean {
   return Number.isFinite(asNumber) && String(asNumber) === raw
 }
 
-/**
- * Keeps the canonical decimal string whenever a JS number would not reproduce
- * it exactly, so 38-digit DynamoDB numbers are displayed rather than rounded.
- */
+/** Falls back to the string so 38-digit DynamoDB numbers are not rounded. */
 function normalizeNumber(raw: string): number | string {
   return roundTripsAsNumber(raw) ? Number(raw) : raw
 }

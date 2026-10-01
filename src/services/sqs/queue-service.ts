@@ -24,6 +24,7 @@ import type {
   QueueAttributes,
 } from "../../views/sqs/queue-detail"
 import type { SQSSettingsInitial } from "../../views/sqs/settings-form-state"
+import { diffTags, normalizeTags, type ResourceTag } from "../resource-tags"
 import { queueNameFromUrl } from "./queue-utils"
 
 function queueUrlFor(name: string): string {
@@ -106,17 +107,29 @@ export async function listQueues(): Promise<QueueSummary[]> {
   )
 }
 
+function recordToTags(
+  record: Record<string, string> | undefined,
+): ResourceTag[] {
+  return Object.entries(record ?? {}).map(([key, value]) => ({ key, value }))
+}
+
+function tagsToRecord(tags: ResourceTag[]): Record<string, string> {
+  return Object.fromEntries(tags.map((tag) => [tag.key, tag.value]))
+}
+
 export async function createQueue(
   name: string,
   attributes?: Record<string, string>,
   tags?: Record<string, string>,
 ): Promise<void> {
+  const normalizedTags = normalizeTags(recordToTags(tags))
   try {
     await sqs.send(
       new CreateQueueCommand({
         QueueName: name,
         Attributes: attributes,
-        tags,
+        tags:
+          normalizedTags.length > 0 ? tagsToRecord(normalizedTags) : undefined,
       }),
     )
   } catch (e: unknown) {
@@ -295,10 +308,7 @@ export async function getQueueSettings(
       | "perQueue"
       | "perMessageGroupId"
       | undefined,
-    tags: Object.entries(rawTags).map(([key, value]) => ({
-      key,
-      value: String(value),
-    })),
+    tags: recordToTags(rawTags),
   }
 }
 
@@ -312,9 +322,10 @@ export async function updateQueueSettings(
     const existingTagsResult = await sqs
       .send(new ListQueueTagsCommand({ QueueUrl: queueUrl }))
       .catch(() => ({ Tags: {} }))
-    const existingKeys = Object.keys(existingTagsResult.Tags ?? {})
-    const newKeys = new Set(Object.keys(tags))
-    const removedKeys = existingKeys.filter((k) => !newKeys.has(k))
+    const { removeKeys, upsertTags } = diffTags(
+      recordToTags(existingTagsResult.Tags),
+      normalizeTags(recordToTags(tags)),
+    )
 
     await Promise.all([
       Object.keys(attributes).length > 0
@@ -325,12 +336,19 @@ export async function updateQueueSettings(
             }),
           )
         : Promise.resolve(),
-      Object.keys(tags).length > 0
-        ? sqs.send(new TagQueueCommand({ QueueUrl: queueUrl, Tags: tags }))
-        : Promise.resolve(),
-      removedKeys.length > 0
+      upsertTags.length > 0
         ? sqs.send(
-            new UntagQueueCommand({ QueueUrl: queueUrl, TagKeys: removedKeys }),
+            new TagQueueCommand({
+              QueueUrl: queueUrl,
+              Tags: Object.fromEntries(
+                upsertTags.map((tag) => [tag.Key, tag.Value]),
+              ),
+            }),
+          )
+        : Promise.resolve(),
+      removeKeys.length > 0
+        ? sqs.send(
+            new UntagQueueCommand({ QueueUrl: queueUrl, TagKeys: removeKeys }),
           )
         : Promise.resolve(),
     ])

@@ -1,3 +1,4 @@
+import type { ResourceTag } from "../../services/resource-tags"
 import { normalizePrefix } from "../../services/s3/prefix"
 import { formatBytes, PLACEHOLDER } from "../../views/format"
 import type { S3SettingsInitial } from "../../views/s3/settings-form-state"
@@ -8,6 +9,7 @@ import {
   openDeleteModal,
   requestJson,
   sendJson,
+  submitJson,
   tagMixin,
 } from "../lib/floci"
 
@@ -17,12 +19,6 @@ function buildEncryptionPayload(encryption: string, kmsKeyId: string) {
     type: encryption,
     kmsKeyId: encryption === "aws:kms" && kmsKeyId ? kmsKeyId : undefined,
   }
-}
-
-function buildS3TagsPayload(tags: { key: string; value: string }[]) {
-  return tags
-    .filter((tag) => tag.key.trim())
-    .map((tag) => ({ key: tag.key, value: tag.value }))
 }
 
 type CreateBucketProps = Record<string, never>
@@ -55,7 +51,7 @@ export function createS3CreateBucketController(
     ignorePublicAcls: true,
     blockPublicPolicy: true,
     restrictPublicBuckets: true,
-    tags: [] as { key: string; value: string }[],
+    tags: [] as ResourceTag[],
     error: null as string | null,
     warnings: [] as string[],
     submitting: false,
@@ -75,32 +71,26 @@ export function createS3CreateBucketController(
           blockPublicPolicy: this.blockPublicPolicy,
           restrictPublicBuckets: this.restrictPublicBuckets,
         },
-        tags: buildS3TagsPayload(this.tags),
+        tags: this.tags,
       }
     },
 
     async submit() {
-      this.error = null
       this.warnings = []
-      this.submitting = true
+      const data = await submitJson<{ warnings?: string[] }>(
+        this,
+        "/s3/bucket",
+        this.buildPayload(),
+      )
+      if (data === undefined) return
 
-      try {
-        const data = await sendJson<{ warnings?: string[] }>(
-          "/s3/bucket",
-          this.buildPayload(),
-        )
-
-        if (data.warnings?.length) {
-          this.warnings = data.warnings
-          this.submitting = false
-          return
-        }
-
-        window.location.href = "/s3"
-      } catch (error) {
-        this.error = errorMessage(error)
+      if (data.warnings?.length) {
+        this.warnings = data.warnings
         this.submitting = false
+        return
       }
+
+      window.location.href = "/s3"
     },
   }
 }
@@ -110,15 +100,7 @@ export function createS3SettingsController(
   init: S3SettingsInitial,
 ) {
   return {
-    bucket: init.bucket,
-    versioning: init.versioning,
-    encryption: init.encryption,
-    kmsKeyId: init.kmsKeyId,
-    ownership: init.ownership,
-    blockPublicAcls: init.blockPublicAcls,
-    ignorePublicAcls: init.ignorePublicAcls,
-    blockPublicPolicy: init.blockPublicPolicy,
-    restrictPublicBuckets: init.restrictPublicBuckets,
+    ...init,
     tags: [...init.tags],
     corsRules: [...init.corsRules],
     lifecycleRules: [...init.lifecycleRules],
@@ -166,7 +148,7 @@ export function createS3SettingsController(
           blockPublicPolicy: this.blockPublicPolicy,
           restrictPublicBuckets: this.restrictPublicBuckets,
         },
-        tags: buildS3TagsPayload(this.tags),
+        tags: this.tags,
         corsRules: this.corsRules.map((rule) => ({
           allowedMethods: rule.allowedMethods.filter(Boolean),
           allowedOrigins: rule.allowedOrigins.filter(Boolean),
@@ -184,25 +166,19 @@ export function createS3SettingsController(
     },
 
     async submit() {
-      this.error = null
       this.warnings = []
-      this.submitting = true
+      const data = await submitJson<{ warnings?: string[] }>(
+        this,
+        `/s3/${encodeURIComponent(this.bucket)}/settings`,
+        this.buildPayload(),
+      )
+      if (data === undefined) return
 
-      try {
-        const data = await sendJson<{ warnings?: string[] }>(
-          `/s3/${encodeURIComponent(this.bucket)}/settings`,
-          this.buildPayload(),
-        )
-
-        if (data.warnings?.length) {
-          this.warnings = data.warnings
-        }
-        dispatchToast({ kind: "success", message: "設定を保存しました" })
-        this.submitting = false
-      } catch (error) {
-        this.error = errorMessage(error)
-        this.submitting = false
+      if (data.warnings?.length) {
+        this.warnings = data.warnings
       }
+      dispatchToast({ kind: "success", message: "設定を保存しました" })
+      this.submitting = false
     },
   }
 }
@@ -257,7 +233,7 @@ export function createS3ObjectListController(
     propertyLastModified: "",
     propertyETag: "",
     propertyMetadata: "",
-    propertyTags: [] as { key: string; value: string }[],
+    propertyTags: [] as ResourceTag[],
 
     actionMenuOpen: false,
     actionMenuKind: "",
@@ -514,7 +490,7 @@ export function createS3ObjectListController(
             eTag?: string
             metadata?: Record<string, string>
           }>(`${objectDetailsPath}?key=${encodeURIComponent(key)}`),
-          requestJson<{ tags: { key: string; value: string }[] }>(
+          requestJson<{ tags: ResourceTag[] }>(
             `${objectTagsPath}?key=${encodeURIComponent(key)}`,
           ),
         ])
@@ -590,16 +566,15 @@ export function createS3ObjectListController(
       this.propertySubmitting = true
       this.propertyError = ""
       try {
-        await Promise.all([
-          sendJson(objectPropertiesPath, {
-            key: this.propertyKey,
-            contentType,
-          }),
-          sendJson(objectTagsPath, {
-            key: this.propertyKey,
-            tags: buildS3TagsPayload(this.propertyTags),
-          }),
-        ])
+        // Tags go second: the content-type update self-copies the object, which would carry over the old tags.
+        await sendJson(objectPropertiesPath, {
+          key: this.propertyKey,
+          contentType,
+        })
+        await sendJson(objectTagsPath, {
+          key: this.propertyKey,
+          tags: this.propertyTags,
+        })
         this.propertySubmitting = false
         this.closePropertyModal()
         window.location.reload()

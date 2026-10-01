@@ -14,12 +14,7 @@ import {
 import { ParameterDetail } from "../views/ssm/parameter-detail"
 import { ParameterForm } from "../views/ssm/parameter-form"
 import { ParameterList } from "../views/ssm/parameter-list"
-import { runJsonAction } from "./route-utils"
-
-const parameterTagSchema = t.Object({
-  key: t.String(),
-  value: t.String(),
-})
+import { runJsonAction, tagSchema } from "./route-utils"
 
 const parameterTypeSchema = t.Union([
   t.Literal("String"),
@@ -40,7 +35,7 @@ const createParameterSchema = t.Object({
   description: t.Optional(t.String()),
   tier: t.Optional(parameterTierSchema),
   keyId: t.Optional(t.String()),
-  tags: t.Optional(t.Array(parameterTagSchema)),
+  tags: t.Optional(t.Array(tagSchema)),
 })
 
 const updateParameterSchema = t.Object({
@@ -49,24 +44,18 @@ const updateParameterSchema = t.Object({
   description: t.Optional(t.String()),
   tier: t.Optional(parameterTierSchema),
   keyId: t.Optional(t.String()),
-  tags: t.Optional(t.Array(parameterTagSchema)),
+  tags: t.Optional(t.Array(tagSchema)),
 })
 
-export interface SsmRouteDeps {
-  createParameter: typeof createParameter
-  deleteParameter: typeof deleteParameter
-  getParameterDetail: typeof getParameterDetail
-  listParameters: typeof listParameters
-  updateParameter: typeof updateParameter
-}
-
-const defaultSsmRouteDeps: SsmRouteDeps = {
+const defaultSsmRouteDeps = {
   createParameter,
   deleteParameter,
   getParameterDetail,
   listParameters,
   updateParameter,
 }
+
+export type SsmRouteDeps = typeof defaultSsmRouteDeps
 
 export function createSsmRoutes(deps: SsmRouteDeps = defaultSsmRouteDeps) {
   return new Elysia({ prefix: "/ssm" })

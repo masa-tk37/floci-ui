@@ -1,3 +1,5 @@
+import { ServiceError } from "../errors"
+
 export interface ResourceTag {
   key: string
   value: string
@@ -25,6 +27,14 @@ export function toAwsTags(tags: ResourceTag[]): AwsTag[] | undefined {
   return tags.map((tag) => ({ Key: tag.key, Value: tag.value }))
 }
 
+export function fromAwsTags(
+  tags: { Key?: string; Value?: string }[] | undefined,
+): ResourceTag[] {
+  return (tags ?? [])
+    .map((tag) => ({ key: tag.Key ?? "", value: tag.Value ?? "" }))
+    .filter((tag) => tag.key)
+}
+
 export function diffTags(
   currentTags: ResourceTag[],
   nextTags: ResourceTag[],
@@ -38,6 +48,14 @@ export function diffTags(
       .filter(([key, value]) => current.get(key) !== value)
       .map(([key, value]) => ({ Key: key, Value: value })),
   }
+}
+
+export function requireTrimmed(value: string, label: string): string {
+  const normalized = value.trim()
+  if (!normalized) {
+    throw new ServiceError("InvalidInput", `${label} is required`)
+  }
+  return normalized
 }
 
 export function optionalTrimmed(value: string | undefined): string | undefined {

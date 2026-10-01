@@ -53,22 +53,6 @@
   margin-bottom: 0.5rem;
 }
 
-.s3-settings-page__tag-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 0.5rem;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.s3-settings-page__tag-grid > .form-row {
-  margin-bottom: 0;
-}
-
-.s3-settings-page__tag-remove {
-  margin-top: var(--form-label-block);
-}
-
 .s3-settings-page__warning {
   background: var(--color-warning-soft);
   border-color: var(--color-warning-border);
@@ -97,14 +81,6 @@
 }
 
 @media (max-width: 700px) {
-  .s3-settings-page__tag-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .s3-settings-page__tag-remove {
-    margin-top: 0;
-  }
-
   .s3-settings-page__section-header {
     align-items: flex-start;
     flex-direction: column;

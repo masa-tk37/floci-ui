@@ -2,6 +2,7 @@ import { Html } from "@elysiajs/html"
 
 import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout } from "../layout"
+import { TagEditor } from "../tag-editor"
 import type { SQSSettingsInitial } from "./settings-form-state"
 
 interface SQSSettingsFormProps {
@@ -212,56 +213,7 @@ export function SQSSettingsForm({ init }: SQSSettingsFormProps) {
             </div>
           </div>
 
-          <div class="query-form">
-            <div class="sqs-settings-page__section-header">
-              <h2 class="section-title sqs-settings-page__section-title">
-                Tags
-              </h2>
-              <button
-                type="button"
-                class="btn btn--sm"
-                {...{ "@click": "addTag()" }}
-              >
-                + タグを追加
-              </button>
-            </div>
-            <p
-              class="muted sqs-settings-page__empty"
-              x-show="tags.length === 0"
-              x-cloak
-            >
-              タグなし
-            </p>
-            <template x-for="(tag, i) in tags" {...{ ":key": "i" }}>
-              <div class="sqs-settings-page__tag-grid">
-                <div class="form-row">
-                  <label class="form-label">Key</label>
-                  <input
-                    type="text"
-                    class="input"
-                    x-model="tag.key"
-                    placeholder="Environment"
-                  />
-                </div>
-                <div class="form-row">
-                  <label class="form-label">Value</label>
-                  <input
-                    type="text"
-                    class="input"
-                    x-model="tag.value"
-                    placeholder="dev"
-                  />
-                </div>
-                <button
-                  type="button"
-                  class="btn btn--danger-ghost btn--sm sqs-settings-page__tag-remove"
-                  {...{ "@click": "removeTag(i)" }}
-                >
-                  ✕
-                </button>
-              </div>
-            </template>
-          </div>
+          <TagEditor />
 
           <div class="error-inline" x-show="error" x-cloak>
             <strong>エラー:</strong> <span x-text="error" />

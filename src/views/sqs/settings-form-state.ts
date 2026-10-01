@@ -1,3 +1,5 @@
+import type { ResourceTag } from "../../services/resource-tags"
+
 export interface SQSSettingsInitial {
   name: string
   isFifo: boolean
@@ -13,5 +15,5 @@ export interface SQSSettingsInitial {
   kmsMasterKeyId: string
   deduplicationScope?: "queue" | "messageGroup"
   fifoThroughputLimit?: "perQueue" | "perMessageGroupId"
-  tags: { key: string; value: string }[]
+  tags: ResourceTag[]
 }

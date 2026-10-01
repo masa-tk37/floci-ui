@@ -2,6 +2,7 @@ import { Html } from "@elysiajs/html"
 
 import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout } from "../layout"
+import { TagEditor } from "../tag-editor"
 
 export function CreateBucketForm() {
   return (
@@ -145,54 +146,7 @@ export function CreateBucketForm() {
             </div>
           </div>
 
-          <div class="query-form">
-            <div class="s3-create-page__section-header">
-              <h2 class="section-title s3-create-page__section-title">タグ</h2>
-              <button
-                type="button"
-                class="btn btn--sm"
-                {...{ "@click": "addTag()" }}
-              >
-                + タグを追加
-              </button>
-            </div>
-            <p
-              class="muted s3-create-page__empty"
-              x-show="tags.length === 0"
-              x-cloak
-            >
-              タグなし
-            </p>
-            <template x-for="(tag, i) in tags" {...{ ":key": "i" }}>
-              <div class="s3-create-page__tag-grid">
-                <div class="form-row">
-                  <label class="form-label">キー</label>
-                  <input
-                    type="text"
-                    class="input"
-                    x-model="tag.key"
-                    placeholder="Environment"
-                  />
-                </div>
-                <div class="form-row">
-                  <label class="form-label">値</label>
-                  <input
-                    type="text"
-                    class="input"
-                    x-model="tag.value"
-                    placeholder="dev"
-                  />
-                </div>
-                <button
-                  type="button"
-                  class="btn btn--danger-ghost btn--sm s3-create-page__tag-remove"
-                  {...{ "@click": "removeTag(i)" }}
-                >
-                  ✕
-                </button>
-              </div>
-            </template>
-          </div>
+          <TagEditor />
 
           <div class="error-inline" x-show="error" x-cloak>
             <strong>エラー:</strong> <span x-text="error" />

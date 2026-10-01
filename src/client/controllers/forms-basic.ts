@@ -1,21 +1,15 @@
 import type { UserPoolFormInitial } from "../../views/cognito/pool-form-state"
 import type { SecretFormInitial } from "../../views/secrets/secret-form-state"
 import type { ParameterFormInitial } from "../../views/ssm/parameter-form-state"
-import { dispatchToast, errorMessage, sendJson, tagMixin } from "../lib/floci"
+import { dispatchToast, submitJson, tagMixin } from "../lib/floci"
 
 export function createSecretFormController(
   _el: HTMLElement,
   init: SecretFormInitial,
 ) {
   return {
-    mode: init.mode,
-    actionUrl: init.actionUrl,
-    name: init.name,
-    secretString: init.secretString,
-    description: init.description,
-    kmsKeyId: init.kmsKeyId,
+    ...init,
     tags: [...init.tags],
-    isBinary: init.isBinary,
     error: null as string | null,
     submitting: false,
 
@@ -27,38 +21,30 @@ export function createSecretFormController(
         secretString: this.secretString,
         description: this.description,
         kmsKeyId: this.kmsKeyId,
-        tags: this.tags
-          .filter((tag) => tag.key.trim())
-          .map((tag) => ({ key: tag.key.trim(), value: tag.value.trim() })),
+        tags: this.tags,
       }
     },
 
     async submit() {
       if (this.isBinary) return
 
-      this.error = null
-      this.submitting = true
+      const data = await submitJson<{ id?: string }>(
+        this,
+        this.actionUrl,
+        this.buildPayload(),
+      )
+      if (data === undefined) return
 
-      try {
-        const data = await sendJson<{ id?: string }>(
-          this.actionUrl,
-          this.buildPayload(),
-        )
-
-        if (this.mode === "create") {
-          window.location.href = data.id ? `/secrets/${data.id}` : "/secrets"
-          return
-        }
-
-        dispatchToast({
-          kind: "success",
-          message: "Secret を保存しました",
-        })
-        this.submitting = false
-      } catch (error) {
-        this.error = errorMessage(error)
-        this.submitting = false
+      if (this.mode === "create") {
+        window.location.href = data.id ? `/secrets/${data.id}` : "/secrets"
+        return
       }
+
+      dispatchToast({
+        kind: "success",
+        message: "Secret を保存しました",
+      })
+      this.submitting = false
     },
   }
 }
@@ -68,14 +54,7 @@ export function createParameterFormController(
   init: ParameterFormInitial,
 ) {
   return {
-    mode: init.mode,
-    actionUrl: init.actionUrl,
-    name: init.name,
-    type: init.type,
-    value: init.value,
-    description: init.description,
-    tier: init.tier,
-    keyId: init.keyId,
+    ...init,
     tags: [...init.tags],
     error: null as string | null,
     submitting: false,
@@ -94,36 +73,28 @@ export function createParameterFormController(
         description: this.description,
         tier: this.tier,
         keyId: this.isSecureString ? this.keyId : "",
-        tags: this.tags
-          .filter((tag) => tag.key.trim())
-          .map((tag) => ({ key: tag.key.trim(), value: tag.value.trim() })),
+        tags: this.tags,
       }
     },
 
     async submit() {
-      this.error = null
-      this.submitting = true
+      const data = await submitJson<{ id?: string }>(
+        this,
+        this.actionUrl,
+        this.buildPayload(),
+      )
+      if (data === undefined) return
 
-      try {
-        const data = await sendJson<{ id?: string }>(
-          this.actionUrl,
-          this.buildPayload(),
-        )
-
-        if (this.mode === "create") {
-          window.location.href = data.id ? `/ssm/${data.id}` : "/ssm"
-          return
-        }
-
-        dispatchToast({
-          kind: "success",
-          message: "Parameter を保存しました",
-        })
-        this.submitting = false
-      } catch (error) {
-        this.error = errorMessage(error)
-        this.submitting = false
+      if (this.mode === "create") {
+        window.location.href = data.id ? `/ssm/${data.id}` : "/ssm"
+        return
       }
+
+      dispatchToast({
+        kind: "success",
+        message: "Parameter を保存しました",
+      })
+      this.submitting = false
     },
   }
 }
@@ -158,22 +129,16 @@ export function createUserPoolFormController(
     },
 
     async submit() {
-      this.error = null
-      this.submitting = true
+      const data = await submitJson<{ id?: string }>(
+        this,
+        this.actionUrl,
+        this.buildPayload(),
+      )
+      if (data === undefined) return
 
-      try {
-        const data = await sendJson<{ id?: string }>(
-          this.actionUrl,
-          this.buildPayload(),
-        )
-
-        window.location.href = data.id
-          ? `/cognito/${encodeURIComponent(data.id)}`
-          : "/cognito"
-      } catch (error) {
-        this.error = errorMessage(error)
-        this.submitting = false
-      }
+      window.location.href = data.id
+        ? `/cognito/${encodeURIComponent(data.id)}`
+        : "/cognito"
     },
   }
 }

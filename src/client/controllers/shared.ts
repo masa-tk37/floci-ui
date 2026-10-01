@@ -177,9 +177,7 @@ export function createThemeToggleController() {
         .addEventListener("change", (event) => {
           try {
             if (localStorage.getItem("theme")) return
-          } catch {
-            // ignore: storage unavailable, so there is no preference to honor
-          }
+          } catch {}
           this.isDark = event.matches
           document.documentElement.setAttribute(
             "data-theme",
@@ -194,18 +192,12 @@ export function createThemeToggleController() {
       document.documentElement.setAttribute("data-theme", next)
       try {
         localStorage.setItem("theme", next)
-      } catch {
-        // ignore: storage unavailable, theme still applies for this session
-      }
+      } catch {}
     },
   }
 }
 
-let deleteTriggersRegistered = false
-
 export function bindDeleteModalTriggers(): void {
-  if (deleteTriggersRegistered) return
-  deleteTriggersRegistered = true
   document.addEventListener("click", (event) => {
     const target = event.target
     if (!(target instanceof HTMLElement)) return

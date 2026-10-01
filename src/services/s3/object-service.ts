@@ -15,6 +15,7 @@ import {
 } from "@aws-sdk/client-s3"
 import { ServiceError, toOperationFailed } from "../../errors"
 import { s3 } from "../../infrastructure/floci-clients"
+import { fromAwsTags, normalizeTags, toAwsTags } from "../resource-tags"
 import { normalizePrefix } from "./prefix"
 import type {
   DeleteSelectedObjectsResult,
@@ -378,7 +379,10 @@ export async function renameFolder(
     )
   }
 
-  const sourceKeys = await listKeysForPrefix(bucket, normalizedFromPrefix)
+  const [sourceKeys, targetKeys] = await Promise.all([
+    listKeysForPrefix(bucket, normalizedFromPrefix),
+    listKeysForPrefix(bucket, normalizedToPrefix),
+  ])
   if (sourceKeys.length === 0) {
     throw new ServiceError(
       "NotFound",
@@ -386,24 +390,12 @@ export async function renameFolder(
     )
   }
 
-  const sourceKeySet = new Set(sourceKeys)
   const renamePairs = sourceKeys.map((sourceKey) => ({
     from: sourceKey,
     to: `${normalizedToPrefix}${sourceKey.slice(normalizedFromPrefix.length)}`,
   }))
 
-  for (const pair of renamePairs) {
-    if (sourceKeySet.has(pair.to)) {
-      throw new ServiceError(
-        "AlreadyExists",
-        `Object ${pair.to} already exists in bucket ${bucket}`,
-      )
-    }
-  }
-
-  const targetKeySet = new Set(
-    await listKeysForPrefix(bucket, normalizedToPrefix),
-  )
+  const targetKeySet = new Set(targetKeys)
   const conflict = renamePairs.find((pair) => targetKeySet.has(pair.to))
   if (conflict) {
     throw new ServiceError(
@@ -512,10 +504,7 @@ export async function getObjectTags(
       new GetObjectTaggingCommand({ Bucket: bucket, Key: key }),
     )
     return {
-      tags: (result.TagSet ?? []).map((tag) => ({
-        key: tag.Key ?? "",
-        value: tag.Value ?? "",
-      })),
+      tags: fromAwsTags(result.TagSet),
     }
   } catch (error: unknown) {
     toOperationFailed(error)
@@ -533,7 +522,7 @@ export async function putObjectTags(
         Bucket: bucket,
         Key: key,
         Tagging: {
-          TagSet: input.tags.map((t) => ({ Key: t.key, Value: t.value })),
+          TagSet: toAwsTags(normalizeTags(input.tags)) ?? [],
         },
       }),
     )

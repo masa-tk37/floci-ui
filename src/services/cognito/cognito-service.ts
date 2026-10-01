@@ -33,6 +33,7 @@ import {
 } from "@aws-sdk/client-cognito-identity-provider"
 import { ServiceError, toOperationFailed } from "../../errors"
 import { cognitoIdentityProvider } from "../../infrastructure/floci-clients"
+import { optionalTrimmed, requireTrimmed } from "../resource-tags"
 
 const DEFAULT_EXPLICIT_AUTH_FLOWS: ExplicitAuthFlowsType[] = [
   "ALLOW_USER_PASSWORD_AUTH",
@@ -118,19 +119,6 @@ export interface GroupSummary {
 export interface CreateGroupInput {
   name: string
   description?: string
-}
-
-function normalizeRequired(value: string, label: string): string {
-  const normalized = value.trim()
-  if (!normalized) {
-    throw new ServiceError("InvalidInput", `${label} is required`)
-  }
-  return normalized
-}
-
-function normalizeOptional(value: string | undefined): string | undefined {
-  const normalized = value?.trim()
-  return normalized || undefined
 }
 
 function normalizeUsernameMode(value: string | undefined): CognitoUsernameMode {
@@ -365,7 +353,7 @@ export async function listUserPools(): Promise<UserPoolSummary[]> {
 export async function createUserPool(
   input: CreateUserPoolInput,
 ): Promise<string> {
-  const name = normalizeRequired(input.name, "Pool name")
+  const name = requireTrimmed(input.name, "Pool name")
   const usernameMode = normalizeUsernameMode(input.usernameMode)
   const autoVerifiedAttributes = normalizeVerifiedAttributes(
     input.autoVerifiedAttributes,
@@ -408,7 +396,7 @@ export async function createUserPool(
 export async function getUserPoolDetail(
   poolId: string,
 ): Promise<UserPoolDetail> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
 
   try {
     const result = await cognitoIdentityProvider.send(
@@ -433,7 +421,7 @@ export async function getUserPoolDetail(
 }
 
 export async function deleteUserPool(poolId: string): Promise<void> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
 
   try {
     await cognitoIdentityProvider.send(
@@ -451,7 +439,7 @@ export async function deleteUserPool(poolId: string): Promise<void> {
 export async function listUserPoolClients(
   poolId: string,
 ): Promise<AppClientSummary[]> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
   const clients: AppClientSummary[] = []
   let nextToken: string | undefined
 
@@ -485,8 +473,8 @@ export async function createUserPoolClient(
   poolId: string,
   input: CreateAppClientInput,
 ): Promise<string> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const name = normalizeRequired(input.name, "App client name")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const name = requireTrimmed(input.name, "App client name")
 
   try {
     const result = await cognitoIdentityProvider.send(
@@ -519,8 +507,8 @@ export async function deleteUserPoolClient(
   poolId: string,
   clientId: string,
 ): Promise<void> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const normalizedClientId = normalizeRequired(clientId, "App client ID")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const normalizedClientId = requireTrimmed(clientId, "App client ID")
 
   try {
     await cognitoIdentityProvider.send(
@@ -537,7 +525,7 @@ export async function deleteUserPoolClient(
 }
 
 export async function listUsers(poolId: string): Promise<UserSummary[]> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
   const users: UserSummary[] = []
   let paginationToken: string | undefined
 
@@ -573,8 +561,8 @@ export async function getUserDetail(
   poolId: string,
   username: string,
 ): Promise<UserDetail> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const normalizedUsername = normalizeRequired(username, "Username")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const normalizedUsername = requireTrimmed(username, "Username")
 
   try {
     const result = await cognitoIdentityProvider.send(
@@ -605,14 +593,14 @@ export async function createUser(
   poolId: string,
   input: CreateUserInput,
 ): Promise<string> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const username = normalizeRequired(input.username, "Username")
-  const temporaryPassword = normalizeRequired(
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const username = requireTrimmed(input.username, "Username")
+  const temporaryPassword = requireTrimmed(
     input.temporaryPassword,
     "Temporary password",
   )
-  const email = normalizeOptional(input.email)
-  const phoneNumber = normalizeOptional(input.phoneNumber)
+  const email = optionalTrimmed(input.email)
+  const phoneNumber = optionalTrimmed(input.phoneNumber)
 
   const userAttributes: AttributeType[] = []
   if (email) {
@@ -646,8 +634,8 @@ export async function deleteUser(
   poolId: string,
   username: string,
 ): Promise<void> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const normalizedUsername = normalizeRequired(username, "Username")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const normalizedUsername = requireTrimmed(username, "Username")
 
   try {
     await cognitoIdentityProvider.send(
@@ -667,8 +655,8 @@ export async function enableUser(
   poolId: string,
   username: string,
 ): Promise<void> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const normalizedUsername = normalizeRequired(username, "Username")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const normalizedUsername = requireTrimmed(username, "Username")
 
   try {
     await cognitoIdentityProvider.send(
@@ -688,8 +676,8 @@ export async function disableUser(
   poolId: string,
   username: string,
 ): Promise<void> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const normalizedUsername = normalizeRequired(username, "Username")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const normalizedUsername = requireTrimmed(username, "Username")
 
   try {
     await cognitoIdentityProvider.send(
@@ -709,8 +697,8 @@ export async function confirmUserSignUp(
   poolId: string,
   username: string,
 ): Promise<void> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const normalizedUsername = normalizeRequired(username, "Username")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const normalizedUsername = requireTrimmed(username, "Username")
 
   try {
     await cognitoIdentityProvider.send(
@@ -731,9 +719,9 @@ export async function setUserPassword(
   username: string,
   input: SetUserPasswordInput,
 ): Promise<void> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const normalizedUsername = normalizeRequired(username, "Username")
-  const password = normalizeRequired(input.password, "Password")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const normalizedUsername = requireTrimmed(username, "Username")
+  const password = requireTrimmed(input.password, "Password")
 
   try {
     await cognitoIdentityProvider.send(
@@ -752,7 +740,7 @@ export async function setUserPassword(
 }
 
 export async function listGroups(poolId: string): Promise<GroupSummary[]> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
   const groups: GroupSummary[] = []
   let nextToken: string | undefined
 
@@ -786,9 +774,9 @@ export async function createGroup(
   poolId: string,
   input: CreateGroupInput,
 ): Promise<string> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const name = normalizeRequired(input.name, "Group name")
-  const description = normalizeOptional(input.description)
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const name = requireTrimmed(input.name, "Group name")
+  const description = optionalTrimmed(input.description)
 
   try {
     await cognitoIdentityProvider.send(
@@ -812,8 +800,8 @@ export async function deleteGroup(
   poolId: string,
   groupName: string,
 ): Promise<void> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const normalizedGroupName = normalizeRequired(groupName, "Group name")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const normalizedGroupName = requireTrimmed(groupName, "Group name")
 
   try {
     await cognitoIdentityProvider.send(
@@ -833,8 +821,8 @@ export async function listUsersInGroup(
   poolId: string,
   groupName: string,
 ): Promise<UserSummary[]> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const normalizedGroupName = normalizeRequired(groupName, "Group name")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const normalizedGroupName = requireTrimmed(groupName, "Group name")
   const users: UserSummary[] = []
   let nextToken: string | undefined
 
@@ -872,9 +860,9 @@ export async function addUserToGroup(
   groupName: string,
   username: string,
 ): Promise<void> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const normalizedGroupName = normalizeRequired(groupName, "Group name")
-  const normalizedUsername = normalizeRequired(username, "Username")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const normalizedGroupName = requireTrimmed(groupName, "Group name")
+  const normalizedUsername = requireTrimmed(username, "Username")
 
   try {
     await cognitoIdentityProvider.send(
@@ -896,9 +884,9 @@ export async function removeUserFromGroup(
   groupName: string,
   username: string,
 ): Promise<void> {
-  const normalizedPoolId = normalizeRequired(poolId, "User pool ID")
-  const normalizedGroupName = normalizeRequired(groupName, "Group name")
-  const normalizedUsername = normalizeRequired(username, "Username")
+  const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
+  const normalizedGroupName = requireTrimmed(groupName, "Group name")
+  const normalizedUsername = requireTrimmed(username, "Username")
 
   try {
     await cognitoIdentityProvider.send(

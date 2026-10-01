@@ -1,5 +1,11 @@
+import { t } from "elysia"
 import type { ServiceErrorCode } from "../errors"
 import { httpStatusFor, ServiceError } from "../errors"
+
+export const tagSchema = t.Object({
+  key: t.String(),
+  value: t.String(),
+})
 
 export interface JsonError {
   code: ServiceErrorCode | "InternalServerError"

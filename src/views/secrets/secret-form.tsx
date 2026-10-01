@@ -3,6 +3,7 @@ import { Html } from "@elysiajs/html"
 import { encodeResourceName } from "../../infrastructure/resource-name-codec"
 import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout } from "../layout"
+import { TagEditor } from "../tag-editor"
 import type { SecretFormInitial } from "./secret-form-state"
 
 interface SecretFormProps {
@@ -129,48 +130,7 @@ export function SecretForm({ init }: SecretFormProps) {
                 </div>
               </div>
 
-              <div class="query-form">
-                <div class="secrets-form-page__section-header">
-                  <h2 class="section-title secrets-form-page__section-title">
-                    Tags
-                  </h2>
-                  <button
-                    type="button"
-                    class="btn btn--sm"
-                    {...{ "@click": "addTag()" }}
-                  >
-                    + タグを追加
-                  </button>
-                </div>
-
-                <p
-                  class="muted secrets-form-page__empty"
-                  x-show="tags.length === 0"
-                  x-cloak
-                >
-                  タグなし
-                </p>
-
-                <template x-for="(tag, index) in tags" {...{ ":key": "index" }}>
-                  <div class="secrets-form-page__tag-grid">
-                    <div class="form-row">
-                      <label class="form-label">Key</label>
-                      <input type="text" class="input" x-model="tag.key" />
-                    </div>
-                    <div class="form-row">
-                      <label class="form-label">Value</label>
-                      <input type="text" class="input" x-model="tag.value" />
-                    </div>
-                    <button
-                      type="button"
-                      class="btn btn--danger-ghost btn--sm secrets-form-page__tag-remove"
-                      {...{ "@click": "removeTag(index)" }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </template>
-              </div>
+              <TagEditor />
             </>
           )}
 
