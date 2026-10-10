@@ -30,7 +30,7 @@
     "elysia": "^1.4.30",
     "lism-css": "1.0.1",
     "mime-types": "^3.0.2",
-    "pdfjs-dist": "6.3.289"
+    "pdfjs-dist": "6.4.299"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
