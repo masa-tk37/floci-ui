@@ -16,19 +16,19 @@ import {
   createUserPoolFormController,
 } from "./controllers/forms-basic"
 import {
-  createDeleteModalController,
-  createListFilterController,
-  createRevealToggleController,
-  createThemeToggleController,
-  createToastController,
-  bindDeleteModalTriggers,
-} from "./controllers/shared"
-import {
   createS3CreateBucketController,
   createS3ObjectListController,
   createS3PreviewController,
   createS3SettingsController,
 } from "./controllers/s3"
+import {
+  bindDeleteModalTriggers,
+  createDeleteModalController,
+  createListFilterController,
+  createRevealToggleController,
+  createThemeToggleController,
+  createToastController,
+} from "./controllers/shared"
 import {
   createSqsCreateQueueController,
   createSqsQueueDetailController,

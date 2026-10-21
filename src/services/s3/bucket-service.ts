@@ -14,15 +14,14 @@ export {
   getObjectForDownload,
   getObjectPreview,
   getObjectTags,
-  listObjectVersions,
   listObjects,
+  listObjectVersions,
   putObjectTags,
   renameFolder,
   renameObject,
   updateObjectProperties,
   uploadObjects,
 } from "./object-service"
-export type { VersionListResult, ObjectVersionSummary } from "./shared"
 export type {
   BucketSettingsInput,
   BucketSummary,
@@ -34,10 +33,12 @@ export type {
   ObjectListResult,
   ObjectSummary,
   ObjectTagsResult,
+  ObjectVersionSummary,
   PreviewResult,
   RenameFolderResult,
   UpdateObjectPropertiesInput,
   UpdateObjectTagsInput,
   UpdateSettingsResult,
   UploadObjectsResult,
+  VersionListResult,
 } from "./shared"

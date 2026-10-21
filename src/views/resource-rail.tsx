@@ -1,8 +1,7 @@
 import { Html } from "@elysiajs/html"
 import { escapeHtml } from "@kitajs/html"
-
-import { IconSearch } from "./icons"
 import { mountComponentAttrs } from "./client"
+import { IconSearch } from "./icons"
 
 export interface ResourceRailItem {
   label: string
