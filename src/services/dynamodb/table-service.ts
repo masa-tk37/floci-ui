@@ -17,6 +17,7 @@ import {
   ScanCommand,
   type StreamSpecification,
   type StreamViewType,
+  type TableDescription,
   UpdateTableCommand,
   UpdateTimeToLiveCommand,
 } from "@aws-sdk/client-dynamodb"
@@ -103,19 +104,47 @@ export interface QueryInput {
   cursor?: string
 }
 
-const keyInfoCache = new Map<string, KeyInfo>()
-
-export function clearKeyInfoCache(): void {
-  keyInfoCache.clear()
+function isTableNotFound(e: unknown): boolean {
+  return e instanceof Error && e.name === "ResourceNotFoundException"
 }
 
-async function getKeyInfo(tableName: string): Promise<KeyInfo> {
-  const cached = keyInfoCache.get(tableName)
-  if (cached) return cached
+function toTableError(e: unknown, tableName: string): never {
+  if (isTableNotFound(e)) {
+    throw new ServiceError("NotFound", `Table ${tableName} not found`, e)
+  }
+  toOperationFailed(e)
+}
 
-  const { Table } = await dynamodb.send(
-    new DescribeTableCommand({ TableName: tableName }),
+const UNSUPPORTED_OPERATION_ERRORS = new Set([
+  "UnknownOperationException",
+  "UnsupportedOperationException",
+  "NotImplementedException",
+  "NotImplemented",
+])
+
+/** True only when the emulator lacks the API, so real failures stay visible. */
+function isUnsupportedOperation(e: unknown): boolean {
+  if (typeof e !== "object" || e === null) return false
+  const { name, $metadata } = e as {
+    name?: unknown
+    $metadata?: { httpStatusCode?: number }
+  }
+  return (
+    (typeof name === "string" && UNSUPPORTED_OPERATION_ERRORS.has(name)) ||
+    $metadata?.httpStatusCode === 501
   )
+}
+
+/** Not cached: a table recreated outside the UI may change its key schema. */
+async function getKeyInfo(tableName: string): Promise<KeyInfo> {
+  let Table: TableDescription | undefined
+  try {
+    ;({ Table } = await dynamodb.send(
+      new DescribeTableCommand({ TableName: tableName }),
+    ))
+  } catch (e: unknown) {
+    toTableError(e, tableName)
+  }
   const schema: KeySchemaElement[] = Table?.KeySchema ?? []
   const defs: AttributeDefinition[] = Table?.AttributeDefinitions ?? []
   const typeFor = (name: string): string =>
@@ -136,11 +165,13 @@ async function getKeyInfo(tableName: string): Promise<KeyInfo> {
     sortKeyType: sort?.AttributeName ? typeFor(sort.AttributeName) : undefined,
     tableArn: Table?.TableArn,
   }
-  keyInfoCache.set(tableName, info)
   return info
 }
 
-function coerceKeyValue(raw: string, type: string): string | number | boolean {
+type KeyValue = string | number | boolean | Uint8Array
+
+function coerceKeyValue(raw: string, type: string): KeyValue {
+  if (type === "B") return Buffer.from(raw, "base64")
   if (type === "N") {
     const n = Number(raw)
     if (Number.isNaN(n))
@@ -155,7 +186,7 @@ function buildItemKeyObject(
   keyInfo: KeyInfo,
   pk: string,
   sk?: string,
-): Record<string, string | number | boolean> {
+): Record<string, KeyValue> {
   if (sk !== undefined) {
     if (!keyInfo.sortKey || !keyInfo.sortKeyType) {
       throw new ServiceError("InvalidInput", "Table has no sort key")
@@ -178,13 +209,18 @@ function buildItemKeyObject(
   }
 }
 
+/** The key as the editor shows it: normalizeItem renders Binary as base64. */
+function routeKeyAsItemValue(raw: string, type: string): KeyValue {
+  return type === "B" ? raw : coerceKeyValue(raw, type)
+}
+
 function assertItemMatchesRouteKey(
   keyInfo: KeyInfo,
   item: Record<string, unknown>,
   pk: string,
   sk?: string,
 ): void {
-  const expectedHashValue = coerceKeyValue(pk, keyInfo.hashKeyType)
+  const expectedHashValue = routeKeyAsItemValue(pk, keyInfo.hashKeyType)
   if (
     !(keyInfo.hashKey in item) ||
     item[keyInfo.hashKey] !== expectedHashValue
@@ -202,7 +238,7 @@ function assertItemMatchesRouteKey(
         "Table has a composite key; sort key required",
       )
     }
-    const expectedSortValue = coerceKeyValue(sk, keyInfo.sortKeyType)
+    const expectedSortValue = routeKeyAsItemValue(sk, keyInfo.sortKeyType)
     if (
       !(keyInfo.sortKey in item) ||
       item[keyInfo.sortKey] !== expectedSortValue
@@ -229,27 +265,45 @@ export async function listTables(): Promise<string[]> {
 }
 
 export async function getTableDetail(tableName: string): Promise<TableDetail> {
-  const [descResult, ttlResult] = await Promise.all([
-    dynamodb.send(new DescribeTableCommand({ TableName: tableName })),
-    dynamodb
-      .send(new DescribeTimeToLiveCommand({ TableName: tableName }))
-      .catch(() => ({ TimeToLiveDescription: {} })),
-  ])
-  const table = descResult.Table
-  const ttl = (ttlResult.TimeToLiveDescription ?? {}) as {
-    TimeToLiveStatus?: string
-    AttributeName?: string
+  let descResult: { Table?: TableDescription }
+  let ttlResult: {
+    TimeToLiveDescription?: {
+      TimeToLiveStatus?: string
+      AttributeName?: string
+    }
   }
+  try {
+    ;[descResult, ttlResult] = await Promise.all([
+      dynamodb.send(new DescribeTableCommand({ TableName: tableName })),
+      dynamodb
+        .send(new DescribeTimeToLiveCommand({ TableName: tableName }))
+        .catch((e: unknown) => {
+          if (isUnsupportedOperation(e)) return { TimeToLiveDescription: {} }
+          throw e
+        }),
+    ])
+  } catch (e: unknown) {
+    toTableError(e, tableName)
+  }
+  const table = descResult.Table
+  const ttl = ttlResult.TimeToLiveDescription ?? {}
+  const rcu = table?.ProvisionedThroughput?.ReadCapacityUnits ?? 0
+  const wcu = table?.ProvisionedThroughput?.WriteCapacityUnits ?? 0
 
   return {
     tableName,
-    billingMode: table?.BillingModeSummary?.BillingMode ?? "PAY_PER_REQUEST",
-    rcu: table?.ProvisionedThroughput?.ReadCapacityUnits ?? 5,
-    wcu: table?.ProvisionedThroughput?.WriteCapacityUnits ?? 5,
+    // A PROVISIONED table created without an explicit BillingMode may have no summary.
+    billingMode:
+      table?.BillingModeSummary?.BillingMode ??
+      (rcu > 0 ? "PROVISIONED" : "PAY_PER_REQUEST"),
+    // On-demand tables report 0/0, which the update form's minimum of 1 would reject.
+    rcu: rcu || 5,
+    wcu: wcu || 5,
     streamEnabled: table?.StreamSpecification?.StreamEnabled ?? false,
     streamViewType:
       table?.StreamSpecification?.StreamViewType ?? "NEW_AND_OLD_IMAGES",
-    ttlEnabled: ttl.TimeToLiveStatus === "ENABLED",
+    ttlEnabled:
+      ttl.TimeToLiveStatus === "ENABLED" || ttl.TimeToLiveStatus === "ENABLING",
     ttlAttr: ttl.AttributeName ?? "",
     deletionProtection: table?.DeletionProtectionEnabled ?? false,
   }
@@ -284,7 +338,6 @@ export async function createTable(input: CreateTableInput): Promise<void> {
 export async function deleteTable(tableName: string): Promise<void> {
   try {
     await dynamodb.send(new DeleteTableCommand({ TableName: tableName }))
-    keyInfoCache.delete(tableName)
   } catch (e: unknown) {
     if (e instanceof Error && e.name === "ResourceNotFoundException") {
       throw new ServiceError("NotFound", `Table ${tableName} not found`, e)
@@ -297,40 +350,67 @@ export async function updateTable(
   tableName: string,
   input: UpdateTableInput,
 ): Promise<void> {
+  const current = await getTableDetail(tableName)
+  const billingChanged = input.billingMode !== current.billingMode
+  const throughputChanged =
+    input.billingMode === "PROVISIONED" &&
+    (billingChanged || input.rcu !== current.rcu || input.wcu !== current.wcu)
+  const streamChanged =
+    input.streamEnabled !== current.streamEnabled ||
+    (input.streamEnabled && input.streamViewType !== current.streamViewType)
+  const deletionProtectionChanged =
+    input.deletionProtection !== current.deletionProtection
+  const ttlChanged =
+    input.ttlEnabled !== current.ttlEnabled ||
+    (input.ttlEnabled && input.ttlAttr !== current.ttlAttr)
+
+  // DynamoDB rejects UpdateTable fields that would not change anything.
   try {
-    await dynamodb.send(
-      new UpdateTableCommand({
-        TableName: tableName,
-        BillingMode: input.billingMode,
-        ProvisionedThroughput:
-          input.billingMode === "PROVISIONED"
+    if (
+      billingChanged ||
+      throughputChanged ||
+      streamChanged ||
+      deletionProtectionChanged
+    ) {
+      await dynamodb.send(
+        new UpdateTableCommand({
+          TableName: tableName,
+          BillingMode: billingChanged ? input.billingMode : undefined,
+          ProvisionedThroughput: throughputChanged
             ? { ReadCapacityUnits: input.rcu, WriteCapacityUnits: input.wcu }
             : undefined,
-        StreamSpecification: {
-          StreamEnabled: input.streamEnabled,
-          StreamViewType: input.streamEnabled
-            ? input.streamViewType
+          StreamSpecification: streamChanged
+            ? {
+                StreamEnabled: input.streamEnabled,
+                StreamViewType: input.streamEnabled
+                  ? input.streamViewType
+                  : undefined,
+              }
             : undefined,
-        },
-        DeletionProtectionEnabled: input.deletionProtection,
-      }),
-    )
+          DeletionProtectionEnabled: deletionProtectionChanged
+            ? input.deletionProtection
+            : undefined,
+        }),
+      )
+    }
 
+    if (!ttlChanged) return
     await dynamodb
       .send(
         new UpdateTimeToLiveCommand({
           TableName: tableName,
           TimeToLiveSpecification: {
             Enabled: input.ttlEnabled,
-            AttributeName: input.ttlAttr || "ttl",
+            // Disabling must name the attribute TTL is currently enabled on.
+            AttributeName: input.ttlAttr || current.ttlAttr || "ttl",
           },
         }),
       )
-      .catch(() => {
-        /* floci may not support TTL */
+      .catch((e: unknown) => {
+        if (!isUnsupportedOperation(e)) throw e
       })
   } catch (e: unknown) {
-    toOperationFailed(e)
+    toTableError(e, tableName)
   }
 }
 
@@ -359,8 +439,38 @@ export async function scanItems(
       tableArn: keyInfo.tableArn,
     }
   } catch (e: unknown) {
-    toOperationFailed(e)
+    toTableError(e, tableName)
   }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function parseExpressionJson(
+  json: string,
+  label: string,
+  prefix: string,
+): Record<string, unknown> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch (err) {
+    throw new ServiceError(
+      "InvalidInput",
+      `Invalid ${label} JSON: ${(err as Error).message}`,
+    )
+  }
+  if (
+    !isPlainObject(parsed) ||
+    !Object.keys(parsed).every((key) => key.startsWith(prefix))
+  ) {
+    throw new ServiceError(
+      "InvalidInput",
+      `${label} must be a JSON object whose keys start with "${prefix}"`,
+    )
+  }
+  return parsed
 }
 
 export async function queryItems(
@@ -371,83 +481,70 @@ export async function queryItems(
 
   let expressionAttributeValues: Record<string, AttributeValue> | undefined
   if (input.expressionAttributeValuesJson?.trim()) {
+    const parsed = parseExpressionJson(
+      input.expressionAttributeValuesJson,
+      "ExpressionAttributeValues",
+      ":",
+    )
     try {
-      const parsed = JSON.parse(input.expressionAttributeValuesJson) as Record<
-        string,
-        unknown
-      >
       expressionAttributeValues = marshall(parsed, {
         removeUndefinedValues: true,
       })
     } catch (err) {
       throw new ServiceError(
         "InvalidInput",
-        `Invalid ExpressionAttributeValues JSON: ${(err as Error).message}`,
+        `Invalid ExpressionAttributeValues: ${(err as Error).message}`,
       )
     }
   }
 
   let expressionAttributeNames: Record<string, string> | undefined
   if (input.expressionAttributeNamesJson?.trim()) {
-    try {
-      expressionAttributeNames = JSON.parse(
-        input.expressionAttributeNamesJson,
-      ) as Record<string, string>
-    } catch (err) {
+    const parsed = parseExpressionJson(
+      input.expressionAttributeNamesJson,
+      "ExpressionAttributeNames",
+      "#",
+    )
+    if (!Object.values(parsed).every((value) => typeof value === "string")) {
       throw new ServiceError(
         "InvalidInput",
-        `Invalid ExpressionAttributeNames JSON: ${(err as Error).message}`,
+        "ExpressionAttributeNames values must be strings",
       )
     }
+    expressionAttributeNames = parsed as Record<string, string>
   }
 
-  if (input.mode === "query") {
-    if (!input.keyConditionExpression) {
-      throw new ServiceError(
-        "InvalidInput",
-        "KeyConditionExpression is required for Query",
-      )
-    }
-    try {
-      const result = await dynamodb.send(
-        new QueryCommand({
-          TableName: tableName,
-          KeyConditionExpression: input.keyConditionExpression,
-          FilterExpression: input.filterExpression || undefined,
-          ExpressionAttributeValues: expressionAttributeValues,
-          ExpressionAttributeNames: expressionAttributeNames,
-          IndexName: input.indexName || undefined,
-          Limit: SCAN_PAGE_SIZE,
-          ExclusiveStartKey: startKey,
-        }),
-      )
-      return {
-        items: (result.Items ?? []).map(normalizeItem),
-        cursor: encodeCursor(result.LastEvaluatedKey),
-      }
-    } catch (e: unknown) {
-      toOperationFailed(e)
-    }
+  if (input.mode === "query" && !input.keyConditionExpression) {
+    throw new ServiceError(
+      "InvalidInput",
+      "KeyConditionExpression is required for Query",
+    )
   }
 
+  const params = {
+    TableName: tableName,
+    FilterExpression: input.filterExpression || undefined,
+    ExpressionAttributeValues: expressionAttributeValues,
+    ExpressionAttributeNames: expressionAttributeNames,
+    IndexName: input.indexName || undefined,
+    Limit: SCAN_PAGE_SIZE,
+    ExclusiveStartKey: startKey,
+  }
   try {
     const result = await dynamodb.send(
-      new ScanCommand({
-        TableName: tableName,
-        FilterExpression: input.filterExpression || undefined,
-        ExpressionAttributeValues: expressionAttributeValues,
-        ExpressionAttributeNames: expressionAttributeNames,
-        IndexName: input.indexName || undefined,
-        Limit: SCAN_PAGE_SIZE,
-        ExclusiveStartKey: startKey,
-      }),
+      input.mode === "query"
+        ? new QueryCommand({
+            ...params,
+            KeyConditionExpression: input.keyConditionExpression,
+          })
+        : new ScanCommand(params),
     )
     return {
       items: (result.Items ?? []).map(normalizeItem),
       cursor: encodeCursor(result.LastEvaluatedKey),
     }
   } catch (e: unknown) {
-    toOperationFailed(e)
+    toTableError(e, tableName)
   }
 }
 
@@ -475,7 +572,7 @@ export async function getItem(
       tableArn: keyInfo.tableArn,
     }
   } catch (e: unknown) {
-    toOperationFailed(e)
+    toTableError(e, tableName)
   }
 }
 
@@ -493,11 +590,25 @@ export async function saveItem(
     await dynamodb.send(
       new PutItemCommand({
         TableName: tableName,
-        Item: marshall(item, { removeUndefinedValues: true }),
+        // Keys come from the route so a Binary key is written as B, not its base64 string.
+        Item: marshall(
+          { ...item, ...buildItemKeyObject(keyInfo, pk, sk) },
+          { removeUndefinedValues: true },
+        ),
+        // The editor only edits existing items; refuse to recreate one deleted meanwhile.
+        ConditionExpression: "attribute_exists(#hashKey)",
+        ExpressionAttributeNames: { "#hashKey": keyInfo.hashKey },
       }),
     )
   } catch (e: unknown) {
-    toOperationFailed(e)
+    if (e instanceof Error && e.name === "ConditionalCheckFailedException") {
+      throw new ServiceError(
+        "NotFound",
+        `Item no longer exists in ${tableName}`,
+        e,
+      )
+    }
+    toTableError(e, tableName)
   }
 }
 
@@ -518,11 +629,14 @@ async function assertNoLossyAttributes(
     )
     existing = result.Item
   } catch (e: unknown) {
-    toOperationFailed(e)
+    toTableError(e, tableName)
   }
   if (!existing) return
 
-  const lossy = findLossyAttributes(existing)
+  // Key attributes are rewritten from the route, so their type is preserved.
+  const lossy = findLossyAttributes(existing).filter(
+    (name) => name !== keyInfo.hashKey && name !== keyInfo.sortKey,
+  )
   if (lossy.length === 0) return
   throw new ServiceError(
     "InvalidInput",
@@ -545,6 +659,6 @@ export async function deleteItem(
       }),
     )
   } catch (e: unknown) {
-    toOperationFailed(e)
+    toTableError(e, tableName)
   }
 }

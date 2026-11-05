@@ -6,6 +6,7 @@ import {
   AdminDisableUserCommand,
   AdminEnableUserCommand,
   AdminGetUserCommand,
+  type AdminGetUserCommandOutput,
   AdminRemoveUserFromGroupCommand,
   AdminSetUserPasswordCommand,
   type AttributeType,
@@ -248,52 +249,83 @@ function mapUserSummary(user: UserType): UserSummary | null {
 }
 
 function toUserDetail(
-  username: string,
-  attributes: AttributeType[] | undefined,
-  enabled: boolean | undefined,
-  status: string | undefined,
-  createdAt: Date | undefined,
-  updatedAt: Date | undefined,
-  preferredMfaSetting: string | undefined,
-  userMfaSettings: string[] | undefined,
+  user: AdminGetUserCommandOutput,
+  fallbackUsername: string,
 ): UserDetail {
-  const attributeMap = toAttributeMap(attributes)
+  const attributeMap = toAttributeMap(user.UserAttributes)
   const mappedAttributes = [...attributeMap.entries()]
     .map(([name, value]) => ({ name, value }))
     .sort((left, right) => left.name.localeCompare(right.name))
 
   return {
-    username,
-    status: status ?? "UNKNOWN",
-    enabled: enabled ?? false,
-    createdAt,
-    updatedAt,
+    username: user.Username ?? fallbackUsername,
+    status: user.UserStatus ?? "UNKNOWN",
+    enabled: user.Enabled ?? false,
+    createdAt: user.UserCreateDate,
+    updatedAt: user.UserLastModifiedDate,
     email: attributeMap.get("email") ?? "",
     phoneNumber: attributeMap.get("phone_number") ?? "",
     sub: attributeMap.get("sub") ?? "",
-    preferredMfaSetting: preferredMfaSetting ?? "",
-    userMfaSettings: userMfaSettings ?? [],
+    preferredMfaSetting: user.PreferredMfaSetting ?? "",
+    userMfaSettings: user.UserMFASettingList ?? [],
     attributes: mappedAttributes,
   }
+}
+
+async function collectPages<Raw, Item>(
+  fetchPage: (
+    token: string | undefined,
+  ) => Promise<{ items: Raw[] | undefined; nextToken: string | undefined }>,
+  map: (raw: Raw) => Item | null,
+): Promise<Item[]> {
+  const collected: Item[] = []
+  let token: string | undefined
+
+  do {
+    const page = await fetchPage(token)
+    for (const raw of page.items ?? []) {
+      const mapped = map(raw)
+      if (mapped) collected.push(mapped)
+    }
+    token = page.nextToken
+  } while (token)
+
+  return collected
+}
+
+// Passwords are sent as typed so Cognito validates surrounding whitespace itself.
+function requireNonBlank(value: string, label: string): string {
+  if (!value.trim()) {
+    throw new ServiceError("InvalidInput", `${label} is required`)
+  }
+  return value
 }
 
 function toCognitoError(
   error: unknown,
   messages: {
     notFound?: string
+    userNotFound?: string
     alreadyExists?: string
   } = {},
 ): never {
   if (error instanceof ServiceError) throw error
 
   if (error instanceof Error) {
-    if (
-      error.name === "ResourceNotFoundException" ||
-      error.name === "UserNotFoundException"
-    ) {
+    // Cognito raises this for a missing pool and a missing group alike, so group
+    // operations omit `notFound` and keep the SDK message.
+    if (error.name === "ResourceNotFoundException") {
       throw new ServiceError(
         "NotFound",
         messages.notFound ?? error.message,
+        error,
+      )
+    }
+
+    if (error.name === "UserNotFoundException") {
+      throw new ServiceError(
+        "NotFound",
+        messages.userNotFound ?? error.message,
         error,
       )
     }
@@ -324,25 +356,16 @@ function toCognitoError(
 }
 
 export async function listUserPools(): Promise<UserPoolSummary[]> {
-  const pools: UserPoolSummary[] = []
-  let nextToken: string | undefined
-
   try {
-    do {
+    const pools = await collectPages(async (nextToken) => {
       const result = await cognitoIdentityProvider.send(
         new ListUserPoolsCommand({
           MaxResults: 60,
           NextToken: nextToken,
         }),
       )
-
-      for (const pool of result.UserPools ?? []) {
-        const mapped = mapUserPoolSummary(pool)
-        if (mapped) pools.push(mapped)
-      }
-
-      nextToken = result.NextToken
-    } while (nextToken)
+      return { items: result.UserPools, nextToken: result.NextToken }
+    }, mapUserPoolSummary)
 
     return pools.sort((left, right) => left.name.localeCompare(right.name))
   } catch (error) {
@@ -440,11 +463,8 @@ export async function listUserPoolClients(
   poolId: string,
 ): Promise<AppClientSummary[]> {
   const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
-  const clients: AppClientSummary[] = []
-  let nextToken: string | undefined
-
   try {
-    do {
+    const clients = await collectPages(async (nextToken) => {
       const result = await cognitoIdentityProvider.send(
         new ListUserPoolClientsCommand({
           UserPoolId: normalizedPoolId,
@@ -452,14 +472,8 @@ export async function listUserPoolClients(
           NextToken: nextToken,
         }),
       )
-
-      for (const client of result.UserPoolClients ?? []) {
-        const mapped = mapClientSummary(client)
-        if (mapped) clients.push(mapped)
-      }
-
-      nextToken = result.NextToken
-    } while (nextToken)
+      return { items: result.UserPoolClients, nextToken: result.NextToken }
+    }, mapClientSummary)
 
     return clients.sort((left, right) => left.name.localeCompare(right.name))
   } catch (error) {
@@ -526,11 +540,8 @@ export async function deleteUserPoolClient(
 
 export async function listUsers(poolId: string): Promise<UserSummary[]> {
   const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
-  const users: UserSummary[] = []
-  let paginationToken: string | undefined
-
   try {
-    do {
+    const users = await collectPages(async (paginationToken) => {
       const result = await cognitoIdentityProvider.send(
         new ListUsersCommand({
           UserPoolId: normalizedPoolId,
@@ -538,14 +549,8 @@ export async function listUsers(poolId: string): Promise<UserSummary[]> {
           PaginationToken: paginationToken,
         }),
       )
-
-      for (const user of result.Users ?? []) {
-        const mapped = mapUserSummary(user)
-        if (mapped) users.push(mapped)
-      }
-
-      paginationToken = result.PaginationToken
-    } while (paginationToken)
+      return { items: result.Users, nextToken: result.PaginationToken }
+    }, mapUserSummary)
 
     return users.sort((left, right) =>
       left.username.localeCompare(right.username),
@@ -572,19 +577,11 @@ export async function getUserDetail(
       }),
     )
 
-    return toUserDetail(
-      result.Username ?? normalizedUsername,
-      result.UserAttributes,
-      result.Enabled,
-      result.UserStatus,
-      result.UserCreateDate,
-      result.UserLastModifiedDate,
-      result.PreferredMfaSetting,
-      result.UserMFASettingList,
-    )
+    return toUserDetail(result, normalizedUsername)
   } catch (error) {
     toCognitoError(error, {
-      notFound: `User ${normalizedUsername} not found`,
+      notFound: `User pool ${normalizedPoolId} not found`,
+      userNotFound: `User ${normalizedUsername} not found`,
     })
   }
 }
@@ -595,7 +592,7 @@ export async function createUser(
 ): Promise<string> {
   const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
   const username = requireTrimmed(input.username, "Username")
-  const temporaryPassword = requireTrimmed(
+  const temporaryPassword = requireNonBlank(
     input.temporaryPassword,
     "Temporary password",
   )
@@ -646,7 +643,8 @@ export async function deleteUser(
     )
   } catch (error) {
     toCognitoError(error, {
-      notFound: `User ${normalizedUsername} not found`,
+      notFound: `User pool ${normalizedPoolId} not found`,
+      userNotFound: `User ${normalizedUsername} not found`,
     })
   }
 }
@@ -667,7 +665,8 @@ export async function enableUser(
     )
   } catch (error) {
     toCognitoError(error, {
-      notFound: `User ${normalizedUsername} not found`,
+      notFound: `User pool ${normalizedPoolId} not found`,
+      userNotFound: `User ${normalizedUsername} not found`,
     })
   }
 }
@@ -688,7 +687,8 @@ export async function disableUser(
     )
   } catch (error) {
     toCognitoError(error, {
-      notFound: `User ${normalizedUsername} not found`,
+      notFound: `User pool ${normalizedPoolId} not found`,
+      userNotFound: `User ${normalizedUsername} not found`,
     })
   }
 }
@@ -709,7 +709,8 @@ export async function confirmUserSignUp(
     )
   } catch (error) {
     toCognitoError(error, {
-      notFound: `User ${normalizedUsername} not found`,
+      notFound: `User pool ${normalizedPoolId} not found`,
+      userNotFound: `User ${normalizedUsername} not found`,
     })
   }
 }
@@ -721,7 +722,7 @@ export async function setUserPassword(
 ): Promise<void> {
   const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
   const normalizedUsername = requireTrimmed(username, "Username")
-  const password = requireTrimmed(input.password, "Password")
+  const password = requireNonBlank(input.password, "Password")
 
   try {
     await cognitoIdentityProvider.send(
@@ -734,18 +735,16 @@ export async function setUserPassword(
     )
   } catch (error) {
     toCognitoError(error, {
-      notFound: `User ${normalizedUsername} not found`,
+      notFound: `User pool ${normalizedPoolId} not found`,
+      userNotFound: `User ${normalizedUsername} not found`,
     })
   }
 }
 
 export async function listGroups(poolId: string): Promise<GroupSummary[]> {
   const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
-  const groups: GroupSummary[] = []
-  let nextToken: string | undefined
-
   try {
-    do {
+    const groups = await collectPages(async (nextToken) => {
       const result = await cognitoIdentityProvider.send(
         new ListGroupsCommand({
           UserPoolId: normalizedPoolId,
@@ -753,14 +752,8 @@ export async function listGroups(poolId: string): Promise<GroupSummary[]> {
           NextToken: nextToken,
         }),
       )
-
-      for (const group of result.Groups ?? []) {
-        const mapped = mapGroupSummary(group)
-        if (mapped) groups.push(mapped)
-      }
-
-      nextToken = result.NextToken
-    } while (nextToken)
+      return { items: result.Groups, nextToken: result.NextToken }
+    }, mapGroupSummary)
 
     return groups.sort((left, right) => left.name.localeCompare(right.name))
   } catch (error) {
@@ -811,9 +804,7 @@ export async function deleteGroup(
       }),
     )
   } catch (error) {
-    toCognitoError(error, {
-      notFound: `Group ${normalizedGroupName} not found`,
-    })
+    toCognitoError(error)
   }
 }
 
@@ -823,11 +814,8 @@ export async function listUsersInGroup(
 ): Promise<UserSummary[]> {
   const normalizedPoolId = requireTrimmed(poolId, "User pool ID")
   const normalizedGroupName = requireTrimmed(groupName, "Group name")
-  const users: UserSummary[] = []
-  let nextToken: string | undefined
-
   try {
-    do {
+    const users = await collectPages(async (nextToken) => {
       const result = await cognitoIdentityProvider.send(
         new ListUsersInGroupCommand({
           UserPoolId: normalizedPoolId,
@@ -836,22 +824,14 @@ export async function listUsersInGroup(
           NextToken: nextToken,
         }),
       )
-
-      for (const user of result.Users ?? []) {
-        const mapped = mapUserSummary(user)
-        if (mapped) users.push(mapped)
-      }
-
-      nextToken = result.NextToken
-    } while (nextToken)
+      return { items: result.Users, nextToken: result.NextToken }
+    }, mapUserSummary)
 
     return users.sort((left, right) =>
       left.username.localeCompare(right.username),
     )
   } catch (error) {
-    toCognitoError(error, {
-      notFound: `Group ${normalizedGroupName} not found`,
-    })
+    toCognitoError(error)
   }
 }
 
@@ -874,7 +854,7 @@ export async function addUserToGroup(
     )
   } catch (error) {
     toCognitoError(error, {
-      notFound: `User ${normalizedUsername} not found`,
+      userNotFound: `User ${normalizedUsername} not found`,
     })
   }
 }
@@ -898,7 +878,7 @@ export async function removeUserFromGroup(
     )
   } catch (error) {
     toCognitoError(error, {
-      notFound: `User ${normalizedUsername} not found`,
+      userNotFound: `User ${normalizedUsername} not found`,
     })
   }
 }

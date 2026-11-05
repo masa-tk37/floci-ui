@@ -89,8 +89,19 @@ describe("createSecret", () => {
     expect(sendMock.mock.calls[0]?.[0]?.input).toMatchObject({
       Name: "app/dev/db",
       SecretString: "secret",
-      Tags: [{ Key: "Environment", Value: "dev" }],
+      Tags: [{ Key: "Environment", Value: " dev " }],
     })
+  })
+
+  it("maps InvalidParameterException to InvalidInput", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("bad name"), {
+        name: "InvalidParameterException",
+      }),
+    )
+    await expect(
+      createSecret({ name: "bad name!", secretString: "value" }),
+    ).rejects.toMatchObject({ code: "InvalidInput" })
   })
 
   it("maps ResourceExistsException to AlreadyExists", async () => {

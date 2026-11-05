@@ -29,9 +29,14 @@ function formatValue(value: unknown): string {
   }
 }
 
+// The URL parser collapses "." and ".." path segments (even percent-encoded),
+// so an item URL with such a key would hit the parent route, e.g. table deletion.
+function isDotSegment(value: string): boolean {
+  return value === "." || value === ".."
+}
+
 function isComplexValue(value: unknown): boolean {
-  if (value === null || value === undefined) return false
-  return typeof value === "object"
+  return value !== null && typeof value === "object"
 }
 
 function buildPrevUrl(
@@ -49,6 +54,10 @@ function buildPrevUrl(
   return `${tablePath}?${params.toString()}`
 }
 
+// Each cursor is a base64 key, so an unbounded history outgrows URL limits on
+// deep scans; past this depth "前のページ" falls back to the first page.
+const MAX_STACK_DEPTH = 3
+
 function buildNextUrl(
   tablePath: string,
   cursor: string | undefined,
@@ -56,7 +65,10 @@ function buildNextUrl(
   stack: string | undefined,
 ): string {
   const cursorForStack = cursor ?? ""
-  const newStack = stack ? `${stack},${cursorForStack}` : cursorForStack
+  const newStack = (stack ? `${stack},${cursorForStack}` : cursorForStack)
+    .split(",")
+    .slice(-MAX_STACK_DEPTH)
+    .join(",")
   const params = new URLSearchParams({ cursor: nextCursor })
   if (newStack) params.set("stack", newStack)
   return `${tablePath}?${params.toString()}`
@@ -96,6 +108,7 @@ export function ItemList({
     href: `/dynamodb/${encodeURIComponent(name)}`,
     active: name === tableName,
   }))
+  const prevUrl = buildPrevUrl(tablePath, cursor, stack)
 
   return (
     <Layout
@@ -165,6 +178,9 @@ export function ItemList({
                       const itemPath = sortKey
                         ? `${tablePath}/${encodeURIComponent(pkValue)}/${encodeURIComponent(skValue)}`
                         : `${tablePath}/${encodeURIComponent(pkValue)}`
+                      const hasDotSegmentKey =
+                        isDotSegment(pkValue) ||
+                        (sortKey !== undefined && isDotSegment(skValue))
                       const resourceName = sortKey
                         ? `${pkValue} / ${skValue}`
                         : pkValue
@@ -184,29 +200,33 @@ export function ItemList({
                                   }}
                                   safe
                                 >
-                                  {formatValue(val)}
+                                  {jsonStr}
                                 </td>
                               )
                             }
                             return <td safe>{formatValue(val)}</td>
                           })}
                           <td class="data-table__actions">
-                            <a
-                              href={`${itemPath}/edit`}
-                              class="btn btn--ghost btn--sm"
-                            >
-                              {IconEdit}編集
-                            </a>
-                            <button
-                              type="button"
-                              class="btn btn--danger-ghost btn--sm"
-                              data-floci-delete-trigger=""
-                              data-resource-name={escapeHtml(resourceName)}
-                              data-delete-url={itemPath}
-                              data-on-success="remove-row"
-                            >
-                              {IconTrash}削除
-                            </button>
+                            {hasDotSegmentKey ? null : (
+                              <>
+                                <a
+                                  href={`${itemPath}/edit`}
+                                  class="btn btn--ghost btn--sm"
+                                >
+                                  {IconEdit}編集
+                                </a>
+                                <button
+                                  type="button"
+                                  class="btn btn--danger-ghost btn--sm"
+                                  data-floci-delete-trigger=""
+                                  data-resource-name={escapeHtml(resourceName)}
+                                  data-delete-url={itemPath}
+                                  data-on-success="remove-row"
+                                >
+                                  {IconTrash}削除
+                                </button>
+                              </>
+                            )}
                           </td>
                         </tr>
                       )
@@ -223,14 +243,11 @@ export function ItemList({
                 ← 最初のページ
               </a>
             ) : null}
-            {(() => {
-              const prevUrl = buildPrevUrl(tablePath, cursor, stack)
-              return prevUrl ? (
-                <a href={prevUrl} class="btn btn--ghost">
-                  ← 前のページ
-                </a>
-              ) : null
-            })()}
+            {prevUrl ? (
+              <a href={prevUrl} class="btn btn--ghost">
+                ← 前のページ
+              </a>
+            ) : null}
             {nextCursor ? (
               <a
                 href={buildNextUrl(tablePath, cursor, nextCursor, stack)}
@@ -241,45 +258,44 @@ export function ItemList({
             ) : null}
           </nav>
         </div>
-      </div>
-
-      <template x-if="selectedCell">
-        <div
-          class="modal-overlay"
-          {...{
-            "@click.self": "closeCell()",
-            "@keydown.escape.window": "closeCell()",
-          }}
-        >
-          <div class="modal modal--wide">
-            <div class="modal__header-row">
-              <h2 class="modal__title">
-                フィールド: <span x-text="selectedCell.fieldName" />
-              </h2>
-              <button
-                type="button"
-                class="btn btn--ghost btn--sm"
-                {...{ "@click": "copyCell()" }}
-              >
-                コピー
-              </button>
-            </div>
-            <pre
-              class="ddb-item-list__json-preview"
-              x-text="selectedCell.formatted"
-            />
-            <div class="modal__actions">
-              <button
-                type="button"
-                class="btn btn--ghost"
-                {...{ "@click": "closeCell()" }}
-              >
-                閉じる
-              </button>
+        <template x-if="selectedCell">
+          <div
+            class="modal-overlay"
+            {...{
+              "@click.self": "closeCell()",
+              "@keydown.escape.window": "closeCell()",
+            }}
+          >
+            <div class="modal modal--wide">
+              <div class="modal__header-row">
+                <h2 class="modal__title">
+                  フィールド: <span x-text="selectedCell.fieldName" />
+                </h2>
+                <button
+                  type="button"
+                  class="btn btn--ghost btn--sm"
+                  {...{ "@click": "copyCell()" }}
+                >
+                  コピー
+                </button>
+              </div>
+              <pre
+                class="ddb-item-list__json-preview"
+                x-text="selectedCell.formatted"
+              />
+              <div class="modal__actions">
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  {...{ "@click": "closeCell()" }}
+                >
+                  閉じる
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </template>
+        </template>
+      </div>
     </Layout>
   )
 }

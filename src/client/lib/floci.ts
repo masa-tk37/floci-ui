@@ -30,7 +30,7 @@ export function errorMessage(error: unknown): string {
     typeof error.message === "string" &&
     error.message
   ) {
-    // fetch() の転送層エラーはランタイムごとに文言が違い、判別できるコードを持たない
+    // fetch() transport errors carry no distinguishing code and their message differs per runtime.
     if (
       "name" in error &&
       error.name === "TypeError" &&

@@ -132,13 +132,17 @@ export interface SettingOp {
   promise: Promise<unknown>
 }
 
+export function errorMessageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 export async function runOps(ops: SettingOp[]): Promise<string[]> {
   const results = await Promise.allSettled(ops.map((op) => op.promise))
   return ops
     .map((op, i) => {
       const result = results[i]
       return result?.status === "rejected"
-        ? `${op.label}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`
+        ? `${op.label}: ${errorMessageOf(result.reason)}`
         : null
     })
     .filter((warning): warning is string => warning !== null)
@@ -167,18 +171,18 @@ export function sanitizeContentType(contentType: string | undefined): string {
   return (contentType ?? "application/octet-stream").trim().toLowerCase()
 }
 
+/** Keys come from listings verbatim; leading slashes and whitespace are part of the key. */
 export function normalizeObjectKey(key: string): string {
-  const normalized = key.trim().replace(/^\/+/, "")
-  if (!normalized) {
+  if (!key) {
     throw new ServiceError("InvalidInput", "Object key is required")
   }
-  if (normalized.endsWith("/")) {
+  if (key.endsWith("/")) {
     throw new ServiceError(
       "InvalidInput",
       "Object key must not end with a slash",
     )
   }
-  return normalized
+  return key
 }
 
 export function normalizeFolderPrefix(
@@ -194,13 +198,10 @@ export function normalizeFolderPrefix(
 
 export function normalizeFolderKey(prefix: string, folderName: string): string {
   const normalizedPrefix = normalizePrefix(prefix)
-  let normalizedName = folderName.trim().replace(/^\/+/, "")
-
-  if (normalizedPrefix && normalizedName.startsWith(normalizedPrefix)) {
-    normalizedName = normalizedName.slice(normalizedPrefix.length)
-  }
-
-  normalizedName = normalizedName.replace(/\/+$/, "")
+  const normalizedName = folderName
+    .trim()
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "")
 
   if (!normalizedName) {
     throw new ServiceError("InvalidInput", "Folder name is required")
@@ -248,7 +249,7 @@ export function inferredFilename(key: string, contentType: string): string {
 }
 
 export function uniqueNonEmpty(values: string[]): string[] {
-  return [...new Set(values.map((value) => value.trim()).filter(Boolean))]
+  return [...new Set(values.filter(Boolean))]
 }
 
 export function isNotFoundError(error: unknown): boolean {
@@ -258,6 +259,8 @@ export function isNotFoundError(error: unknown): boolean {
   return (
     error.name === "NotFound" ||
     error.name === "NoSuchKey" ||
+    error.name === "NoSuchVersion" ||
+    error.name === "NoSuchBucket" ||
     error.name === "NotFoundException" ||
     statusCode === 404
   )
@@ -370,7 +373,7 @@ export async function deleteKeysInBatches(
           : Math.max(chunk.length - chunkErrors.length, 0)
       errors.push(...chunkErrors)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error)
+      const message = errorMessageOf(error)
       errors.push(...chunk.map((key) => ({ target: key, message })))
     }
   }

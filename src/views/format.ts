@@ -52,11 +52,24 @@ export function formatBytes(bytes: number | undefined | null): string {
   return `${(bytes / GB).toFixed(2)} GB`
 }
 
+// Matches a JSON string literal or a whitespace run outside one.
+const JSON_TOKEN_OR_SPACE = /"(?:[^"\\]|\\.)*"|\s+/g
+
+/**
+ * Pretty-prints only when re-serializing reproduces the input exactly, so a
+ * large integer or rewritten escape is shown as sent rather than as parsed.
+ */
 export function formatJsonValue(value: string): string {
   if (!value) return value
+  let parsed: unknown
   try {
-    return JSON.stringify(JSON.parse(value), null, 2)
+    parsed = JSON.parse(value)
   } catch {
     return value
   }
+  const compact = value.replace(JSON_TOKEN_OR_SPACE, (match) =>
+    match.startsWith('"') ? match : "",
+  )
+  if (JSON.stringify(parsed) !== compact) return value
+  return JSON.stringify(parsed, null, 2)
 }

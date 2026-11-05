@@ -50,7 +50,26 @@ function buildSqsAttributes(input: SqsAttributesInput): Record<string, string> {
   return attributes
 }
 
+// x-model without .number yields strings, and Number("") is 0, so blanks must be rejected before coercion.
+function isIntegerInput(value: unknown): boolean {
+  if (String(value).trim() === "") return false
+  return Number.isInteger(Number(value))
+}
+
 function validateSqsAttributes(input: SqsAttributesInput): string | null {
+  const integerFields: [unknown, string][] = [
+    [input.visibilityTimeout, "可視性タイムアウト"],
+    [input.messageRetentionPeriod, "保持期間"],
+    [input.delaySeconds, "配信遅延"],
+    [input.receiveMessageWaitTimeSeconds, "ロングポーリング待機"],
+    [input.maximumMessageSize, "最大メッセージサイズ"],
+  ]
+  if (input.dlqEnabled) {
+    integerFields.push([input.dlqMaxReceiveCount, "最大受信回数"])
+  }
+  for (const [value, label] of integerFields) {
+    if (!isIntegerInput(value)) return `${label}は整数で入力してください`
+  }
   if (input.visibilityTimeout < 0 || input.visibilityTimeout > 43200) {
     return "可視性タイムアウトは 0〜43200 の範囲で入力してください"
   }
@@ -69,8 +88,8 @@ function validateSqsAttributes(input: SqsAttributesInput): string | null {
   ) {
     return "ロングポーリング待機は 0〜20 の範囲で入力してください"
   }
-  if (input.maximumMessageSize < 1024 || input.maximumMessageSize > 262144) {
-    return "最大メッセージサイズは 1024〜262144 の範囲で入力してください"
+  if (input.maximumMessageSize < 1024 || input.maximumMessageSize > 1048576) {
+    return "最大メッセージサイズは 1024〜1048576 の範囲で入力してください"
   }
   if (
     input.dlqEnabled &&
@@ -199,8 +218,6 @@ export function createSqsCreateQueueController(
     },
 
     async submit() {
-      this.error = null
-
       this.error = validateSqsAttributes(this)
       if (this.error) return
 
@@ -239,8 +256,6 @@ export function createSqsSettingsController(
     },
 
     async submit() {
-      this.error = null
-
       this.error = validateSqsAttributes(this)
       if (this.error) return
 
@@ -292,6 +307,8 @@ export function createSqsQueueDetailController(
     truncate,
 
     openSend() {
+      this.error = ""
+      this.batchError = ""
       this.open = true
     },
 
@@ -315,6 +332,15 @@ export function createSqsQueueDetailController(
         this.batchError = "バッチ送信は最大10件です"
         return
       }
+      if (this.isFifo && !this.groupId) {
+        this.batchError = "FIFO queue では Message Group ID が必須です"
+        return
+      }
+      if (this.requiresDeduplicationId && !this.deduplicationId) {
+        this.batchError =
+          "Content-based deduplication が無効な FIFO queue では Message Deduplication ID が必須です"
+        return
+      }
       this.batchSending = true
       this.batchError = ""
       this.batchResult = ""
@@ -322,6 +348,10 @@ export function createSqsQueueDetailController(
       const entries = lines.map((body: string, i: number) => ({
         id: `msg-${i}`,
         body,
+        ...(this.isFifo && { groupId: this.groupId }),
+        ...(this.requiresDeduplicationId && {
+          messageDeduplicationId: `${this.deduplicationId}-${i}`,
+        }),
       }))
 
       try {
@@ -333,9 +363,19 @@ export function createSqsQueueDetailController(
         }>(`${props.queuePath}/send-batch`, { entries })
         const { successful, failed } = data.result
         this.batchResult = `成功 ${successful.length} 件 / 失敗 ${failed.length} 件`
-        this.batchBodies = ""
         this.batchSending = false
-        this.open = false
+        if (failed.length > 0) {
+          const failedIds = new Set(failed.map((f) => f.id))
+          this.batchBodies = lines
+            .filter((_: string, i: number) => failedIds.has(`msg-${i}`))
+            .join("\n")
+          this.batchError = failed
+            .map((f) => `${f.id}: ${f.message ?? f.code}`)
+            .join(" / ")
+        } else {
+          this.batchBodies = ""
+          this.open = false
+        }
         await this.refreshState()
       } catch (error) {
         this.batchError = errorMessage(error)
@@ -438,8 +478,12 @@ export function createSqsQueueDetailController(
       return formatJsonValue(this.selectedMsg?.body ?? "")
     },
 
-    copyBody() {
-      navigator.clipboard.writeText(this.selectedMsg?.body ?? "")
+    async copyBody() {
+      try {
+        await navigator.clipboard.writeText(this.selectedMsg?.body ?? "")
+      } catch {
+        dispatchToast({ kind: "error", message: "コピーできませんでした" })
+      }
     },
 
     selectMsg(msg: PeekedMessage) {
@@ -449,17 +493,25 @@ export function createSqsQueueDetailController(
       })
     },
 
+    // Callers close their modal before refreshing, so failures surface as a toast instead of modal error text.
     async refreshState() {
-      const [msgData, attrData] = await Promise.all([
-        requestJson<{ messages: PeekedMessage[] }>(
-          `${props.queuePath}/messages.json`,
-        ),
-        requestJson<{ attributes: QueueAttributes }>(
-          `${props.queuePath}/attributes.json`,
-        ),
-      ])
-      this.messages = msgData.messages
-      this.attributes = attrData.attributes
+      try {
+        const [msgData, attrData] = await Promise.all([
+          requestJson<{ messages: PeekedMessage[] }>(
+            `${props.queuePath}/messages.json`,
+          ),
+          requestJson<{ attributes: QueueAttributes }>(
+            `${props.queuePath}/attributes.json`,
+          ),
+        ])
+        this.messages = msgData.messages
+        this.attributes = attrData.attributes
+      } catch (error) {
+        dispatchToast({
+          kind: "error",
+          message: `一覧を更新できませんでした: ${errorMessage(error)}`,
+        })
+      }
     },
   }
 }

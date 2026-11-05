@@ -24,6 +24,7 @@ import {
   uploadObjects,
 } from "../services/s3/bucket-service"
 import { buildAttachmentContentDisposition } from "../services/s3/content-disposition"
+import { isNotFoundError } from "../services/s3/shared"
 import { BucketList } from "../views/s3/bucket-list"
 import { CreateBucketForm } from "../views/s3/create-form"
 import { ObjectList } from "../views/s3/object-list"
@@ -69,7 +70,7 @@ const createBucketSchema = t.Object({
 })
 
 const bucketSettingsSchema = t.Object({
-  versioning: t.Optional(t.String()),
+  versioning: t.Union([t.Literal("Enabled"), t.Literal("Suspended")]),
   encryption: t.Optional(bucketEncryptionSchema),
   ownership: t.Optional(bucketOwnershipSchema),
   publicAccessBlock: t.Optional(publicAccessBlockSchema),
@@ -132,6 +133,10 @@ const putObjectTagsSchema = t.Object({
   key: t.String({ minLength: 1 }),
   tags: t.Array(tagSchema),
 })
+
+function describeFailures(errors: { target: string; message: string }[]) {
+  return errors.map((err) => `${err.target}: ${err.message}`).join("; ")
+}
 
 const defaultS3RouteDeps = {
   createBucket,
@@ -225,6 +230,9 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
         if (e instanceof ServiceError) {
           return new Response(e.message, { status: httpStatusFor(e.code) })
         }
+        if (isNotFoundError(e)) {
+          return new Response("Not found", { status: 404 })
+        }
         return new Response("Internal server error", { status: 500 })
       }
     })
@@ -267,7 +275,16 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
     )
     .post("/:bucket/upload", async ({ params, request, set }) =>
       runJsonAction(set, async () => {
-        const formData = await request.formData()
+        let formData: FormData
+        try {
+          formData = await request.formData()
+        } catch (e) {
+          throw new ServiceError(
+            "InvalidInput",
+            "Expected multipart/form-data body",
+            e,
+          )
+        }
         const prefix = String(formData.get("prefix") ?? "")
         const files = formData
           .getAll("files")
@@ -276,8 +293,8 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
         const result = await deps.uploadObjects(params.bucket, prefix, files)
         if (result.errors.length > 0) {
           throw new ServiceError(
-            "InvalidInput",
-            `${result.errors.length} file(s) failed to upload`,
+            "OperationFailed",
+            `${result.errors.length} file(s) failed to upload (${result.uploadedCount} uploaded): ${describeFailures(result.errors.map((err) => ({ target: err.name, message: err.message })))}`,
           )
         }
         return { uploadedCount: result.uploadedCount }
@@ -307,8 +324,8 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
           )
           if (result.errors.length > 0) {
             throw new ServiceError(
-              "InvalidInput",
-              `${result.errors.length} item(s) failed during folder rename`,
+              "OperationFailed",
+              `${result.errors.length} item(s) failed during folder rename to ${result.prefix} (${result.copiedCount} copied, ${result.deletedCount} deleted): ${describeFailures(result.errors)}`,
             )
           }
           return {
@@ -346,8 +363,8 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
           const result = await deps.deleteSelectedObjects(params.bucket, body)
           if (result.errors.length > 0) {
             throw new ServiceError(
-              "InvalidInput",
-              `${result.errors.length} item(s) failed to delete`,
+              "OperationFailed",
+              `${result.errors.length} item(s) failed to delete (${result.deletedCount} deleted): ${describeFailures(result.errors)}`,
             )
           }
           return { deletedCount: result.deletedCount }
@@ -373,6 +390,9 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
         if (e instanceof ServiceError) {
           return new Response(e.message, { status: httpStatusFor(e.code) })
         }
+        if (isNotFoundError(e)) {
+          return new Response("Not found", { status: 404 })
+        }
         return new Response("Internal server error", { status: 500 })
       }
     })
@@ -385,12 +405,10 @@ export function createS3Routes(deps: S3RouteDeps = defaultS3RouteDeps) {
         loadRailItems(deps.listBuckets),
         deps.getBucketVersioningEnabled(params.bucket),
       ])
-      let versionResult:
-        | Awaited<ReturnType<typeof deps.listObjectVersions>>
-        | undefined
-      if (showVersions && versioningEnabled) {
-        versionResult = await deps.listObjectVersions(params.bucket, prefix)
-      }
+      const versionResult =
+        showVersions && versioningEnabled
+          ? await deps.listObjectVersions(params.bucket, prefix)
+          : undefined
       return (
         <ObjectList
           bucket={params.bucket}

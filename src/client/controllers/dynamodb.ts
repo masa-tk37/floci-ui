@@ -30,6 +30,15 @@ function projection(projectionType: string, nonKeyAttrs: string) {
   return { ProjectionType: projectionType }
 }
 
+function jsonParseError(text: string): string | null {
+  try {
+    JSON.parse(text)
+    return null
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e)
+  }
+}
+
 function throughput(rcu: number, wcu: number) {
   return { ReadCapacityUnits: Number(rcu), WriteCapacityUnits: Number(wcu) }
 }
@@ -161,18 +170,38 @@ export function createDynamoCreateTableController(
       return payload
     },
 
-    async submit() {
-      this.error = null
+    keyValidationError(): string | null {
+      if (!this.pk.name) return "PK 名を入力してください"
+      if (this.hasSk && !this.sk.name) return "ソートキー名を入力してください"
       for (const [i, g] of this.gsi.entries()) {
-        if (!g.indexName) {
-          this.error = `GSI ${i + 1}: インデックス名を入力してください`
-          return
-        }
-        if (!g.pk.name) {
-          this.error = `GSI ${i + 1}: PK 名を入力してください`
-          return
+        if (!g.indexName)
+          return `GSI ${i + 1}: インデックス名を入力してください`
+        if (!g.pk.name) return `GSI ${i + 1}: PK 名を入力してください`
+        if (g.hasSk && !g.sk.name) {
+          return `GSI ${i + 1}: ソートキー名を入力してください`
         }
       }
+      const keys = [this.pk, ...(this.hasSk ? [this.sk] : [])]
+      for (const g of this.gsi) {
+        keys.push(g.pk)
+        if (g.hasSk) keys.push(g.sk)
+      }
+      for (const l of this.lsi) {
+        if (l.sk.name) keys.push(l.sk)
+      }
+      const types = new Map<string, string>()
+      for (const key of keys) {
+        const known = types.get(key.name)
+        if (known && known !== key.type) {
+          return `属性 ${key.name} に異なる型 (${known} / ${key.type}) が指定されています`
+        }
+        types.set(key.name, key.type)
+      }
+      return null
+    },
+
+    async submit() {
+      this.error = null
       for (const [i, l] of this.lsi.entries()) {
         if (!l.indexName) {
           this.error = `LSI ${i + 1}: インデックス名を入力してください`
@@ -183,6 +212,8 @@ export function createDynamoCreateTableController(
           return
         }
       }
+      this.error = this.keyValidationError()
+      if (this.error) return
       const data = await submitJson(
         this,
         "/dynamodb/tables",
@@ -230,6 +261,8 @@ export function createDynamoItemEditController(
 ) {
   return {
     itemJson: init.itemJson,
+    // No GET route serves a bare item path; return to the table at /dynamodb/:table.
+    returnPath: init.itemPath.split("/").slice(0, 3).join("/"),
     error: null as string | null,
     submitting: false,
 
@@ -243,19 +276,16 @@ export function createDynamoItemEditController(
     },
 
     async submit() {
-      try {
-        JSON.parse(this.itemJson)
-      } catch (e) {
-        this.error =
-          "JSON の形式が正しくありません: " +
-          (e instanceof Error ? e.message : String(e))
+      const parseError = jsonParseError(this.itemJson)
+      if (parseError !== null) {
+        this.error = `JSON の形式が正しくありません: ${parseError}`
         return
       }
       const data = await submitJson(this, `${init.itemPath}/edit`, {
         itemJson: this.itemJson,
       })
       if (data === undefined) return
-      window.location.href = init.itemPath
+      window.location.href = this.returnPath
     },
   }
 }
@@ -281,8 +311,10 @@ export function createDynamoQueryBuilderController(
     nextCursor: "",
     pageCursors: [""],
     currentPageIndex: 0,
+    // Cursors are only valid for the query that produced them, so paging reuses the submitted query.
+    activeQuery: null as null | Record<string, string>,
 
-    buildPayload(cursor: string) {
+    buildQuery() {
       return {
         mode: this.mode,
         keyConditionExpression: this.keyConditionExpression,
@@ -290,7 +322,6 @@ export function createDynamoQueryBuilderController(
         expressionAttributeValues: this.expressionAttributeValues,
         expressionAttributeNames: this.expressionAttributeNames,
         indexName: this.indexName,
-        cursor: cursor || undefined,
       }
     },
 
@@ -302,11 +333,15 @@ export function createDynamoQueryBuilderController(
         const data = await sendJson<{
           items: Record<string, unknown>[]
           cursor?: string
-        }>(queryPath, this.buildPayload(cursor))
+        }>(queryPath, {
+          ...(this.activeQuery ?? this.buildQuery()),
+          cursor: cursor || undefined,
+        })
         this.loading = false
         this.results = data.items || []
-        this.columns =
-          this.results.length > 0 ? Object.keys(this.results[0] ?? {}) : []
+        this.columns = [
+          ...new Set(this.results.flatMap((item) => Object.keys(item))),
+        ]
         this.nextCursor = data.cursor || ""
         this.pageCursors = pageCursors
         this.currentPageIndex = pageIndex
@@ -324,26 +359,21 @@ export function createDynamoQueryBuilderController(
         this.error = "Query モードでは KeyConditionExpression が必須です"
         return
       }
-      if (this.expressionAttributeValues) {
-        try {
-          JSON.parse(this.expressionAttributeValues)
-        } catch (e) {
-          this.error =
-            "ExpressionAttributeValues の JSON が不正です: " +
-            (e instanceof Error ? e.message : String(e))
-          return
-        }
+      const valuesError = this.expressionAttributeValues
+        ? jsonParseError(this.expressionAttributeValues)
+        : null
+      if (valuesError !== null) {
+        this.error = `ExpressionAttributeValues の JSON が不正です: ${valuesError}`
+        return
       }
-      if (this.expressionAttributeNames) {
-        try {
-          JSON.parse(this.expressionAttributeNames)
-        } catch (e) {
-          this.error =
-            "ExpressionAttributeNames の JSON が不正です: " +
-            (e instanceof Error ? e.message : String(e))
-          return
-        }
+      const namesError = this.expressionAttributeNames
+        ? jsonParseError(this.expressionAttributeNames)
+        : null
+      if (namesError !== null) {
+        this.error = `ExpressionAttributeNames の JSON が不正です: ${namesError}`
+        return
       }
+      this.activeQuery = this.buildQuery()
       await this.loadPage("", 0, [""])
     },
 

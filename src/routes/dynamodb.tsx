@@ -1,4 +1,3 @@
-import type { BillingMode, StreamViewType } from "@aws-sdk/client-dynamodb"
 import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
 import { ServiceError } from "../errors"
@@ -121,8 +120,8 @@ const createTableSchema = t.Object({
 
 const updateTableSchema = t.Object({
   billingMode: billingModeSchema,
-  rcu: t.Number({ minimum: 1 }),
-  wcu: t.Number({ minimum: 1 }),
+  rcu: t.Integer({ minimum: 0 }),
+  wcu: t.Integer({ minimum: 0 }),
   streamEnabled: t.Boolean(),
   streamViewType: streamViewTypeSchema,
   ttlEnabled: t.Boolean(),
@@ -190,16 +189,17 @@ export function createDynamodbRoutes(
       "/tables/:table/update",
       async ({ params, body, set }) =>
         runJsonAction(set, async () => {
-          await deps.updateTable(params.table, {
-            billingMode: body.billingMode as BillingMode,
-            rcu: body.rcu,
-            wcu: body.wcu,
-            streamEnabled: body.streamEnabled,
-            streamViewType: body.streamViewType as StreamViewType,
-            ttlEnabled: body.ttlEnabled,
-            ttlAttr: body.ttlAttr,
-            deletionProtection: body.deletionProtection,
-          })
+          // On-demand tables report 0 capacity; only provisioned mode needs >= 1.
+          if (
+            body.billingMode === "PROVISIONED" &&
+            (body.rcu < 1 || body.wcu < 1)
+          ) {
+            throw new ServiceError(
+              "InvalidInput",
+              "RCU and WCU must be at least 1 for provisioned billing",
+            )
+          }
+          await deps.updateTable(params.table, body)
         }),
       { body: updateTableSchema },
     )

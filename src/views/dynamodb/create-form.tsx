@@ -3,6 +3,16 @@ import { Html } from "@elysiajs/html"
 import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout } from "../layout"
 
+function KeyTypeOptions() {
+  return (
+    <>
+      <option value="S">S</option>
+      <option value="N">N</option>
+      <option value="B">B</option>
+    </>
+  )
+}
+
 export function CreateTableForm() {
   return (
     <Layout
@@ -75,7 +85,11 @@ export function CreateTableForm() {
 
             <div class="form-row ddb-create-page__form-row--spaced">
               <label class="radio">
-                <input type="checkbox" x-model="hasSk" />
+                <input
+                  type="checkbox"
+                  x-model="hasSk"
+                  {...{ "@change": "$el.checked || (lsi = [])" }}
+                />
                 <span>ソートキーを追加 (SK)</span>
               </label>
             </div>
@@ -217,9 +231,7 @@ export function CreateTableForm() {
                       class="select ddb-create-page__select"
                       x-model="g.pk.type"
                     >
-                      <option value="S">S</option>
-                      <option value="N">N</option>
-                      <option value="B">B</option>
+                      <KeyTypeOptions />
                     </select>
                   </div>
                 </div>
@@ -249,9 +261,7 @@ export function CreateTableForm() {
                       class="select ddb-create-page__select"
                       x-model="g.sk.type"
                     >
-                      <option value="S">S</option>
-                      <option value="N">N</option>
-                      <option value="B">B</option>
+                      <KeyTypeOptions />
                     </select>
                   </div>
                 </div>
@@ -370,9 +380,7 @@ export function CreateTableForm() {
                       class="select ddb-create-page__select"
                       x-model="l.sk.type"
                     >
-                      <option value="S">S</option>
-                      <option value="N">N</option>
-                      <option value="B">B</option>
+                      <KeyTypeOptions />
                     </select>
                   </div>
                 </div>

@@ -73,6 +73,8 @@ export function createCognitoPoolDetailController(
       adding: false,
       removing: false,
       error: null as string | null,
+      // Guards against a slower response for a previously opened group overwriting the current one.
+      fetchSeq: 0,
 
       async show(groupName: string, groupNameEncoded: string) {
         this.groupName = groupName
@@ -85,23 +87,26 @@ export function createCognitoPoolDetailController(
 
       close() {
         this.isOpen = false
+        this.loading = false
         this.users = []
         this.error = null
         this.newUsername = ""
       },
 
       async fetchMembers() {
+        const seq = ++this.fetchSeq
+        const isCurrent = () => seq === this.fetchSeq && this.isOpen
         this.loading = true
         this.error = null
         try {
           const result = await requestJson<{ users: GroupMemberUser[] }>(
             `${props.poolPath}/groups/${this.groupNameEncoded}/users`,
           )
-          this.users = result.users
+          if (isCurrent()) this.users = result.users
         } catch (error) {
-          this.error = errorMessage(error)
+          if (isCurrent()) this.error = errorMessage(error)
         } finally {
-          this.loading = false
+          if (isCurrent()) this.loading = false
         }
       },
 

@@ -3,6 +3,7 @@ import { Html } from "@elysiajs/html"
 import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout } from "../layout"
 import { TagEditor } from "../tag-editor"
+import { queueHref } from "./queue-list"
 import type { SQSSettingsInitial } from "./settings-form-state"
 
 interface SQSSettingsFormProps {
@@ -10,7 +11,7 @@ interface SQSSettingsFormProps {
 }
 
 export function SQSSettingsForm({ init }: SQSSettingsFormProps) {
-  const queuePath = `/sqs/${encodeURIComponent(init.name)}`
+  const queuePath = queueHref(init.name)
 
   return (
     <Layout

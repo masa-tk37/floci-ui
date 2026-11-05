@@ -15,6 +15,12 @@ import { IconPlus, IconSearch, IconTrash } from "../icons"
 import { Layout } from "../layout"
 import { CognitoStatusBadge, EnabledBadge } from "./status-badge"
 
+// The URL parser collapses "." and ".." path segments (even percent-encoded),
+// so a request for such a group would hit the parent route, e.g. pool deletion.
+function isDotSegment(value: string): boolean {
+  return value === "." || value === ".."
+}
+
 interface UserPoolDetailProps {
   pool: UserPoolDetailData
   appClients: AppClientSummary[]
@@ -50,6 +56,80 @@ function renderVerifiedAttributes(values: string[]) {
       <code class="code-inline">{value}</code>
     </>
   ))
+}
+
+interface CreateModalProps {
+  controller: string
+  title: string
+  fields: string[]
+  requiredFields: string[]
+  wide?: boolean
+  children: JSX.Element | JSX.Element[]
+}
+
+function CreateModal({
+  controller,
+  title,
+  fields,
+  requiredFields,
+  wide,
+  children,
+}: CreateModalProps) {
+  const payload = fields
+    .map((field) => `${field}: ${controller}.${field}`)
+    .join(", ")
+  const disabled = [
+    `${controller}.submitting`,
+    ...requiredFields.map((field) => `!${controller}.${field}.trim()`),
+  ].join(" || ")
+
+  return (
+    <div
+      x-show={`${controller}.open`}
+      class="modal-overlay"
+      x-cloak
+      {...{ "@click": `${controller}.close()` }}
+    >
+      <div
+        class={wide ? "modal modal--wide" : "modal"}
+        {...{
+          "@click.stop": "",
+          "@keydown.escape.window": `${controller}.close()`,
+        }}
+      >
+        <h2 class="modal__title" safe>
+          {title}
+        </h2>
+        {children}
+        <div class="error-inline" x-show={`${controller}.error`} x-cloak>
+          <span x-text={`${controller}.error`} />
+        </div>
+        <div class="modal__actions">
+          <button
+            type="button"
+            class="btn btn--primary"
+            {...{
+              "@click": `${controller}.submit({ ${payload} })`,
+              ":disabled": disabled,
+            }}
+          >
+            <span x-show={`!${controller}.submitting`}>追加</span>
+            <span x-show={`${controller}.submitting`}>追加中…</span>
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            {...{
+              "@click": `${controller}.close()`,
+              ":disabled": `${controller}.submitting`,
+            }}
+          >
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function UserPoolDetail({
@@ -185,69 +265,32 @@ export function UserPoolDetail({
               </div>
             )}
           </div>
-          <div
-            x-show="createClient.open"
-            class="modal-overlay"
-            x-cloak
-            {...{ "@click": "createClient.close()" }}
+          <CreateModal
+            controller="createClient"
+            title="App Client を追加"
+            fields={["name"]}
+            requiredFields={["name"]}
           >
-            <div
-              class="modal"
-              {...{
-                "@click.stop": "",
-                "@keydown.escape.window": "createClient.close()",
-              }}
-            >
-              <h2 class="modal__title">App Client を追加</h2>
-              <div class="form-row">
-                <label class="form-label" for="cognito-client-name">
-                  Client 名
-                </label>
-                <input
-                  id="cognito-client-name"
-                  type="text"
-                  class="input"
-                  x-model="createClient.name"
-                  placeholder="local-web"
-                />
-                <p class="form-help">
-                  Client secret は作成せず、
-                  <code class="code-inline">ALLOW_USER_PASSWORD_AUTH</code> /{" "}
-                  <code class="code-inline">ALLOW_REFRESH_TOKEN_AUTH</code> /{" "}
-                  <code class="code-inline">ALLOW_USER_SRP_AUTH</code>{" "}
-                  を有効にします。
-                </p>
-              </div>
-              <div class="error-inline" x-show="createClient.error" x-cloak>
-                <span x-text="createClient.error" />
-              </div>
-              <div class="modal__actions">
-                <button
-                  type="button"
-                  class="btn btn--primary"
-                  {...{
-                    "@click":
-                      "createClient.submit({ name: createClient.name })",
-                    ":disabled":
-                      "createClient.submitting || !createClient.name.trim()",
-                  }}
-                >
-                  <span x-show="!createClient.submitting">追加</span>
-                  <span x-show="createClient.submitting">追加中…</span>
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--ghost"
-                  {...{
-                    "@click": "createClient.close()",
-                    ":disabled": "createClient.submitting",
-                  }}
-                >
-                  キャンセル
-                </button>
-              </div>
+            <div class="form-row">
+              <label class="form-label" for="cognito-client-name">
+                Client 名
+              </label>
+              <input
+                id="cognito-client-name"
+                type="text"
+                class="input"
+                x-model="createClient.name"
+                placeholder="local-web"
+              />
+              <p class="form-help">
+                Client secret は作成せず、
+                <code class="code-inline">ALLOW_USER_PASSWORD_AUTH</code> /{" "}
+                <code class="code-inline">ALLOW_REFRESH_TOKEN_AUTH</code> /{" "}
+                <code class="code-inline">ALLOW_USER_SRP_AUTH</code>{" "}
+                を有効にします。
+              </p>
             </div>
-          </div>
+          </CreateModal>
         </section>
 
         <section class="panel">
@@ -283,34 +326,40 @@ export function UserPoolDetail({
                     {groups.map((group) => (
                       <tr>
                         <td>
-                          <button
-                            type="button"
-                            class="btn btn--link"
-                            data-group-name={escapeHtml(group.name)}
-                            data-group-name-encoded={escapeHtml(
-                              encodeURIComponent(group.name),
-                            )}
-                            {...{
-                              "@click":
-                                "groupMembers.show($el.dataset.groupName, $el.dataset.groupNameEncoded)",
-                            }}
-                          >
+                          {isDotSegment(group.name) ? (
                             <span safe>{group.name}</span>
-                          </button>
+                          ) : (
+                            <button
+                              type="button"
+                              class="btn btn--link"
+                              data-group-name={escapeHtml(group.name)}
+                              data-group-name-encoded={escapeHtml(
+                                encodeURIComponent(group.name),
+                              )}
+                              {...{
+                                "@click":
+                                  "groupMembers.show($el.dataset.groupName, $el.dataset.groupNameEncoded)",
+                              }}
+                            >
+                              <span safe>{group.name}</span>
+                            </button>
+                          )}
                         </td>
                         <td safe>{group.description || PLACEHOLDER}</td>
                         <td>{formatDate(group.createdAt)}</td>
                         <td class="data-table__actions">
-                          <button
-                            type="button"
-                            class="btn btn--danger-ghost btn--sm"
-                            data-floci-delete-trigger=""
-                            data-resource-name={escapeHtml(group.name)}
-                            data-delete-url={`${poolPath}/groups/${encodeURIComponent(group.name)}`}
-                            data-on-success="reload"
-                          >
-                            {IconTrash}削除
-                          </button>
+                          {isDotSegment(group.name) ? null : (
+                            <button
+                              type="button"
+                              class="btn btn--danger-ghost btn--sm"
+                              data-floci-delete-trigger=""
+                              data-resource-name={escapeHtml(group.name)}
+                              data-delete-url={`${poolPath}/groups/${encodeURIComponent(group.name)}`}
+                              data-on-success="reload"
+                            >
+                              {IconTrash}削除
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -319,74 +368,37 @@ export function UserPoolDetail({
               </div>
             )}
           </div>
-          <div
-            x-show="createGroup.open"
-            class="modal-overlay"
-            x-cloak
-            {...{ "@click": "createGroup.close()" }}
+          <CreateModal
+            controller="createGroup"
+            title="Group を追加"
+            fields={["name", "description"]}
+            requiredFields={["name"]}
           >
-            <div
-              class="modal"
-              {...{
-                "@click.stop": "",
-                "@keydown.escape.window": "createGroup.close()",
-              }}
-            >
-              <h2 class="modal__title">Group を追加</h2>
-              <div class="form-row">
-                <label class="form-label" for="cognito-group-name">
-                  グループ名
-                </label>
-                <input
-                  id="cognito-group-name"
-                  type="text"
-                  class="input"
-                  x-model="createGroup.name"
-                  placeholder="admins"
-                />
-              </div>
-              <div class="form-row">
-                <label class="form-label" for="cognito-group-description">
-                  説明（任意）
-                </label>
-                <input
-                  id="cognito-group-description"
-                  type="text"
-                  class="input"
-                  x-model="createGroup.description"
-                  placeholder="管理者グループ"
-                />
-              </div>
-              <div class="error-inline" x-show="createGroup.error" x-cloak>
-                <span x-text="createGroup.error" />
-              </div>
-              <div class="modal__actions">
-                <button
-                  type="button"
-                  class="btn btn--primary"
-                  {...{
-                    "@click":
-                      "createGroup.submit({ name: createGroup.name, description: createGroup.description })",
-                    ":disabled":
-                      "createGroup.submitting || !createGroup.name.trim()",
-                  }}
-                >
-                  <span x-show="!createGroup.submitting">追加</span>
-                  <span x-show="createGroup.submitting">追加中…</span>
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--ghost"
-                  {...{
-                    "@click": "createGroup.close()",
-                    ":disabled": "createGroup.submitting",
-                  }}
-                >
-                  キャンセル
-                </button>
-              </div>
+            <div class="form-row">
+              <label class="form-label" for="cognito-group-name">
+                グループ名
+              </label>
+              <input
+                id="cognito-group-name"
+                type="text"
+                class="input"
+                x-model="createGroup.name"
+                placeholder="admins"
+              />
             </div>
-          </div>
+            <div class="form-row">
+              <label class="form-label" for="cognito-group-description">
+                説明（任意）
+              </label>
+              <input
+                id="cognito-group-description"
+                type="text"
+                class="input"
+                x-model="createGroup.description"
+                placeholder="管理者グループ"
+              />
+            </div>
+          </CreateModal>
         </section>
 
         <div
@@ -584,102 +596,66 @@ export function UserPoolDetail({
               </div>
             )}
           </div>
-          <div
-            x-show="createUser.open"
-            class="modal-overlay"
-            x-cloak
-            {...{ "@click": "createUser.close()" }}
+          <CreateModal
+            controller="createUser"
+            title="User を追加"
+            fields={["username", "temporaryPassword", "email", "phoneNumber"]}
+            requiredFields={["username", "temporaryPassword"]}
+            wide
           >
-            <div
-              class="modal modal--wide"
-              {...{
-                "@click.stop": "",
-                "@keydown.escape.window": "createUser.close()",
-              }}
-            >
-              <h2 class="modal__title">User を追加</h2>
-              <div class="cognito-pool-detail-page__form-grid">
-                <div class="form-row">
-                  <label class="form-label" for="cognito-user-username">
-                    Username
-                  </label>
-                  <input
-                    id="cognito-user-username"
-                    type="text"
-                    class="input"
-                    x-model="createUser.username"
-                    placeholder="alice"
-                  />
-                </div>
-                <div class="form-row">
-                  <label class="form-label" for="cognito-user-temp-password">
-                    Temporary Password
-                  </label>
-                  <input
-                    id="cognito-user-temp-password"
-                    type="password"
-                    class="input"
-                    x-model="createUser.temporaryPassword"
-                    placeholder="TempPassw0rd!"
-                  />
-                </div>
+            <div class="cognito-pool-detail-page__form-grid">
+              <div class="form-row">
+                <label class="form-label" for="cognito-user-username">
+                  Username
+                </label>
+                <input
+                  id="cognito-user-username"
+                  type="text"
+                  class="input"
+                  x-model="createUser.username"
+                  placeholder="alice"
+                />
               </div>
-              <div class="cognito-pool-detail-page__form-grid">
-                <div class="form-row">
-                  <label class="form-label" for="cognito-user-email">
-                    Email
-                  </label>
-                  <input
-                    id="cognito-user-email"
-                    type="email"
-                    class="input"
-                    x-model="createUser.email"
-                    placeholder="alice@example.com"
-                  />
-                </div>
-                <div class="form-row">
-                  <label class="form-label" for="cognito-user-phone">
-                    Phone Number
-                  </label>
-                  <input
-                    id="cognito-user-phone"
-                    type="text"
-                    class="input"
-                    x-model="createUser.phoneNumber"
-                    placeholder="+819012345678"
-                  />
-                </div>
-              </div>
-              <div class="error-inline" x-show="createUser.error" x-cloak>
-                <span x-text="createUser.error" />
-              </div>
-              <div class="modal__actions">
-                <button
-                  type="button"
-                  class="btn btn--primary"
-                  {...{
-                    "@click":
-                      "createUser.submit({ username: createUser.username, temporaryPassword: createUser.temporaryPassword, email: createUser.email, phoneNumber: createUser.phoneNumber })",
-                    ":disabled":
-                      "createUser.submitting || !createUser.username.trim() || !createUser.temporaryPassword.trim()",
-                  }}
-                >
-                  <span x-show="!createUser.submitting">追加</span>
-                  <span x-show="createUser.submitting">追加中…</span>
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--ghost"
-                  {...{
-                    "@click": "createUser.close()",
-                    ":disabled": "createUser.submitting",
-                  }}
-                >
-                  キャンセル
-                </button>
+              <div class="form-row">
+                <label class="form-label" for="cognito-user-temp-password">
+                  Temporary Password
+                </label>
+                <input
+                  id="cognito-user-temp-password"
+                  type="password"
+                  class="input"
+                  x-model="createUser.temporaryPassword"
+                  placeholder="TempPassw0rd!"
+                />
               </div>
             </div>
-          </div>
+            <div class="cognito-pool-detail-page__form-grid">
+              <div class="form-row">
+                <label class="form-label" for="cognito-user-email">
+                  Email
+                </label>
+                <input
+                  id="cognito-user-email"
+                  type="email"
+                  class="input"
+                  x-model="createUser.email"
+                  placeholder="alice@example.com"
+                />
+              </div>
+              <div class="form-row">
+                <label class="form-label" for="cognito-user-phone">
+                  Phone Number
+                </label>
+                <input
+                  id="cognito-user-phone"
+                  type="text"
+                  class="input"
+                  x-model="createUser.phoneNumber"
+                  placeholder="+819012345678"
+                />
+              </div>
+            </div>
+          </CreateModal>
         </section>
       </div>
     </Layout>

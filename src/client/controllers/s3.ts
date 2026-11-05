@@ -155,18 +155,21 @@ export function createS3SettingsController(
           allowedHeaders: rule.allowedHeaders.filter(Boolean),
           maxAge: Number(rule.maxAge) || 0,
         })),
-        lifecycleRules: this.lifecycleRules
-          .filter((rule) => rule.id)
-          .map((rule) => ({
-            id: rule.id,
-            prefix: rule.prefix,
-            expirationDays: Number(rule.expirationDays) || 30,
-          })),
+        lifecycleRules: this.lifecycleRules.map((rule) => ({
+          id: rule.id,
+          prefix: rule.prefix,
+          expirationDays: Number(rule.expirationDays) || 30,
+        })),
       }
     },
 
     async submit() {
       this.warnings = []
+      const blankRule = this.lifecycleRules.findIndex((rule) => !rule.id.trim())
+      if (blankRule !== -1) {
+        this.error = `ライフサイクルルール ${blankRule + 1}: ルール ID を入力してください`
+        return
+      }
       const data = await submitJson<{ warnings?: string[] }>(
         this,
         `/s3/${encodeURIComponent(this.bucket)}/settings`,
@@ -234,6 +237,9 @@ export function createS3ObjectListController(
     propertyETag: "",
     propertyMetadata: "",
     propertyTags: [] as ResourceTag[],
+    // Saving tags is a full overwrite, so it is only safe after the current set was loaded.
+    propertyTagsLoaded: false,
+    propertyLoadedContentType: "",
 
     actionMenuOpen: false,
     actionMenuKind: "",
@@ -352,16 +358,16 @@ export function createS3ObjectListController(
       this.uploadFiles = []
       this.uploadPrefix = this.prefix
       this.isUploadModalOpen = true
-      const uploadInput = (this as unknown as AlpineMagic).$refs.uploadInput as
-        | HTMLInputElement
-        | undefined
-      if (uploadInput) uploadInput.value = ""
+      this._clearUploadInput()
     },
     closeUploadModal(force = false) {
       if (!force && this.uploadSubmitting) return
       this.isUploadModalOpen = false
       this.uploadFiles = []
       this.uploadError = ""
+      this._clearUploadInput()
+    },
+    _clearUploadInput() {
       const uploadInput = (this as unknown as AlpineMagic).$refs.uploadInput as
         | HTMLInputElement
         | undefined
@@ -469,16 +475,9 @@ export function createS3ObjectListController(
 
     async openPropertyModal(key: string) {
       this._closeAllModals()
+      this._resetPropertyFields()
       this.propertyKey = key
-      this.propertyContentType = ""
-      this.propertyError = ""
       this.propertyLoading = true
-      this.propertySubmitting = false
-      this.propertySize = 0
-      this.propertyLastModified = ""
-      this.propertyETag = ""
-      this.propertyMetadata = ""
-      this.propertyTags = []
       this.isPropertyModalOpen = true
 
       try {
@@ -501,6 +500,7 @@ export function createS3ObjectListController(
 
         this.propertyContentType =
           data.value.contentType || "application/octet-stream"
+        this.propertyLoadedContentType = this.propertyContentType
         this.propertySize = data.value.size || 0
         this.propertyLastModified = data.value.lastModified
           ? new Date(data.value.lastModified)
@@ -518,6 +518,7 @@ export function createS3ObjectListController(
 
         if (tagsData.status === "fulfilled") {
           this.propertyTags = [...tagsData.value.tags]
+          this.propertyTagsLoaded = true
         } else {
           this.propertyError = errorMessage(tagsData.reason)
           this.propertyTags = []
@@ -540,6 +541,9 @@ export function createS3ObjectListController(
     closePropertyModal(force = false) {
       if (!force && (this.propertyLoading || this.propertySubmitting)) return
       this.isPropertyModalOpen = false
+      this._resetPropertyFields()
+    },
+    _resetPropertyFields() {
       this.propertyKey = ""
       this.propertyContentType = ""
       this.propertyError = ""
@@ -550,6 +554,8 @@ export function createS3ObjectListController(
       this.propertyETag = ""
       this.propertyMetadata = ""
       this.propertyTags = []
+      this.propertyTagsLoaded = false
+      this.propertyLoadedContentType = ""
     },
     addPropertyTag() {
       this.propertyTags.push({ key: "", value: "" })
@@ -563,18 +569,26 @@ export function createS3ObjectListController(
         this.propertyError = "Content-Type を入力してください"
         return
       }
+      const contentTypeChanged =
+        contentType.toLowerCase() !==
+        this.propertyLoadedContentType.trim().toLowerCase()
+      if (!contentTypeChanged && !this.propertyTagsLoaded) return
       this.propertySubmitting = true
-      this.propertyError = ""
+      if (this.propertyTagsLoaded) this.propertyError = ""
       try {
         // Tags go second: the content-type update self-copies the object, which would carry over the old tags.
-        await sendJson(objectPropertiesPath, {
-          key: this.propertyKey,
-          contentType,
-        })
-        await sendJson(objectTagsPath, {
-          key: this.propertyKey,
-          tags: this.propertyTags,
-        })
+        if (contentTypeChanged) {
+          await sendJson(objectPropertiesPath, {
+            key: this.propertyKey,
+            contentType,
+          })
+        }
+        if (this.propertyTagsLoaded) {
+          await sendJson(objectTagsPath, {
+            key: this.propertyKey,
+            tags: this.propertyTags,
+          })
+        }
         this.propertySubmitting = false
         this.closePropertyModal()
         window.location.reload()
@@ -674,6 +688,14 @@ export function createS3PreviewController(
 
       if (!statusEl || !pagesEl) return
 
+      const showError = (error: unknown) => {
+        statusEl.textContent =
+          error instanceof Error
+            ? error.message
+            : "PDF をプレビューできませんでした"
+        statusEl.classList.add("s3-preview-page__pdf-status--error")
+      }
+
       try {
         const pdfjsLib = await import("pdfjs-dist")
         pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -683,11 +705,12 @@ export function createS3PreviewController(
           .promise
         statusEl.textContent = `${pdf.numPages} ページを読み込みました`
 
-        const outputScale = window.devicePixelRatio || 1
+        // Capped and rendered on demand: eager full-DPR canvases for every page exhaust memory on long PDFs.
+        const outputScale = Math.min(window.devicePixelRatio || 1, 2)
         const containerWidth = pagesEl.clientWidth || 960
         const maxCssScale = 2
 
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        const renderPage = async (pageNumber: number, section: HTMLElement) => {
           const page = await pdf.getPage(pageNumber)
           const baseViewport = page.getViewport({ scale: 1 })
           const cssScale = Math.min(
@@ -707,17 +730,8 @@ export function createS3PreviewController(
           canvas.style.width = `${Math.floor(cssViewport.width)}px`
           canvas.style.height = `${Math.floor(cssViewport.height)}px`
           canvas.className = "s3-preview-page__pdf-page"
-
-          const section = document.createElement("section")
-          section.className = "s3-preview-page__pdf-sheet"
-
-          const label = document.createElement("p")
-          label.className = "s3-preview-page__pdf-label"
-          label.textContent = `Page ${pageNumber}`
-
-          section.appendChild(label)
+          section.style.minHeight = ""
           section.appendChild(canvas)
-          pagesEl.appendChild(section)
 
           const transform: number[] | undefined =
             outputScale !== 1
@@ -729,13 +743,46 @@ export function createS3PreviewController(
             viewport: cssViewport,
             transform,
           }).promise
+          page.cleanup()
+        }
+
+        const firstPage = await pdf.getPage(1)
+        const firstViewport = firstPage.getViewport({ scale: 1 })
+        const placeholderHeight = Math.floor(
+          firstViewport.height *
+            Math.min(containerWidth / firstViewport.width, maxCssScale),
+        )
+
+        const observer = new IntersectionObserver(
+          (observed) => {
+            for (const entry of observed) {
+              if (!entry.isIntersecting) continue
+              observer.unobserve(entry.target)
+              const section = entry.target as HTMLElement
+              renderPage(Number(section.dataset.pageNumber), section).catch(
+                showError,
+              )
+            }
+          },
+          { rootMargin: "200% 0px" },
+        )
+
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          const section = document.createElement("section")
+          section.className = "s3-preview-page__pdf-sheet"
+          section.dataset.pageNumber = String(pageNumber)
+          section.style.minHeight = `${placeholderHeight}px`
+
+          const label = document.createElement("p")
+          label.className = "s3-preview-page__pdf-label"
+          label.textContent = `Page ${pageNumber}`
+
+          section.appendChild(label)
+          pagesEl.appendChild(section)
+          observer.observe(section)
         }
       } catch (error) {
-        statusEl.textContent =
-          error instanceof Error
-            ? error.message
-            : "PDF をプレビューできませんでした"
-        statusEl.classList.add("s3-preview-page__pdf-status--error")
+        showError(error)
       }
     },
   }

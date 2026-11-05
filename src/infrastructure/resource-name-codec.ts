@@ -12,6 +12,10 @@ export function decodeResourceName(encoded: string): string {
     if (!decoded) {
       throw new Error("Empty resource name")
     }
+    // Buffer skips invalid characters and padding, so only the canonical form is accepted.
+    if (encodeResourceName(decoded) !== encoded) {
+      throw new Error("Non-canonical resource identifier")
+    }
     return decoded
   } catch (error) {
     throw new ServiceError("InvalidInput", "Invalid resource identifier", error)

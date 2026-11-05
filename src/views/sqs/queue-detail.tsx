@@ -4,8 +4,9 @@ import { ClientProps, mountComponentAttrs } from "../client"
 import { CopyButton } from "../copy-button"
 import { IconPlus, IconSettings } from "../icons"
 import { Layout } from "../layout"
+import { Modal } from "../modal"
 import { ResourceRail } from "../resource-rail"
-import type { QueueSummary } from "./queue-list"
+import { type QueueSummary, queueHref } from "./queue-list"
 
 export interface QueueAttributes {
   depth: number
@@ -39,11 +40,11 @@ export function QueueDetail({
   attributes,
   messages,
 }: QueueDetailProps) {
-  const queuePath = `/sqs/${encodeURIComponent(name)}`
+  const queuePath = queueHref(name)
   const isFifo = name.endsWith(".fifo")
   const queueRailItems = queues.map((queue) => ({
     label: queue.name,
-    href: `/sqs/${encodeURIComponent(queue.name)}`,
+    href: queueHref(queue.name),
     active: queue.name === name,
     filterText: `${queue.name} ${queue.dlqName ?? ""}`,
     meta: (
@@ -95,11 +96,13 @@ export function QueueDetail({
                   <span safe>{name}</span>
                 </h1>
                 {attributes.queueArn ? (
-                  <p class="page-subtitle" safe>
-                    {attributes.queueArn}
-                  </p>
+                  <>
+                    <p class="page-subtitle" safe>
+                      {attributes.queueArn}
+                    </p>
+                    <CopyButton />
+                  </>
                 ) : null}
-                {attributes.queueArn ? <CopyButton /> : null}
               </div>
               <div class="page-header__actions">
                 <a
@@ -228,163 +231,145 @@ export function QueueDetail({
                     </tbody>
                   </table>
                 </div>
-                <div
-                  x-show="open"
-                  class="modal-overlay"
-                  x-cloak
-                  {...{ "@click": "close()" }}
-                >
-                  <div
-                    class="modal modal--wide"
-                    {...{
-                      "@click.stop": "",
-                      "@keydown.escape.window": "close()",
-                    }}
-                  >
-                    <div class="modal__header-row">
-                      <h2 class="modal__title">メッセージを送信</h2>
-                      <div class="modal__tab-toggle">
-                        <button
-                          type="button"
-                          class="btn btn--sm"
-                          {...{
-                            ":class":
-                              "!batchMode ? 'btn--primary' : 'btn--ghost'",
-                            "@click": "batchMode = false",
-                          }}
-                        >
-                          1件
-                        </button>
-                        <button
-                          type="button"
-                          class="btn btn--sm"
-                          {...{
-                            ":class":
-                              "batchMode ? 'btn--primary' : 'btn--ghost'",
-                            "@click": "batchMode = true",
-                          }}
-                        >
-                          バッチ
-                        </button>
-                      </div>
-                    </div>
-
-                    <div x-show="!batchMode">
-                      <form
-                        class="send-form send-form--modal"
-                        {...{ "@submit.prevent": "send()" }}
+                <Modal show="open" close="close()" wide>
+                  <div class="modal__header-row">
+                    <h2 class="modal__title">メッセージを送信</h2>
+                    <div class="modal__tab-toggle">
+                      <button
+                        type="button"
+                        class="btn btn--sm"
+                        {...{
+                          ":class":
+                            "!batchMode ? 'btn--primary' : 'btn--ghost'",
+                          "@click": "batchMode = false",
+                        }}
                       >
-                        <textarea
-                          rows="6"
-                          placeholder="Message body (text or JSON)"
-                          required
-                          x-model="body"
-                          class="send-form__textarea"
-                        />
-                        <template x-if="isFifo">
-                          <div class="form-row sqs-queue-detail-page__group-row">
-                            <label class="form-label" for="sqs-group-id">
-                              Message Group ID{" "}
-                              <span class="form-label__hint">(FIFO 必須)</span>
-                            </label>
-                            <input
-                              id="sqs-group-id"
-                              type="text"
-                              class="input"
-                              x-model="groupId"
-                              placeholder="my-group"
-                            />
-                          </div>
-                        </template>
-                        <template x-if="requiresDeduplicationId">
-                          <div class="form-row sqs-queue-detail-page__group-row">
-                            <label
-                              class="form-label"
-                              for="sqs-deduplication-id"
-                            >
-                              Message Deduplication ID{" "}
-                              <span class="form-label__hint">
-                                (content-based dedup 無効時に必須)
-                              </span>
-                            </label>
-                            <input
-                              id="sqs-deduplication-id"
-                              type="text"
-                              class="input"
-                              x-model="deduplicationId"
-                              placeholder="my-dedup-id"
-                            />
-                          </div>
-                        </template>
-                        <div class="error-inline" x-show="error" x-cloak>
-                          <strong>エラー:</strong> <span x-text="error" />
-                        </div>
-                        <div class="modal__actions">
-                          <button
-                            type="submit"
-                            class="btn btn--primary"
-                            {...{
-                              ":disabled":
-                                "sending || !body || (isFifo && !groupId) || (requiresDeduplicationId && !deduplicationId)",
-                            }}
-                          >
-                            <span x-show="!sending">送信</span>
-                            <span x-show="sending">送信中…</span>
-                          </button>
-                          <button
-                            type="button"
-                            class="btn btn--ghost"
-                            {...{ "@click": "close()", ":disabled": "sending" }}
-                          >
-                            キャンセル
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-
-                    <div x-show="batchMode">
-                      <form
-                        class="send-form send-form--modal"
-                        {...{ "@submit.prevent": "sendBatch()" }}
+                        1件
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn--sm"
+                        {...{
+                          ":class": "batchMode ? 'btn--primary' : 'btn--ghost'",
+                          "@click": "batchMode = true",
+                        }}
                       >
-                        <p class="form-hint">1行 = 1メッセージ（最大10件）</p>
-                        <textarea
-                          rows="8"
-                          placeholder={"メッセージ1\nメッセージ2\nメッセージ3"}
-                          required
-                          x-model="batchBodies"
-                          class="send-form__textarea"
-                        />
-                        <div class="error-inline" x-show="batchError" x-cloak>
-                          <strong>エラー:</strong> <span x-text="batchError" />
-                        </div>
-                        <div class="modal__actions">
-                          <button
-                            type="submit"
-                            class="btn btn--primary"
-                            {...{
-                              ":disabled":
-                                "batchSending || !batchBodies.trim()",
-                            }}
-                          >
-                            <span x-show="!batchSending">バッチ送信</span>
-                            <span x-show="batchSending">送信中…</span>
-                          </button>
-                          <button
-                            type="button"
-                            class="btn btn--ghost"
-                            {...{
-                              "@click": "close()",
-                              ":disabled": "batchSending",
-                            }}
-                          >
-                            キャンセル
-                          </button>
-                        </div>
-                      </form>
+                        バッチ
+                      </button>
                     </div>
                   </div>
-                </div>
+
+                  <div x-show="!batchMode">
+                    <form
+                      class="send-form send-form--modal"
+                      {...{ "@submit.prevent": "send()" }}
+                    >
+                      <textarea
+                        rows="6"
+                        placeholder="Message body (text or JSON)"
+                        required
+                        x-model="body"
+                        class="send-form__textarea"
+                      />
+                      <template x-if="isFifo">
+                        <div class="form-row sqs-queue-detail-page__group-row">
+                          <label class="form-label" for="sqs-group-id">
+                            Message Group ID{" "}
+                            <span class="form-label__hint">(FIFO 必須)</span>
+                          </label>
+                          <input
+                            id="sqs-group-id"
+                            type="text"
+                            class="input"
+                            x-model="groupId"
+                            placeholder="my-group"
+                          />
+                        </div>
+                      </template>
+                      <template x-if="requiresDeduplicationId">
+                        <div class="form-row sqs-queue-detail-page__group-row">
+                          <label class="form-label" for="sqs-deduplication-id">
+                            Message Deduplication ID{" "}
+                            <span class="form-label__hint">
+                              (content-based dedup 無効時に必須)
+                            </span>
+                          </label>
+                          <input
+                            id="sqs-deduplication-id"
+                            type="text"
+                            class="input"
+                            x-model="deduplicationId"
+                            placeholder="my-dedup-id"
+                          />
+                        </div>
+                      </template>
+                      <div class="error-inline" x-show="error" x-cloak>
+                        <strong>エラー:</strong> <span x-text="error" />
+                      </div>
+                      <div class="modal__actions">
+                        <button
+                          type="submit"
+                          class="btn btn--primary"
+                          {...{
+                            ":disabled":
+                              "sending || !body || (isFifo && !groupId) || (requiresDeduplicationId && !deduplicationId)",
+                          }}
+                        >
+                          <span x-show="!sending">送信</span>
+                          <span x-show="sending">送信中…</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn--ghost"
+                          {...{ "@click": "close()", ":disabled": "sending" }}
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div x-show="batchMode">
+                    <form
+                      class="send-form send-form--modal"
+                      {...{ "@submit.prevent": "sendBatch()" }}
+                    >
+                      <p class="form-hint">1行 = 1メッセージ（最大10件）</p>
+                      <textarea
+                        rows="8"
+                        placeholder={"メッセージ1\nメッセージ2\nメッセージ3"}
+                        required
+                        x-model="batchBodies"
+                        class="send-form__textarea"
+                      />
+                      <div class="error-inline" x-show="batchError" x-cloak>
+                        <strong>エラー:</strong> <span x-text="batchError" />
+                      </div>
+                      <div class="modal__actions">
+                        <button
+                          type="submit"
+                          class="btn btn--primary"
+                          {...{
+                            ":disabled": "batchSending || !batchBodies.trim()",
+                          }}
+                        >
+                          <span x-show="!batchSending">バッチ送信</span>
+                          <span x-show="batchSending">送信中…</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn--ghost"
+                          {...{
+                            "@click": "close()",
+                            ":disabled": "batchSending",
+                          }}
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </Modal>
               </section>
 
               <template x-if="selectedMsg">

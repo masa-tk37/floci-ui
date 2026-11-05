@@ -11,7 +11,6 @@ mock.module("../../infrastructure/floci-clients", () => ({
 }))
 
 import {
-  clearKeyInfoCache,
   createTable,
   deleteItem,
   deleteTable,
@@ -25,9 +24,20 @@ import {
 } from "./table-service"
 
 beforeEach(() => {
-  mockSend.mockClear()
-  clearKeyInfoCache()
+  mockSend.mockReset()
+  mockSend.mockImplementation(() => Promise.resolve({}))
 })
+
+function sentInputs(): Record<string, unknown>[] {
+  return (mockSend.mock.calls as unknown[][]).map(
+    (call) => (call[0] as { input: Record<string, unknown> }).input,
+  )
+}
+
+const notFoundError = () =>
+  Object.assign(new Error("Requested resource not found"), {
+    name: "ResourceNotFoundException",
+  })
 
 describe("listTables", () => {
   it("should return table names", async () => {
@@ -76,6 +86,80 @@ describe("getTableDetail", () => {
     expect(result.tableName).toBe("my-table")
     expect(result.billingMode).toBe("PAY_PER_REQUEST")
     expect(result.ttlEnabled).toBe(false)
+  })
+
+  it("falls back to 5 RCU/WCU when an on-demand table reports 0", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        Table: {
+          BillingModeSummary: { BillingMode: "PAY_PER_REQUEST" },
+          ProvisionedThroughput: {
+            ReadCapacityUnits: 0,
+            WriteCapacityUnits: 0,
+          },
+        },
+      })
+      .mockResolvedValueOnce({ TimeToLiveDescription: {} })
+    const result = await getTableDetail("my-table")
+    expect(result.rcu).toBe(5)
+    expect(result.wcu).toBe(5)
+  })
+
+  it("infers PROVISIONED when BillingModeSummary is absent but capacity is set", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        Table: {
+          ProvisionedThroughput: {
+            ReadCapacityUnits: 3,
+            WriteCapacityUnits: 4,
+          },
+        },
+      })
+      .mockResolvedValueOnce({ TimeToLiveDescription: {} })
+    const result = await getTableDetail("my-table")
+    expect(result.billingMode).toBe("PROVISIONED")
+    expect(result.rcu).toBe(3)
+    expect(result.wcu).toBe(4)
+  })
+
+  it("treats ENABLING TTL as enabled", async () => {
+    mockSend.mockResolvedValueOnce({ Table: {} }).mockResolvedValueOnce({
+      TimeToLiveDescription: {
+        TimeToLiveStatus: "ENABLING",
+        AttributeName: "expiresAt",
+      },
+    })
+    const result = await getTableDetail("my-table")
+    expect(result.ttlEnabled).toBe(true)
+    expect(result.ttlAttr).toBe("expiresAt")
+  })
+
+  it("propagates DescribeTimeToLive failures other than unsupported operation", async () => {
+    mockSend
+      .mockResolvedValueOnce({ Table: {} })
+      .mockRejectedValueOnce(new Error("throttled"))
+    await expect(getTableDetail("my-table")).rejects.toMatchObject({
+      code: "OperationFailed",
+    })
+  })
+
+  it("tolerates an emulator without DescribeTimeToLive", async () => {
+    mockSend.mockResolvedValueOnce({ Table: {} }).mockRejectedValueOnce(
+      Object.assign(new Error("unknown"), {
+        name: "UnknownOperationException",
+      }),
+    )
+    const result = await getTableDetail("my-table")
+    expect(result.ttlEnabled).toBe(false)
+  })
+
+  it("maps a missing table to NotFound", async () => {
+    mockSend
+      .mockRejectedValueOnce(notFoundError())
+      .mockResolvedValueOnce({ TimeToLiveDescription: {} })
+    await expect(getTableDetail("missing")).rejects.toMatchObject({
+      code: "NotFound",
+    })
   })
 })
 
@@ -140,21 +224,120 @@ describe("deleteTable", () => {
 })
 
 describe("updateTable", () => {
-  it("should call UpdateTableCommand and UpdateTimeToLiveCommand", async () => {
-    mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({})
-    await expect(
-      updateTable("my-table", {
-        billingMode: "PAY_PER_REQUEST",
-        rcu: 5,
-        wcu: 5,
-        streamEnabled: false,
-        streamViewType: "NEW_AND_OLD_IMAGES",
-        ttlEnabled: false,
-        ttlAttr: "",
-        deletionProtection: false,
-      }),
-    ).resolves.toBeUndefined()
+  const provisionedWithStream = {
+    Table: {
+      BillingModeSummary: { BillingMode: "PROVISIONED" },
+      ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+      StreamSpecification: {
+        StreamEnabled: true,
+        StreamViewType: "NEW_AND_OLD_IMAGES",
+      },
+      DeletionProtectionEnabled: false,
+    },
+  }
+  const unchangedInput = {
+    billingMode: "PROVISIONED" as const,
+    rcu: 5,
+    wcu: 5,
+    streamEnabled: true,
+    streamViewType: "NEW_AND_OLD_IMAGES" as const,
+    ttlEnabled: true,
+    ttlAttr: "expiresAt",
+    deletionProtection: false,
+  }
+  const enabledTtl = {
+    TimeToLiveDescription: {
+      TimeToLiveStatus: "ENABLED",
+      AttributeName: "expiresAt",
+    },
+  }
+
+  it("sends only the fields that changed", async () => {
+    mockSend
+      .mockResolvedValueOnce(provisionedWithStream)
+      .mockResolvedValueOnce(enabledTtl)
+      .mockResolvedValueOnce({})
+    await updateTable("my-table", {
+      ...unchangedInput,
+      deletionProtection: true,
+    })
+    expect(mockSend).toHaveBeenCalledTimes(3)
+    const update = sentInputs()[2]
+    expect(update).toMatchObject({ DeletionProtectionEnabled: true })
+    expect(update.BillingMode).toBeUndefined()
+    expect(update.ProvisionedThroughput).toBeUndefined()
+    expect(update.StreamSpecification).toBeUndefined()
+  })
+
+  it("skips both updates when nothing changed", async () => {
+    mockSend
+      .mockResolvedValueOnce(provisionedWithStream)
+      .mockResolvedValueOnce(enabledTtl)
+    await updateTable("my-table", unchangedInput)
     expect(mockSend).toHaveBeenCalledTimes(2)
+  })
+
+  it("updates only TTL when only TTL changed, naming the current attribute", async () => {
+    mockSend
+      .mockResolvedValueOnce(provisionedWithStream)
+      .mockResolvedValueOnce(enabledTtl)
+      .mockResolvedValueOnce({})
+    await updateTable("my-table", {
+      ...unchangedInput,
+      ttlEnabled: false,
+      ttlAttr: "",
+    })
+    expect(mockSend).toHaveBeenCalledTimes(3)
+    expect(sentInputs()[2]).toMatchObject({
+      TimeToLiveSpecification: { Enabled: false, AttributeName: "expiresAt" },
+    })
+  })
+
+  it("surfaces UpdateTimeToLive failures", async () => {
+    mockSend
+      .mockResolvedValueOnce(provisionedWithStream)
+      .mockResolvedValueOnce(enabledTtl)
+      .mockRejectedValueOnce(
+        Object.assign(new Error("TimeToLive is already enabled"), {
+          name: "ValidationException",
+        }),
+      )
+    await expect(
+      updateTable("my-table", { ...unchangedInput, ttlAttr: "ttl" }),
+    ).rejects.toMatchObject({ code: "OperationFailed" })
+  })
+
+  it("ignores UpdateTimeToLive when the emulator does not implement it", async () => {
+    mockSend
+      .mockResolvedValueOnce(provisionedWithStream)
+      .mockResolvedValueOnce(enabledTtl)
+      .mockRejectedValueOnce(
+        Object.assign(new Error("unknown"), {
+          name: "UnknownOperationException",
+        }),
+      )
+    await expect(
+      updateTable("my-table", { ...unchangedInput, ttlAttr: "ttl" }),
+    ).resolves.toBeUndefined()
+  })
+
+  it("sends BillingMode and capacity when switching to PROVISIONED", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        Table: { BillingModeSummary: { BillingMode: "PAY_PER_REQUEST" } },
+      })
+      .mockResolvedValueOnce({ TimeToLiveDescription: {} })
+      .mockResolvedValueOnce({})
+    await updateTable("my-table", {
+      ...unchangedInput,
+      streamEnabled: false,
+      ttlEnabled: false,
+      ttlAttr: "",
+    })
+    expect(sentInputs()[2]).toMatchObject({
+      BillingMode: "PROVISIONED",
+      ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+    })
   })
 })
 
@@ -217,6 +400,31 @@ describe("queryItems", () => {
     expect(result.items).toHaveLength(0)
   })
 
+  it.each([['"abc"'], ["[1,2]"], ['{"id": "x"}']])(
+    "rejects ExpressionAttributeValues %s as InvalidInput",
+    async (json) => {
+      await expect(
+        queryItems("my-table", {
+          mode: "scan",
+          expressionAttributeValuesJson: json,
+        }),
+      ).rejects.toMatchObject({ code: "InvalidInput" })
+      expect(mockSend).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each([['{"name": "n"}'], ['{"#n": 1}']])(
+    "rejects ExpressionAttributeNames %s as InvalidInput",
+    async (json) => {
+      await expect(
+        queryItems("my-table", {
+          mode: "scan",
+          expressionAttributeNamesJson: json,
+        }),
+      ).rejects.toMatchObject({ code: "InvalidInput" })
+    },
+  )
+
   it("should throw ServiceError InvalidInput when keyConditionExpression missing for query mode", async () => {
     await expect(
       queryItems("my-table", { mode: "query" }),
@@ -276,7 +484,28 @@ describe("saveItem", () => {
     expect((calls[2]?.[0] as { input?: unknown })?.input).toMatchObject({
       TableName: "my-table",
       Item: { id: { S: "pk-value" }, email: { S: "user@example.com" } },
+      ConditionExpression: "attribute_exists(#hashKey)",
+      ExpressionAttributeNames: { "#hashKey": "id" },
     })
+  })
+
+  it("returns NotFound instead of recreating an item deleted meanwhile", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        Table: {
+          KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+          AttributeDefinitions: [{ AttributeName: "id", AttributeType: "S" }],
+        },
+      })
+      .mockResolvedValueOnce({ Item: undefined })
+      .mockRejectedValueOnce(
+        Object.assign(new Error("The conditional request failed"), {
+          name: "ConditionalCheckFailedException",
+        }),
+      )
+    await expect(
+      saveItem("my-table", "pk-value", { id: "pk-value" }),
+    ).rejects.toMatchObject({ code: "NotFound" })
   })
 
   it("should refuse to save an item holding Binary or Set attributes", async () => {
@@ -428,8 +657,8 @@ describe("saveItem (sort key change)", () => {
   })
 })
 
-describe("deleteTable (cache eviction)", () => {
-  it("re-issues DescribeTableCommand after deleteTable clears the cache", async () => {
+describe("key schema lookup", () => {
+  it("picks up a key schema changed outside the UI", async () => {
     mockSend
       .mockResolvedValueOnce({
         Table: {
@@ -437,27 +666,73 @@ describe("deleteTable (cache eviction)", () => {
           AttributeDefinitions: [{ AttributeName: "id", AttributeType: "S" }],
         },
       })
-      .mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined })
-
-    await scanItems("my-table")
-    expect(mockSend).toHaveBeenCalledTimes(2)
-
-    mockSend.mockClear()
-    mockSend.mockResolvedValueOnce({})
-    await deleteTable("my-table")
-    expect(mockSend).toHaveBeenCalledTimes(1)
+      .mockResolvedValueOnce({})
+    await deleteItem("orders", "a")
+    expect(sentInputs()[1]).toMatchObject({ Key: { id: { S: "a" } } })
 
     mockSend.mockClear()
     mockSend
       .mockResolvedValueOnce({
         Table: {
-          KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
-          AttributeDefinitions: [{ AttributeName: "id", AttributeType: "S" }],
+          KeySchema: [{ AttributeName: "pk", KeyType: "HASH" }],
+          AttributeDefinitions: [{ AttributeName: "pk", AttributeType: "S" }],
         },
       })
-      .mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined })
+      .mockResolvedValueOnce({})
+    await deleteItem("orders", "a")
+    expect(sentInputs()[1]).toMatchObject({ Key: { pk: { S: "a" } } })
+  })
 
-    await scanItems("my-table")
-    expect(mockSend).toHaveBeenCalledTimes(2)
+  it("maps a missing table to NotFound in item operations", async () => {
+    mockSend.mockRejectedValueOnce(notFoundError())
+    await expect(deleteItem("missing", "a")).rejects.toMatchObject({
+      code: "NotFound",
+    })
+  })
+
+  it("maps a missing table to NotFound in scanItems", async () => {
+    mockSend
+      .mockRejectedValueOnce(notFoundError())
+      .mockRejectedValueOnce(notFoundError())
+    await expect(scanItems("missing")).rejects.toMatchObject({
+      code: "NotFound",
+    })
+  })
+})
+
+describe("binary keys", () => {
+  const binaryKeyTable = {
+    Table: {
+      KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+      AttributeDefinitions: [{ AttributeName: "id", AttributeType: "B" }],
+    },
+  }
+
+  it("sends a base64 route key as B", async () => {
+    mockSend
+      .mockResolvedValueOnce(binaryKeyTable)
+      .mockResolvedValueOnce({ Item: { id: { B: new Uint8Array([0, 1, 2]) } } })
+    const result = await getItem("bin", "AAEC")
+    const key = sentInputs()[1].Key as { id: { B: Uint8Array } }
+    expect(Array.from(key.id.B)).toEqual([0, 1, 2])
+    expect(result.item.id).toBe("AAEC")
+  })
+
+  it("saves an item whose key is binary without tripping the lossy guard", async () => {
+    mockSend
+      .mockResolvedValueOnce(binaryKeyTable)
+      .mockResolvedValueOnce({
+        Item: { id: { B: new Uint8Array([0, 1, 2]) }, name: { S: "x" } },
+      })
+      .mockResolvedValueOnce({})
+    await expect(
+      saveItem("bin", "AAEC", { id: "AAEC", name: "y" }),
+    ).resolves.toBeUndefined()
+    const put = sentInputs()[2].Item as {
+      id: { B: Uint8Array }
+      name: { S: string }
+    }
+    expect(Array.from(put.id.B)).toEqual([0, 1, 2])
+    expect(put.name).toEqual({ S: "y" })
   })
 })

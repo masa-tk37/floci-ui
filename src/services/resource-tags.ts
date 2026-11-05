@@ -16,7 +16,7 @@ export function normalizeTags(tags: ResourceTag[] | undefined): ResourceTag[] {
   for (const tag of tags ?? []) {
     const key = tag.key.trim()
     if (!key) continue
-    map.set(key, tag.value.trim())
+    map.set(key, tag.value)
   }
 
   return [...map.entries()].map(([key, value]) => ({ key, value }))

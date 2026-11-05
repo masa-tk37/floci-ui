@@ -1,5 +1,6 @@
 import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
+import { ServiceError } from "../errors"
 import {
   createQueue,
   deleteMessage,
@@ -19,7 +20,7 @@ import { CreateQueueForm } from "../views/sqs/create-form"
 import { QueueDetail } from "../views/sqs/queue-detail"
 import { QueueList } from "../views/sqs/queue-list"
 import { SQSSettingsForm } from "../views/sqs/settings-form"
-import { jsonData, runJsonAction } from "./route-utils"
+import { jsonData, loadRailItems, runJsonAction } from "./route-utils"
 
 const stringRecordSchema = t.Record(t.String(), t.String())
 
@@ -30,9 +31,23 @@ const createQueueSchema = t.Object({
 })
 
 const updateQueueSettingsSchema = t.Object({
-  attributes: t.Optional(stringRecordSchema),
-  tags: t.Optional(stringRecordSchema),
+  attributes: stringRecordSchema,
+  tags: stringRecordSchema,
 })
+
+function withBatchEntryIds<T extends { id?: string }>(
+  entries: T[],
+): (T & { id: string })[] {
+  const used = new Set(entries.flatMap((e) => (e.id ? [e.id] : [])))
+  let next = 0
+  return entries.map((e) => {
+    if (e.id) return { ...e, id: e.id }
+    while (used.has(`msg-${next}`)) next++
+    const id = `msg-${next}`
+    used.add(id)
+    return { ...e, id }
+  })
+}
 
 const defaultSqsRouteDeps = {
   createQueue,
@@ -83,8 +98,8 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
         runJsonAction(set, async () => {
           await deps.updateQueueSettings(
             params.queue,
-            body.attributes ?? {},
-            body.tags ?? {},
+            body.attributes,
+            body.tags,
           )
         }),
       { body: updateQueueSettingsSchema },
@@ -92,7 +107,7 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
     .get("/:queue", async ({ params }) => {
       const [detail, queues] = await Promise.all([
         deps.getQueueDetail(params.queue),
-        deps.listQueues(),
+        loadRailItems(deps.listQueues),
       ])
       return (
         <QueueDetail
@@ -125,22 +140,32 @@ export function createSqsRoutes(deps: SqsRouteDeps = defaultSqsRouteDeps) {
     .post(
       "/:queue/send-batch",
       async ({ params, body, set }) =>
-        runJsonAction(set, async () => ({
-          result: await deps.sendMessageBatch(
+        runJsonAction(set, async () => {
+          const result = await deps.sendMessageBatch(
             params.queue,
-            body.entries.map((e, i) => ({
-              id: e.id ?? `msg-${i}`,
+            withBatchEntryIds(body.entries).map((e) => ({
+              id: e.id,
               body: e.body,
               messageGroupId: e.groupId,
               messageDeduplicationId: e.messageDeduplicationId,
             })),
-          ),
-        })),
+          )
+          // Partial failures stay ok: the sent entries must not be resent on retry.
+          if (result.successful.length === 0 && result.failed.length > 0) {
+            throw new ServiceError(
+              "OperationFailed",
+              `All ${result.failed.length} message(s) failed: ${result.failed
+                .map((f) => `${f.id}: ${f.message ?? f.code}`)
+                .join("; ")}`,
+            )
+          }
+          return { result }
+        }),
       {
         body: t.Object({
           entries: t.Array(
             t.Object({
-              id: t.Optional(t.String()),
+              id: t.Optional(t.String({ pattern: "^[A-Za-z0-9_-]{1,80}$" })),
               body: t.String({ minLength: 1 }),
               groupId: t.Optional(t.String()),
               messageDeduplicationId: t.Optional(t.String()),

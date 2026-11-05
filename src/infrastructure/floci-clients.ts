@@ -19,45 +19,26 @@ const credentials = { accessKeyId: "test", secretAccessKey: "test" }
  */
 const requestHandler = { connectionTimeout: 3_000, requestTimeout: 10_000 }
 
-export const dynamodb = new DynamoDBClient({
+const clientConfig = {
   endpoint: FLOCI_ENDPOINT,
   region: FLOCI_REGION,
   credentials,
   requestHandler,
-})
+}
+
+export const dynamodb = new DynamoDBClient(clientConfig)
 
 export const s3 = new S3Client({
-  endpoint: FLOCI_ENDPOINT,
-  region: FLOCI_REGION,
-  credentials,
+  ...clientConfig,
   forcePathStyle: true,
-  requestHandler,
 })
 
-export const sqs = new SQSClient({
-  endpoint: FLOCI_ENDPOINT,
-  region: FLOCI_REGION,
-  credentials,
-  requestHandler,
-})
+export const sqs = new SQSClient(clientConfig)
 
-export const ssm = new SSMClient({
-  endpoint: FLOCI_ENDPOINT,
-  region: FLOCI_REGION,
-  credentials,
-  requestHandler,
-})
+export const ssm = new SSMClient(clientConfig)
 
-export const secretsManager = new SecretsManagerClient({
-  endpoint: FLOCI_ENDPOINT,
-  region: FLOCI_REGION,
-  credentials,
-  requestHandler,
-})
+export const secretsManager = new SecretsManagerClient(clientConfig)
 
-export const cognitoIdentityProvider = new CognitoIdentityProviderClient({
-  endpoint: FLOCI_ENDPOINT,
-  region: FLOCI_REGION,
-  credentials,
-  requestHandler,
-})
+export const cognitoIdentityProvider = new CognitoIdentityProviderClient(
+  clientConfig,
+)

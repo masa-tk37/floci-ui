@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { formatBytes, PLACEHOLDER } from "./format"
+import { formatBytes, formatJsonValue, PLACEHOLDER } from "./format"
 
 describe("formatBytes", () => {
   it("falls back to the placeholder when the size is unknown", () => {
@@ -16,5 +16,23 @@ describe("formatBytes", () => {
     expect(formatBytes(1024)).toBe("1.0 KB")
     expect(formatBytes(1024 * 1024)).toBe("1.0 MB")
     expect(formatBytes(1024 * 1024 * 1024)).toBe("1.00 GB")
+  })
+})
+
+describe("formatJsonValue", () => {
+  it("pretty-prints JSON that re-serializes to the same text", () => {
+    expect(formatJsonValue('{"a": "x y", "b": [1, 2]}')).toBe(
+      '{\n  "a": "x y",\n  "b": [\n    1,\n    2\n  ]\n}',
+    )
+  })
+
+  it("keeps the raw body when parsing would change a value", () => {
+    const body = '{"id": 12345678901234567890, "v": 1.0}'
+    expect(formatJsonValue(body)).toBe(body)
+    expect(formatJsonValue('{"s": "\\u00e9"}')).toBe('{"s": "\\u00e9"}')
+  })
+
+  it("returns non-JSON input unchanged", () => {
+    expect(formatJsonValue("hello")).toBe("hello")
   })
 })

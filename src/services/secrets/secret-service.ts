@@ -75,6 +75,7 @@ function toSecretError(error: unknown, name?: string): never {
 
     if (
       error.name === "ValidationException" ||
+      error.name === "InvalidParameterException" ||
       error.name === "InvalidRequestException"
     ) {
       throw new ServiceError("InvalidInput", error.message, error)
@@ -84,41 +85,9 @@ function toSecretError(error: unknown, name?: string): never {
   toOperationFailed(error)
 }
 
-async function listSecretSummaries(): Promise<SecretSummary[]> {
-  const secrets: SecretSummary[] = []
-  let nextToken: string | undefined
-
-  do {
-    const result = await secretsManager.send(
-      new ListSecretsCommand({
-        MaxResults: 100,
-        NextToken: nextToken,
-      }),
-    )
-
-    for (const secret of result.SecretList ?? []) {
-      secrets.push({
-        name: secret.Name ?? "",
-        arn: secret.ARN ?? "",
-        description: secret.Description ?? "",
-        kmsKeyId: secret.KmsKeyId ?? "",
-        lastChangedDate: secret.LastChangedDate,
-      })
-    }
-
-    nextToken = result.NextToken
-  } while (nextToken)
-
-  secrets.sort((left, right) => left.name.localeCompare(right.name))
-
-  return secrets
-}
-
 async function describeSecret(
-  name: string,
+  normalizedName: string,
 ): Promise<SecretSummary & { tags: ResourceTag[] }> {
-  const normalizedName = requireTrimmed(name, "Secret name")
-
   try {
     const result = await secretsManager.send(
       new DescribeSecretCommand({
@@ -142,10 +111,9 @@ async function describeSecret(
 }
 
 async function syncSecretTags(
-  name: string,
+  normalizedName: string,
   nextTags: ResourceTag[],
 ): Promise<void> {
-  const normalizedName = requireTrimmed(name, "Secret name")
   const currentTags = (await describeSecret(normalizedName)).tags
   const { removeKeys, upsertTags } = diffTags(currentTags, nextTags)
 
@@ -174,7 +142,31 @@ async function syncSecretTags(
 
 export async function listSecrets(): Promise<SecretSummary[]> {
   try {
-    return await listSecretSummaries()
+    const secrets: SecretSummary[] = []
+    let nextToken: string | undefined
+
+    do {
+      const result = await secretsManager.send(
+        new ListSecretsCommand({
+          MaxResults: 100,
+          NextToken: nextToken,
+        }),
+      )
+
+      for (const secret of result.SecretList ?? []) {
+        secrets.push({
+          name: secret.Name ?? "",
+          arn: secret.ARN ?? "",
+          description: secret.Description ?? "",
+          kmsKeyId: secret.KmsKeyId ?? "",
+          lastChangedDate: secret.LastChangedDate,
+        })
+      }
+
+      nextToken = result.NextToken
+    } while (nextToken)
+
+    return secrets.sort((left, right) => left.name.localeCompare(right.name))
   } catch (error) {
     toSecretError(error)
   }
@@ -200,7 +192,6 @@ export async function getSecretDetail(name: string): Promise<SecretDetail> {
       versionId: valueResult.VersionId ?? "",
       versionStages: valueResult.VersionStages ?? [],
       createdDate: valueResult.CreatedDate,
-      tags: metadata.tags,
     }
   } catch (error) {
     toSecretError(error, normalizedName)

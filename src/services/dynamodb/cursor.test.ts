@@ -32,8 +32,22 @@ describe("decodeCursor", () => {
     expect(decodeCursor(undefined)).toBeUndefined()
   })
 
-  it("should return undefined for invalid base64", () => {
-    expect(decodeCursor("not-valid-json-base64")).toBeUndefined()
+  it("should throw InvalidInput for a cursor that is not JSON", () => {
+    expect(() => decodeCursor("not-valid-json-base64")).toThrow(
+      expect.objectContaining({ code: "InvalidInput" }),
+    )
+  })
+
+  it.each([
+    ["an empty object", {}],
+    ["a string", "abc"],
+    ["an array", [1, 2]],
+    ["a non-AttributeValue entry", { id: "abc" }],
+  ])("should throw InvalidInput when the cursor decodes to %s", (_, value) => {
+    const encoded = Buffer.from(JSON.stringify(value)).toString("base64")
+    expect(() => decodeCursor(encoded)).toThrow(
+      expect.objectContaining({ code: "InvalidInput" }),
+    )
   })
 
   it("should decode a valid cursor back to a key", () => {

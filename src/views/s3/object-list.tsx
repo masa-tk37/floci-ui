@@ -15,7 +15,9 @@ import {
   IconSettings,
 } from "../icons"
 import { Layout } from "../layout"
+import { Modal } from "../modal"
 import { ResourceRail } from "../resource-rail"
+import { bucketHref } from "./bucket-list"
 
 interface S3Object {
   Key?: string
@@ -56,12 +58,15 @@ interface PathCrumb {
 
 function buildPrefixCrumbs(prefix: string): PathCrumb[] {
   if (!prefix) return []
-  const parts = prefix.split("/").filter((part) => part.length > 0)
+  // Empty segments are kept: S3 keys may start with "/" or contain "//", and
+  // each crumb's prefix must equal a real key prefix.
+  const parts = prefix.split("/")
+  if (parts.at(-1) === "") parts.pop()
   const crumbs: PathCrumb[] = []
   let acc = ""
   for (const part of parts) {
     acc += `${part}/`
-    crumbs.push({ label: part, prefix: acc })
+    crumbs.push({ label: part || "(空)", prefix: acc })
   }
   return crumbs
 }
@@ -83,7 +88,7 @@ export function ObjectList({
   versions,
 }: ObjectListProps) {
   const prefixCrumbs = buildPrefixCrumbs(prefix)
-  const bucketPath = `/s3/${encodeURIComponent(bucket)}`
+  const bucketPath = bucketHref(bucket)
   const fileKeys = objects.map((object) => object.Key ?? "").filter(Boolean)
   const folderPrefixes = folders
     .map((folder) => folder.Prefix ?? "")
@@ -101,7 +106,7 @@ export function ObjectList({
     const name = entry.Name ?? ""
     return {
       label: name,
-      href: `/s3/${encodeURIComponent(name)}`,
+      href: bucketHref(name),
       active: name === bucket,
     }
   })
@@ -181,373 +186,319 @@ export function ObjectList({
               </div>
             ) : null}
 
-            <div
-              x-show="isFolderModalOpen"
-              class="modal-overlay"
-              x-cloak
-              {...{ "@click": "closeFolderModal()" }}
-            >
-              <div
-                class="modal"
-                {...{
-                  "@click.stop": "",
-                  "@keydown.escape.window": "closeFolderModal()",
-                }}
-              >
-                <h2 class="modal__title">フォルダ作成</h2>
-                <p class="modal__body">
-                  現在の保存先:
-                  <span
-                    class="badge badge--s3 s3-object-list-page__scope-badge"
-                    safe
-                  >
-                    {prefix || "/"}
-                  </span>
-                </p>
-                <div class="form-row">
-                  <label class="form-label" for="s3-folder-name-modal">
-                    フォルダ名
-                  </label>
-                  <input
-                    id="s3-folder-name-modal"
-                    type="text"
-                    class="input"
-                    placeholder="reports"
-                    x-model="folderName"
-                    x-ref="folderNameInput"
-                  />
-                </div>
-                <div class="error-inline" x-show="folderError" x-cloak>
-                  <span x-text="folderError" />
-                </div>
-                <div class="modal__actions">
-                  <button
-                    type="button"
-                    class="btn btn--primary"
-                    {...{
-                      "@click": "createFolder()",
-                      ":disabled": "folderSubmitting",
-                    }}
-                  >
-                    <span x-show="!folderSubmitting">作成</span>
-                    <span x-show="folderSubmitting">作成中…</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn--ghost"
-                    {...{
-                      "@click": "closeFolderModal()",
-                      ":disabled": "folderSubmitting",
-                    }}
-                  >
-                    キャンセル
-                  </button>
-                </div>
+            <Modal show="isFolderModalOpen" close="closeFolderModal()">
+              <h2 class="modal__title">フォルダ作成</h2>
+              <p class="modal__body">
+                現在の保存先:
+                <span
+                  class="badge badge--s3 s3-object-list-page__scope-badge"
+                  safe
+                >
+                  {prefix || "/"}
+                </span>
+              </p>
+              <div class="form-row">
+                <label class="form-label" for="s3-folder-name-modal">
+                  フォルダ名
+                </label>
+                <input
+                  id="s3-folder-name-modal"
+                  type="text"
+                  class="input"
+                  placeholder="reports"
+                  x-model="folderName"
+                  x-ref="folderNameInput"
+                />
               </div>
-            </div>
-
-            <div
-              x-show="isUploadModalOpen"
-              class="modal-overlay"
-              x-cloak
-              {...{ "@click": "closeUploadModal()" }}
-            >
-              <div
-                class="modal modal--wide"
-                {...{
-                  "@click.stop": "",
-                  "@keydown.escape.window": "closeUploadModal()",
-                }}
-              >
-                <h2 class="modal__title">ファイルアップロード</h2>
-                <div class="form-row">
-                  <label class="form-label" for="s3-upload-prefix">
-                    保存先 prefix
-                  </label>
-                  <input
-                    id="s3-upload-prefix"
-                    type="text"
-                    class="input"
-                    placeholder="バケット直下"
-                    x-model="uploadPrefix"
-                  />
-                  <p class="form-help">
-                    アップロード先:{" "}
-                    <code
-                      class="s3-object-list-page__upload-target"
-                      x-text="uploadTargetKey"
-                    />
-                  </p>
-                </div>
-                <div class="form-row">
-                  <label class="form-label" for="s3-upload-files-modal">
-                    ファイル
-                  </label>
-                  <input
-                    id="s3-upload-files-modal"
-                    type="file"
-                    class="input s3-object-list-page__file-input"
-                    multiple
-                    x-ref="uploadInput"
-                    {...{ "@change": "onUploadSelection($event)" }}
-                  />
-                  <p class="form-help" x-show="uploadFiles.length > 0" x-cloak>
-                    <span x-text="uploadFiles.length + ' 件を選択中'" />
-                  </p>
-                </div>
-                <div class="error-inline" x-show="uploadError" x-cloak>
-                  <span x-text="uploadError" />
-                </div>
-                <div class="modal__actions">
-                  <button
-                    type="button"
-                    class="btn btn--primary"
-                    {...{
-                      "@click": "upload()",
-                      ":disabled": "uploadSubmitting",
-                    }}
-                  >
-                    <span x-show="!uploadSubmitting">アップロード</span>
-                    <span x-show="uploadSubmitting">アップロード中…</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn--ghost"
-                    {...{
-                      "@click": "closeUploadModal()",
-                      ":disabled": "uploadSubmitting",
-                    }}
-                  >
-                    キャンセル
-                  </button>
-                </div>
+              <div class="error-inline" x-show="folderError" x-cloak>
+                <span x-text="folderError" />
               </div>
-            </div>
-
-            <div
-              x-show="isRenameModalOpen"
-              class="modal-overlay"
-              x-cloak
-              {...{ "@click": "closeRenameModal()" }}
-            >
-              <div
-                class="modal modal--wide"
-                {...{
-                  "@click.stop": "",
-                  "@keydown.escape.window": "closeRenameModal()",
-                }}
-              >
-                <h2 class="modal__title">
-                  <span x-text="renameTitle">名前変更</span>
-                </h2>
-                <p class="modal__body" x-text="renameDescription" />
-                <div class="form-row">
-                  <label class="form-label" for="s3-rename-source">
-                    現在のキー
-                  </label>
-                  <input
-                    id="s3-rename-source"
-                    type="text"
-                    class="input"
-                    x-model="renameSource"
-                    readonly
-                  />
-                </div>
-                <div class="form-row">
-                  <label class="form-label" for="s3-rename-destination">
-                    新しいキー
-                  </label>
-                  <input
-                    id="s3-rename-destination"
-                    type="text"
-                    class="input"
-                    x-model="renameDestination"
-                    x-ref="renameInput"
-                  />
-                </div>
-                <div class="error-inline" x-show="renameError" x-cloak>
-                  <span x-text="renameError" />
-                </div>
-                <div class="modal__actions">
-                  <button
-                    type="button"
-                    class="btn btn--primary"
-                    {...{
-                      "@click": "submitRename()",
-                      ":disabled": "renameSubmitting",
-                    }}
-                  >
-                    <span x-show="!renameSubmitting">更新</span>
-                    <span x-show="renameSubmitting">更新中…</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn--ghost"
-                    {...{
-                      "@click": "closeRenameModal()",
-                      ":disabled": "renameSubmitting",
-                    }}
-                  >
-                    キャンセル
-                  </button>
-                </div>
+              <div class="modal__actions">
+                <button
+                  type="button"
+                  class="btn btn--primary"
+                  {...{
+                    "@click": "createFolder()",
+                    ":disabled": "folderSubmitting",
+                  }}
+                >
+                  <span x-show="!folderSubmitting">作成</span>
+                  <span x-show="folderSubmitting">作成中…</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  {...{
+                    "@click": "closeFolderModal()",
+                    ":disabled": "folderSubmitting",
+                  }}
+                >
+                  キャンセル
+                </button>
               </div>
-            </div>
+            </Modal>
 
-            <div
-              x-show="isPropertyModalOpen"
-              class="modal-overlay"
-              x-cloak
-              {...{ "@click": "closePropertyModal()" }}
-            >
-              <div
-                class="modal modal--wide"
-                {...{
-                  "@click.stop": "",
-                  "@keydown.escape.window": "closePropertyModal()",
-                }}
-              >
-                <h2 class="modal__title">プロパティ編集</h2>
-                <div class="s3-object-list-page__property-summary">
-                  <span class="s3-object-list-page__property-summary-label">
-                    対象オブジェクト
-                  </span>
+            <Modal show="isUploadModalOpen" close="closeUploadModal()" wide>
+              <h2 class="modal__title">ファイルアップロード</h2>
+              <div class="form-row">
+                <label class="form-label" for="s3-upload-prefix">
+                  保存先 prefix
+                </label>
+                <input
+                  id="s3-upload-prefix"
+                  type="text"
+                  class="input"
+                  placeholder="バケット直下"
+                  x-model="uploadPrefix"
+                />
+                <p class="form-help">
+                  アップロード先:{" "}
                   <code
-                    class="s3-object-list-page__code s3-object-list-page__code--block"
-                    x-text="propertyKey"
+                    class="s3-object-list-page__upload-target"
+                    x-text="uploadTargetKey"
+                  />
+                </p>
+              </div>
+              <div class="form-row">
+                <label class="form-label" for="s3-upload-files-modal">
+                  ファイル
+                </label>
+                <input
+                  id="s3-upload-files-modal"
+                  type="file"
+                  class="input s3-object-list-page__file-input"
+                  multiple
+                  x-ref="uploadInput"
+                  {...{ "@change": "onUploadSelection($event)" }}
+                />
+                <p class="form-help" x-show="uploadFiles.length > 0" x-cloak>
+                  <span x-text="uploadFiles.length + ' 件を選択中'" />
+                </p>
+              </div>
+              <div class="error-inline" x-show="uploadError" x-cloak>
+                <span x-text="uploadError" />
+              </div>
+              <div class="modal__actions">
+                <button
+                  type="button"
+                  class="btn btn--primary"
+                  {...{
+                    "@click": "upload()",
+                    ":disabled": "uploadSubmitting",
+                  }}
+                >
+                  <span x-show="!uploadSubmitting">アップロード</span>
+                  <span x-show="uploadSubmitting">アップロード中…</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  {...{
+                    "@click": "closeUploadModal()",
+                    ":disabled": "uploadSubmitting",
+                  }}
+                >
+                  キャンセル
+                </button>
+              </div>
+            </Modal>
+
+            <Modal show="isRenameModalOpen" close="closeRenameModal()" wide>
+              <h2 class="modal__title">
+                <span x-text="renameTitle">名前変更</span>
+              </h2>
+              <p class="modal__body" x-text="renameDescription" />
+              <div class="form-row">
+                <label class="form-label" for="s3-rename-source">
+                  現在のキー
+                </label>
+                <input
+                  id="s3-rename-source"
+                  type="text"
+                  class="input"
+                  x-model="renameSource"
+                  readonly
+                />
+              </div>
+              <div class="form-row">
+                <label class="form-label" for="s3-rename-destination">
+                  新しいキー
+                </label>
+                <input
+                  id="s3-rename-destination"
+                  type="text"
+                  class="input"
+                  x-model="renameDestination"
+                  x-ref="renameInput"
+                />
+              </div>
+              <div class="error-inline" x-show="renameError" x-cloak>
+                <span x-text="renameError" />
+              </div>
+              <div class="modal__actions">
+                <button
+                  type="button"
+                  class="btn btn--primary"
+                  {...{
+                    "@click": "submitRename()",
+                    ":disabled": "renameSubmitting",
+                  }}
+                >
+                  <span x-show="!renameSubmitting">更新</span>
+                  <span x-show="renameSubmitting">更新中…</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  {...{
+                    "@click": "closeRenameModal()",
+                    ":disabled": "renameSubmitting",
+                  }}
+                >
+                  キャンセル
+                </button>
+              </div>
+            </Modal>
+
+            <Modal show="isPropertyModalOpen" close="closePropertyModal()" wide>
+              <h2 class="modal__title">プロパティ編集</h2>
+              <div class="s3-object-list-page__property-summary">
+                <span class="s3-object-list-page__property-summary-label">
+                  対象オブジェクト
+                </span>
+                <code
+                  class="s3-object-list-page__code s3-object-list-page__code--block"
+                  x-text="propertyKey"
+                />
+              </div>
+
+              <div x-show="propertyLoading" class="modal__body" x-cloak>
+                読み込み中…
+              </div>
+
+              <div x-show="!propertyLoading" x-cloak>
+                <div class="s3-object-list-page__meta-grid">
+                  <div class="s3-object-list-page__meta-card">
+                    <span class="s3-object-list-page__meta-label">サイズ</span>
+                    <span
+                      class="s3-object-list-page__meta-value"
+                      x-text="formatBytes(propertySize)"
+                    />
+                  </div>
+                  <div class="s3-object-list-page__meta-card">
+                    <span class="s3-object-list-page__meta-label">
+                      更新日時
+                    </span>
+                    <span
+                      class="s3-object-list-page__meta-value"
+                      x-text="propertyLastModified || '—'"
+                    />
+                  </div>
+                  <div class="s3-object-list-page__meta-card">
+                    <span class="s3-object-list-page__meta-label">ETag</span>
+                    <span
+                      class="s3-object-list-page__meta-value s3-object-list-page__meta-value--mono"
+                      x-text="propertyETag || '—'"
+                    />
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="form-label" for="s3-property-content-type">
+                    Content-Type
+                  </label>
+                  <input
+                    id="s3-property-content-type"
+                    type="text"
+                    class="input"
+                    x-model="propertyContentType"
+                    x-ref="propertyContentTypeInput"
+                    placeholder="application/octet-stream"
                   />
                 </div>
 
-                <div x-show="propertyLoading" class="modal__body" x-cloak>
-                  読み込み中…
+                <div class="form-row" x-show="propertyMetadata" x-cloak>
+                  <label class="form-label">Metadata</label>
+                  <pre
+                    class="s3-object-list-page__metadata-preview"
+                    x-text="propertyMetadata"
+                  />
                 </div>
 
-                <div x-show="!propertyLoading" x-cloak>
-                  <div class="s3-object-list-page__meta-grid">
-                    <div class="s3-object-list-page__meta-card">
-                      <span class="s3-object-list-page__meta-label">
-                        サイズ
-                      </span>
-                      <span
-                        class="s3-object-list-page__meta-value"
-                        x-text="formatBytes(propertySize)"
-                      />
-                    </div>
-                    <div class="s3-object-list-page__meta-card">
-                      <span class="s3-object-list-page__meta-label">
-                        更新日時
-                      </span>
-                      <span
-                        class="s3-object-list-page__meta-value"
-                        x-text="propertyLastModified || '—'"
-                      />
-                    </div>
-                    <div class="s3-object-list-page__meta-card">
-                      <span class="s3-object-list-page__meta-label">ETag</span>
-                      <span
-                        class="s3-object-list-page__meta-value s3-object-list-page__meta-value--mono"
-                        x-text="propertyETag || '—'"
-                      />
-                    </div>
+                <div class="form-row">
+                  <div class="form-label-row">
+                    <label class="form-label">タグ</label>
+                    <button
+                      type="button"
+                      class="btn btn--ghost btn--sm"
+                      {...{ "@click": "addPropertyTag()" }}
+                    >
+                      {IconPlus}追加
+                    </button>
                   </div>
-
-                  <div class="form-row">
-                    <label class="form-label" for="s3-property-content-type">
-                      Content-Type
-                    </label>
-                    <input
-                      id="s3-property-content-type"
-                      type="text"
-                      class="input"
-                      x-model="propertyContentType"
-                      x-ref="propertyContentTypeInput"
-                      placeholder="application/octet-stream"
-                    />
-                  </div>
-
-                  <div class="form-row" x-show="propertyMetadata" x-cloak>
-                    <label class="form-label">Metadata</label>
-                    <pre
-                      class="s3-object-list-page__metadata-preview"
-                      x-text="propertyMetadata"
-                    />
-                  </div>
-
-                  <div class="form-row">
-                    <div class="form-label-row">
-                      <label class="form-label">タグ</label>
-                      <button
-                        type="button"
-                        class="btn btn--ghost btn--sm"
-                        {...{ "@click": "addPropertyTag()" }}
+                  <template x-if="propertyTags.length > 0">
+                    <div class="tag-list">
+                      <template
+                        x-for="(tag, index) in propertyTags"
+                        {...{ ":key": "index" }}
                       >
-                        {IconPlus}追加
-                      </button>
+                        <div class="tag-row">
+                          <input
+                            type="text"
+                            class="input input--sm"
+                            placeholder="キー"
+                            {...{ "x-model": "tag.key" }}
+                          />
+                          <input
+                            type="text"
+                            class="input input--sm"
+                            placeholder="値"
+                            {...{ "x-model": "tag.value" }}
+                          />
+                          <button
+                            type="button"
+                            class="btn btn--ghost btn--sm"
+                            {...{ "@click": "removePropertyTag(index)" }}
+                          >
+                            削除
+                          </button>
+                        </div>
+                      </template>
                     </div>
-                    <template x-if="propertyTags.length > 0">
-                      <div class="tag-list">
-                        <template
-                          x-for="(tag, index) in propertyTags"
-                          {...{ ":key": "index" }}
-                        >
-                          <div class="tag-row">
-                            <input
-                              type="text"
-                              class="input input--sm"
-                              placeholder="キー"
-                              {...{ "x-model": "tag.key" }}
-                            />
-                            <input
-                              type="text"
-                              class="input input--sm"
-                              placeholder="値"
-                              {...{ "x-model": "tag.value" }}
-                            />
-                            <button
-                              type="button"
-                              class="btn btn--ghost btn--sm"
-                              {...{ "@click": "removePropertyTag(index)" }}
-                            >
-                              削除
-                            </button>
-                          </div>
-                        </template>
-                      </div>
-                    </template>
-                    <p class="form-help" x-show="propertyTags.length === 0">
-                      タグなし
-                    </p>
-                  </div>
-                </div>
-
-                <div class="error-inline" x-show="propertyError" x-cloak>
-                  <span x-text="propertyError" />
-                </div>
-                <div class="modal__actions">
-                  <button
-                    type="button"
-                    class="btn btn--primary"
-                    {...{
-                      "@click": "saveProperties()",
-                      ":disabled": "propertyLoading || propertySubmitting",
-                    }}
-                  >
-                    <span x-show="!propertySubmitting">保存</span>
-                    <span x-show="propertySubmitting">保存中…</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn--ghost"
-                    {...{
-                      "@click": "closePropertyModal()",
-                      ":disabled": "propertyLoading || propertySubmitting",
-                    }}
-                  >
-                    キャンセル
-                  </button>
+                  </template>
+                  <p class="form-help" x-show="propertyTags.length === 0">
+                    タグなし
+                  </p>
                 </div>
               </div>
-            </div>
+
+              <div class="error-inline" x-show="propertyError" x-cloak>
+                <span x-text="propertyError" />
+              </div>
+              <div class="modal__actions">
+                <button
+                  type="button"
+                  class="btn btn--primary"
+                  {...{
+                    "@click": "saveProperties()",
+                    ":disabled": "propertyLoading || propertySubmitting",
+                  }}
+                >
+                  <span x-show="!propertySubmitting">保存</span>
+                  <span x-show="propertySubmitting">保存中…</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  {...{
+                    "@click": "closePropertyModal()",
+                    ":disabled": "propertyLoading || propertySubmitting",
+                  }}
+                >
+                  キャンセル
+                </button>
+              </div>
+            </Modal>
 
             <template x-teleport="body">
               <div
@@ -650,11 +601,7 @@ export function ObjectList({
                             <td class="data-table__num" safe>
                               {formatBytes(v.size)}
                             </td>
-                            <td safe>
-                              {v.lastModified
-                                ? formatDate(v.lastModified)
-                                : PLACEHOLDER}
-                            </td>
+                            <td safe>{formatDate(v.lastModified)}</td>
                             <td>{v.isLatest ? "✓" : ""}</td>
                             <td>
                               {v.isDeleteMarker ? (
@@ -748,7 +695,7 @@ export function ObjectList({
                             <td class="s3-object-list-page__select-col">
                               <input
                                 type="checkbox"
-                                value={folderPrefix}
+                                value={escapeHtml(folderPrefix)}
                                 x-model="selectedFolders"
                                 aria-label={`フォルダ ${displayName} を選択`}
                               />
@@ -774,17 +721,21 @@ export function ObjectList({
                                   aria-label={`${displayName} のアクションを開く`}
                                   aria-haspopup="menu"
                                   data-menu-kind="folder"
-                                  data-menu-rename-source={folderPrefix}
+                                  data-menu-rename-source={escapeHtml(
+                                    folderPrefix,
+                                  )}
                                   data-menu-resource-name={escapeHtml(
                                     displayName,
                                   )}
                                   data-menu-detail-text="このフォルダを削除すると、配下のオブジェクトも削除されます。"
                                   data-menu-delete-url={`${bucketPath}/delete-objects`}
                                   data-menu-delete-method="POST"
-                                  data-menu-delete-body={JSON.stringify({
-                                    files: [],
-                                    folders: [folderPrefix],
-                                  })}
+                                  data-menu-delete-body={escapeHtml(
+                                    JSON.stringify({
+                                      files: [],
+                                      folders: [folderPrefix],
+                                    }),
+                                  )}
                                   data-menu-content-type="application/json"
                                   data-menu-on-success="reload"
                                   {...{
@@ -812,7 +763,7 @@ export function ObjectList({
                             <td class="s3-object-list-page__select-col">
                               <input
                                 type="checkbox"
-                                value={key}
+                                value={escapeHtml(key)}
                                 x-model="selectedFiles"
                                 aria-label={`ファイル ${displayName} を選択`}
                               />
@@ -850,8 +801,8 @@ export function ObjectList({
                                   aria-label={`${displayName} のアクションを開く`}
                                   aria-haspopup="menu"
                                   data-menu-kind="file"
-                                  data-menu-rename-source={key}
-                                  data-menu-object-key={key}
+                                  data-menu-rename-source={escapeHtml(key)}
+                                  data-menu-object-key={escapeHtml(key)}
                                   data-menu-download-url={`${bucketPath}/download?key=${encodedKey}`}
                                   data-menu-resource-name={escapeHtml(
                                     displayName,

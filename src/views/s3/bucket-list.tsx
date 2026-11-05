@@ -14,11 +14,13 @@ interface BucketListProps {
 
 const bucketName = (bucket: Bucket) => bucket.Name ?? ""
 
+export const bucketHref = (name: string) => `/s3/${encodeURIComponent(name)}`
+
 const columns: TableColumn<Bucket>[] = [
   {
     label: "Bucket 名",
     cell: (bucket) => (
-      <a href={`/s3/${encodeURIComponent(bucketName(bucket))}`} safe>
+      <a href={bucketHref(bucketName(bucket))} safe>
         {bucketName(bucket)}
       </a>
     ),
@@ -47,7 +49,7 @@ export function BucketList({ buckets }: BucketListProps) {
         actions={(bucket) => (
           <>
             <a
-              href={`/s3/${encodeURIComponent(bucketName(bucket))}/settings`}
+              href={`${bucketHref(bucketName(bucket))}/settings`}
               class="btn btn--ghost btn--sm"
             >
               {IconSettings}設定
@@ -57,7 +59,7 @@ export function BucketList({ buckets }: BucketListProps) {
               class="btn btn--danger-ghost btn--sm"
               data-floci-delete-trigger=""
               data-resource-name={escapeHtml(bucketName(bucket))}
-              data-delete-url={`/s3/${encodeURIComponent(bucketName(bucket))}`}
+              data-delete-url={bucketHref(bucketName(bucket))}
               data-on-success="reload"
             >
               {IconTrash}削除

@@ -1,8 +1,10 @@
 import {
+  ChangeMessageVisibilityCommand,
   CreateQueueCommand,
   DeleteMessageCommand,
   DeleteQueueCommand,
   GetQueueAttributesCommand,
+  GetQueueUrlCommand,
   ListQueuesCommand,
   ListQueueTagsCommand,
   PurgeQueueCommand,
@@ -42,6 +44,43 @@ function parseRedriveDlqName(redrivePolicy: string | undefined): string | null {
   }
 }
 
+const QUEUE_MISSING_ERRORS = new Set([
+  "QueueDoesNotExist",
+  "AWS.SimpleQueueService.NonExistentQueue",
+])
+
+function isQueueMissing(e: unknown): boolean {
+  return e instanceof Error && QUEUE_MISSING_ERRORS.has(e.name)
+}
+
+function toQueueError(e: unknown, name: string): never {
+  if (isQueueMissing(e)) {
+    throw new ServiceError("NotFound", `Queue ${name} not found`, e)
+  }
+  toOperationFailed(e)
+}
+
+const UNSUPPORTED_OPERATION_ERRORS = new Set([
+  "UnknownOperationException",
+  "UnsupportedOperation",
+  "InvalidAction",
+])
+
+/** True only when the emulator lacks the API, so real failures stay visible. */
+function isUnsupportedOperation(e: unknown): boolean {
+  if (typeof e !== "object" || e === null) return false
+  const { name, $metadata } = e as {
+    name?: unknown
+    $metadata?: { httpStatusCode?: number }
+  }
+  return (
+    (typeof name === "string" && UNSUPPORTED_OPERATION_ERRORS.has(name)) ||
+    $metadata?.httpStatusCode === 501
+  )
+}
+
+const PEEK_TIMEOUT_MS = 10_000
+
 function toInt(value: string | undefined, fallback = 0): number {
   if (!value) return fallback
   const parsed = Number.parseInt(value, 10)
@@ -62,13 +101,18 @@ export interface QueueDetailData {
 async function listQueueUrls(): Promise<string[]> {
   const urls: string[] = []
   let nextToken: string | undefined
-  do {
-    const result = await sqs.send(
-      new ListQueuesCommand({ NextToken: nextToken }),
-    )
-    for (const url of result.QueueUrls ?? []) urls.push(url)
-    nextToken = result.NextToken
-  } while (nextToken)
+  try {
+    do {
+      // SQS returns NextToken only when MaxResults is set.
+      const result = await sqs.send(
+        new ListQueuesCommand({ NextToken: nextToken, MaxResults: 1000 }),
+      )
+      for (const url of result.QueueUrls ?? []) urls.push(url)
+      nextToken = result.NextToken
+    } while (nextToken)
+  } catch (e: unknown) {
+    toOperationFailed(e)
+  }
   return urls.sort((left, right) =>
     queueNameFromUrl(left).localeCompare(queueNameFromUrl(right)),
   )
@@ -81,8 +125,8 @@ export async function listQueueNames(): Promise<string[]> {
 
 export async function listQueues(): Promise<QueueSummary[]> {
   const urls = await listQueueUrls()
-  return Promise.all(
-    urls.map(async (url): Promise<QueueSummary> => {
+  const summaries = await Promise.all(
+    urls.map(async (url): Promise<QueueSummary | null> => {
       const name = queueNameFromUrl(url)
       try {
         const { Attributes } = await sqs.send(
@@ -100,11 +144,14 @@ export async function listQueues(): Promise<QueueSummary[]> {
           depth: toInt(Attributes?.ApproximateNumberOfMessages),
           dlqName: parseRedriveDlqName(Attributes?.RedrivePolicy),
         }
-      } catch {
+      } catch (e: unknown) {
+        if (isQueueMissing(e)) return null
+        console.warn(`Failed to load attributes for queue ${name}:`, e)
         return { name, depth: 0, dlqName: null }
       }
     }),
   )
+  return summaries.filter((summary) => summary !== null)
 }
 
 function recordToTags(
@@ -124,6 +171,19 @@ export async function createQueue(
 ): Promise<void> {
   const normalizedTags = normalizeTags(recordToTags(tags))
   try {
+    // CreateQueue succeeds silently for an existing queue with matching attributes.
+    const exists = await sqs
+      .send(new GetQueueUrlCommand({ QueueName: name }))
+      .then(
+        () => true,
+        (e: unknown) => {
+          if (isQueueMissing(e)) return false
+          throw e
+        },
+      )
+    if (exists) {
+      throw new ServiceError("AlreadyExists", `Queue ${name} already exists`)
+    }
     await sqs.send(
       new CreateQueueCommand({
         QueueName: name,
@@ -133,6 +193,12 @@ export async function createQueue(
       }),
     )
   } catch (e: unknown) {
+    if (
+      e instanceof Error &&
+      (e.name === "QueueNameExists" || e.name === "QueueAlreadyExists")
+    ) {
+      throw new ServiceError("AlreadyExists", `Queue ${name} already exists`, e)
+    }
     toOperationFailed(e)
   }
 }
@@ -158,14 +224,23 @@ interface RawSqsMessage {
 async function fetchMessagesFromInspect(
   queueUrl: string,
 ): Promise<PeekedMessage[]> {
-  const res = await fetch(
-    `${FLOCI_ENDPOINT}/_aws/sqs/messages?QueueUrl=${encodeURIComponent(queueUrl)}`,
-  )
-  if (!res.ok) {
-    throw new ServiceError("OperationFailed", `SQS peek failed: ${res.status}`)
+  let body: { messages?: RawSqsMessage[] }
+  try {
+    const res = await fetch(
+      `${FLOCI_ENDPOINT}/_aws/sqs/messages?QueueUrl=${encodeURIComponent(queueUrl)}`,
+      { signal: AbortSignal.timeout(PEEK_TIMEOUT_MS) },
+    )
+    if (!res.ok) {
+      throw new ServiceError(
+        "OperationFailed",
+        `SQS peek failed: ${res.status}`,
+      )
+    }
+    body = (await res.json()) as { messages?: RawSqsMessage[] }
+  } catch (e: unknown) {
+    toOperationFailed(e)
   }
-  const { messages } = (await res.json()) as { messages: RawSqsMessage[] }
-  return messages.map((msg) => ({
+  return (body.messages ?? []).map((msg) => ({
     messageId: msg.MessageId,
     receiptHandle: msg.ReceiptHandle ?? undefined,
     body: msg.Body,
@@ -179,11 +254,25 @@ async function fetchMessagesFromInspect(
 }
 
 export async function getQueueDetail(name: string): Promise<QueueDetailData> {
-  const queueUrl = queueUrlFor(name)
-  const [{ Attributes }, messages] = await Promise.all([
-    sqs.send(
+  const [attributes, messages] = await Promise.all([
+    getQueueAttributes(name),
+    getQueueMessages(name),
+  ])
+  return { attributes, messages }
+}
+
+export async function getQueueMessages(name: string): Promise<PeekedMessage[]> {
+  return fetchMessagesFromInspect(queueUrlFor(name))
+}
+
+export async function getQueueAttributes(
+  name: string,
+): Promise<QueueAttributes> {
+  let Attributes: Record<string, string> | undefined
+  try {
+    ;({ Attributes } = await sqs.send(
       new GetQueueAttributesCommand({
-        QueueUrl: queueUrl,
+        QueueUrl: queueUrlFor(name),
         AttributeNames: [
           "ApproximateNumberOfMessages",
           "ApproximateNumberOfMessagesNotVisible",
@@ -195,48 +284,10 @@ export async function getQueueDetail(name: string): Promise<QueueDetailData> {
           "QueueArn",
         ],
       }),
-    ),
-    fetchMessagesFromInspect(queueUrl),
-  ])
-
-  const attributes: QueueAttributes = {
-    depth: toInt(Attributes?.ApproximateNumberOfMessages),
-    inFlight: toInt(Attributes?.ApproximateNumberOfMessagesNotVisible),
-    delayed: toInt(Attributes?.ApproximateNumberOfMessagesDelayed),
-    visibilityTimeout: toInt(Attributes?.VisibilityTimeout),
-    messageRetention: toInt(Attributes?.MessageRetentionPeriod),
-    dlqName: parseRedriveDlqName(Attributes?.RedrivePolicy),
-    contentBasedDeduplication: Attributes?.ContentBasedDeduplication === "true",
-    queueArn: Attributes?.QueueArn,
+    ))
+  } catch (e: unknown) {
+    toQueueError(e, name)
   }
-
-  return { attributes, messages }
-}
-
-export async function getQueueMessages(name: string): Promise<PeekedMessage[]> {
-  const queueUrl = queueUrlFor(name)
-  return fetchMessagesFromInspect(queueUrl)
-}
-
-export async function getQueueAttributes(
-  name: string,
-): Promise<import("../../views/sqs/queue-detail").QueueAttributes> {
-  const queueUrl = queueUrlFor(name)
-  const { Attributes } = await sqs.send(
-    new GetQueueAttributesCommand({
-      QueueUrl: queueUrl,
-      AttributeNames: [
-        "ApproximateNumberOfMessages",
-        "ApproximateNumberOfMessagesNotVisible",
-        "ApproximateNumberOfMessagesDelayed",
-        "VisibilityTimeout",
-        "MessageRetentionPeriod",
-        "RedrivePolicy",
-        "ContentBasedDeduplication",
-        "QueueArn",
-      ],
-    }),
-  )
   return {
     depth: toInt(Attributes?.ApproximateNumberOfMessages),
     inFlight: toInt(Attributes?.ApproximateNumberOfMessagesNotVisible),
@@ -253,17 +304,27 @@ export async function getQueueSettings(
   name: string,
 ): Promise<SQSSettingsInitial> {
   const queueUrl = queueUrlFor(name)
-  const [attrResult, tagsResult] = await Promise.all([
-    sqs.send(
-      new GetQueueAttributesCommand({
-        QueueUrl: queueUrl,
-        AttributeNames: ["All"],
-      }),
-    ),
-    sqs
-      .send(new ListQueueTagsCommand({ QueueUrl: queueUrl }))
-      .catch(() => ({ Tags: {} })),
-  ])
+  let attrResult: { Attributes?: Record<string, string> }
+  let tagsResult: { Tags?: Record<string, string> }
+  try {
+    ;[attrResult, tagsResult] = await Promise.all([
+      sqs.send(
+        new GetQueueAttributesCommand({
+          QueueUrl: queueUrl,
+          AttributeNames: ["All"],
+        }),
+      ),
+      // An empty list here would make the next save untag everything.
+      sqs
+        .send(new ListQueueTagsCommand({ QueueUrl: queueUrl }))
+        .catch((e: unknown) => {
+          if (isUnsupportedOperation(e)) return { Tags: {} }
+          throw e
+        }),
+    ])
+  } catch (e: unknown) {
+    toQueueError(e, name)
+  }
   const attrs = attrResult.Attributes ?? {}
   const rawTags = tagsResult.Tags ?? {}
 
@@ -319,9 +380,13 @@ export async function updateQueueSettings(
 ): Promise<void> {
   const queueUrl = queueUrlFor(name)
   try {
+    // Treating a failed read as "no tags" would turn tag removals into silent no-ops.
     const existingTagsResult = await sqs
       .send(new ListQueueTagsCommand({ QueueUrl: queueUrl }))
-      .catch(() => ({ Tags: {} }))
+      .catch((e: unknown) => {
+        if (isUnsupportedOperation(e)) return { Tags: {} }
+        throw e
+      })
     const { removeKeys, upsertTags } = diffTags(
       recordToTags(existingTagsResult.Tags),
       normalizeTags(recordToTags(tags)),
@@ -353,7 +418,7 @@ export async function updateQueueSettings(
         : Promise.resolve(),
     ])
   } catch (e: unknown) {
-    toOperationFailed(e)
+    toQueueError(e, name)
   }
 }
 
@@ -394,37 +459,82 @@ export async function deleteMessage(
   }
 }
 
+const DELETE_SCAN_MAX_RECEIVES = 10
+const DELETE_SCAN_HIDE_SECONDS = 30
+
+/**
+ * Finds the message by receiving batches until it appears or the queue runs dry.
+ * Non-targets are hidden while scanning so later receives reach further, then
+ * released. Every receive raises ApproximateReceiveCount on the messages it
+ * returns, which can move them to a DLQ when maxReceiveCount is low.
+ */
 export async function deleteMessageById(
   name: string,
   messageId: string,
 ): Promise<void> {
   const queueUrl = queueUrlFor(name)
+  const hiddenReceiptHandles: string[] = []
   try {
-    const { Messages } = await sqs.send(
-      new ReceiveMessageCommand({
-        QueueUrl: queueUrl,
-        VisibilityTimeout: 0,
-        MaxNumberOfMessages: 10,
-        MessageAttributeNames: ["All"],
-        AttributeNames: ["All"],
-      }),
-    )
-    const target = (Messages ?? []).find((m) => m.MessageId === messageId)
-    if (!target?.ReceiptHandle) {
-      throw new ServiceError(
-        "NotFound",
-        `Message ${messageId} not found or already deleted`,
+    for (let i = 0; i < DELETE_SCAN_MAX_RECEIVES; i++) {
+      const { Messages } = await sqs.send(
+        new ReceiveMessageCommand({
+          QueueUrl: queueUrl,
+          VisibilityTimeout: DELETE_SCAN_HIDE_SECONDS,
+          MaxNumberOfMessages: 10,
+          MessageAttributeNames: ["All"],
+          AttributeNames: ["All"],
+        }),
       )
+      if (!Messages?.length) break
+      const target = Messages.find((m) => m.MessageId === messageId)
+      for (const message of Messages) {
+        if (message !== target && message.ReceiptHandle) {
+          hiddenReceiptHandles.push(message.ReceiptHandle)
+        }
+      }
+      if (target?.ReceiptHandle) {
+        await sqs.send(
+          new DeleteMessageCommand({
+            QueueUrl: queueUrl,
+            ReceiptHandle: target.ReceiptHandle,
+          }),
+        )
+        return
+      }
     }
-    await sqs.send(
-      new DeleteMessageCommand({
-        QueueUrl: queueUrl,
-        ReceiptHandle: target.ReceiptHandle,
-      }),
+    throw new ServiceError(
+      "NotFound",
+      `Message ${messageId} not found or already deleted`,
     )
   } catch (e: unknown) {
-    if (e instanceof ServiceError) throw e
-    toOperationFailed(e)
+    toQueueError(e, name)
+  } finally {
+    await releaseMessages(queueUrl, hiddenReceiptHandles)
+  }
+}
+
+async function releaseMessages(
+  queueUrl: string,
+  receiptHandles: string[],
+): Promise<void> {
+  const results = await Promise.allSettled(
+    receiptHandles.map((receiptHandle) =>
+      sqs.send(
+        new ChangeMessageVisibilityCommand({
+          QueueUrl: queueUrl,
+          ReceiptHandle: receiptHandle,
+          VisibilityTimeout: 0,
+        }),
+      ),
+    ),
+  )
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.warn(
+        `Failed to release message in ${queueUrl}; it stays hidden for ${DELETE_SCAN_HIDE_SECONDS}s:`,
+        result.reason,
+      )
+    }
   }
 }
 

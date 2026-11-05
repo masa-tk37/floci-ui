@@ -17,6 +17,7 @@ import {
   deleteObject,
   deleteSelectedObjects,
   getBucketSettings,
+  getBucketVersioningEnabled,
   getObjectDetails,
   getObjectForDownload,
   getObjectPreview,
@@ -32,8 +33,44 @@ import {
 } from "./bucket-service"
 
 beforeEach(() => {
-  mockSend.mockClear()
+  mockSend.mockReset()
+  mockSend.mockImplementation(() => Promise.resolve({}))
 })
+
+type SentCommand = {
+  constructor: { name: string }
+  input: Record<string, unknown>
+}
+
+/** Dispatches by command name because settings ops interleave their reads and writes. */
+function respondByCommand(
+  responses: Record<string, object | ((command: SentCommand) => unknown)>,
+) {
+  mockSend.mockImplementation(((command: SentCommand) => {
+    const response = responses[command.constructor.name]
+    if (response instanceof Error) return Promise.reject(response)
+    return Promise.resolve(
+      typeof response === "function" ? response(command) : (response ?? {}),
+    )
+  }) as never)
+}
+
+function sentCommands(): SentCommand[] {
+  return (mockSend.mock.calls as unknown[][]).map(
+    (call) => call[0] as SentCommand,
+  )
+}
+
+function sentNamed(name: string): SentCommand[] {
+  return sentCommands().filter((command) => command.constructor.name === name)
+}
+
+function awsError(name: string, httpStatusCode = 400) {
+  return Object.assign(new Error(name), {
+    name,
+    $metadata: { httpStatusCode },
+  })
+}
 
 describe("listBuckets", () => {
   it("should return bucket summaries", async () => {
@@ -118,21 +155,105 @@ describe("getBucketSettings", () => {
     expect(result.versioning).toBe("Suspended")
     expect(result.tags).toEqual([])
   })
+
+  it("should use defaults only for not-configured errors", async () => {
+    respondByCommand({
+      GetBucketCorsCommand: awsError("NoSuchCORSConfiguration", 404),
+      GetBucketTaggingCommand: awsError("NoSuchTagSet", 404),
+    })
+    const result = await getBucketSettings("my-bucket")
+    expect(result.corsRules).toEqual([])
+    expect(result.tags).toEqual([])
+  })
+
+  it("should fail instead of reporting defaults when a read fails", async () => {
+    respondByCommand({ GetBucketCorsCommand: awsError("TimeoutError", 500) })
+    await expect(getBucketSettings("my-bucket")).rejects.toMatchObject({
+      code: "OperationFailed",
+    })
+  })
+
+  it("should expose only the lifecycle rules the form can edit", async () => {
+    respondByCommand({
+      GetBucketLifecycleConfigurationCommand: {
+        Rules: [
+          {
+            ID: "expire",
+            Status: "Enabled",
+            Filter: { Prefix: "tmp/" },
+            Expiration: { Days: 7 },
+          },
+          {
+            ID: "archive",
+            Status: "Enabled",
+            Filter: { And: { Prefix: "logs/", Tags: [] } },
+            Transitions: [{ Days: 30, StorageClass: "GLACIER" }],
+          },
+          { ID: "old", Status: "Disabled", Expiration: { Days: 1 } },
+        ],
+      },
+    })
+    const result = await getBucketSettings("my-bucket")
+    expect(result.lifecycleRules).toEqual([
+      { id: "expire", prefix: "tmp/", expirationDays: 7 },
+    ])
+  })
+
+  it("should show DSSE-KMS as aws:kms so the form can save it", async () => {
+    respondByCommand({
+      GetBucketEncryptionCommand: {
+        ServerSideEncryptionConfiguration: {
+          Rules: [
+            {
+              ApplyServerSideEncryptionByDefault: {
+                SSEAlgorithm: "aws:kms:dsse",
+                KMSMasterKeyID: "key-1",
+              },
+            },
+          ],
+        },
+      },
+    })
+    const result = await getBucketSettings("my-bucket")
+    expect(result.encryption).toBe("aws:kms")
+    expect(result.kmsKeyId).toBe("key-1")
+  })
 })
 
 describe("updateBucketSettings", () => {
   it("should apply versioning setting and return no warnings", async () => {
-    mockSend.mockResolvedValueOnce({})
     const result = await updateBucketSettings("my-bucket", {
       versioning: "Enabled",
     })
     expect(result.warnings).toHaveLength(0)
+    expect(sentNamed("PutBucketVersioningCommand")[0]?.input).toMatchObject({
+      VersioningConfiguration: { Status: "Enabled" },
+    })
+  })
+
+  it("should not suspend a bucket that was never versioned", async () => {
+    respondByCommand({ GetBucketVersioningCommand: {} })
+    await updateBucketSettings("my-bucket", { versioning: "Suspended" })
+    expect(sentNamed("PutBucketVersioningCommand")).toHaveLength(0)
+  })
+
+  it("should skip versioning when the status is unchanged", async () => {
+    respondByCommand({ GetBucketVersioningCommand: { Status: "Enabled" } })
+    await updateBucketSettings("my-bucket", { versioning: "Enabled" })
+    expect(sentNamed("PutBucketVersioningCommand")).toHaveLength(0)
+  })
+
+  it("should reject an unknown versioning status", async () => {
+    await expect(
+      updateBucketSettings("my-bucket", { versioning: "foo" }),
+    ).rejects.toMatchObject({ code: "InvalidInput" })
+    expect(mockSend).not.toHaveBeenCalled()
   })
 
   it("should accumulate warnings for failed sub-operations", async () => {
-    mockSend
-      .mockResolvedValueOnce({})
-      .mockRejectedValueOnce(new Error("Encryption error"))
+    respondByCommand({
+      PutBucketEncryptionCommand: new Error("Encryption error"),
+    })
     const result = await updateBucketSettings("my-bucket", {
       versioning: "Enabled",
       encryption: { type: "AES256" },
@@ -141,29 +262,233 @@ describe("updateBucketSettings", () => {
     expect(result.warnings[0]).toContain("Encryption")
   })
 
+  it("should keep BucketKeyEnabled and skip unchanged encryption", async () => {
+    const kmsRule = {
+      ServerSideEncryptionConfiguration: {
+        Rules: [
+          {
+            ApplyServerSideEncryptionByDefault: {
+              SSEAlgorithm: "aws:kms",
+              KMSMasterKeyID: "key-1",
+            },
+            BucketKeyEnabled: true,
+          },
+        ],
+      },
+    }
+    respondByCommand({ GetBucketEncryptionCommand: kmsRule })
+    await updateBucketSettings("my-bucket", {
+      encryption: { type: "aws:kms", kmsKeyId: "key-1" },
+    })
+    expect(sentNamed("PutBucketEncryptionCommand")).toHaveLength(0)
+
+    await updateBucketSettings("my-bucket", {
+      encryption: { type: "aws:kms", kmsKeyId: "key-2" },
+    })
+    expect(sentNamed("PutBucketEncryptionCommand")[0]?.input).toMatchObject({
+      ServerSideEncryptionConfiguration: {
+        Rules: [{ BucketKeyEnabled: true }],
+      },
+    })
+  })
+
+  it("should not rewrite DSSE-KMS echoed back as aws:kms", async () => {
+    respondByCommand({
+      GetBucketEncryptionCommand: {
+        ServerSideEncryptionConfiguration: {
+          Rules: [
+            {
+              ApplyServerSideEncryptionByDefault: {
+                SSEAlgorithm: "aws:kms:dsse",
+                KMSMasterKeyID: "key-1",
+              },
+            },
+          ],
+        },
+      },
+    })
+    await updateBucketSettings("my-bucket", {
+      encryption: { type: "aws:kms", kmsKeyId: "key-1" },
+    })
+    expect(sentNamed("PutBucketEncryptionCommand")).toHaveLength(0)
+  })
+
   it("should delete encryption, cors, and lifecycle when removed", async () => {
-    mockSend
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({})
+    respondByCommand({
+      GetBucketCorsCommand: {
+        CORSRules: [{ AllowedMethods: ["GET"], AllowedOrigins: ["*"] }],
+      },
+      GetBucketLifecycleConfigurationCommand: {
+        Rules: [
+          {
+            ID: "expire",
+            Status: "Enabled",
+            Filter: { Prefix: "" },
+            Expiration: { Days: 7 },
+          },
+        ],
+      },
+    })
     const result = await updateBucketSettings("my-bucket", {
       versioning: "Enabled",
       encryption: null,
       corsRules: [],
       lifecycleRules: [],
     })
-    const calls = mockSend.mock.calls as unknown[][]
     expect(result.warnings).toHaveLength(0)
+    expect(sentNamed("DeleteBucketEncryptionCommand")).toHaveLength(1)
+    expect(sentNamed("DeleteBucketCorsCommand")).toHaveLength(1)
+    expect(sentNamed("DeleteBucketLifecycleCommand")).toHaveLength(1)
+  })
+
+  it("should not write CORS or lifecycle when nothing changed", async () => {
+    respondByCommand({
+      GetBucketCorsCommand: {
+        CORSRules: [
+          {
+            AllowedMethods: ["GET"],
+            AllowedOrigins: ["*"],
+            ExposeHeaders: ["ETag"],
+          },
+        ],
+      },
+      GetBucketLifecycleConfigurationCommand: awsError(
+        "NoSuchLifecycleConfiguration",
+        404,
+      ),
+    })
+    const result = await updateBucketSettings("my-bucket", {
+      corsRules: [
+        {
+          allowedMethods: ["GET"],
+          allowedOrigins: ["*"],
+          allowedHeaders: [],
+          maxAge: 0,
+        },
+      ],
+      lifecycleRules: [],
+    })
+    expect(result.warnings).toHaveLength(0)
+    expect(sentNamed("PutBucketCorsCommand")).toHaveLength(0)
+    expect(sentNamed("DeleteBucketCorsCommand")).toHaveLength(0)
+    expect(sentNamed("DeleteBucketLifecycleCommand")).toHaveLength(0)
+  })
+
+  it("should carry ExposeHeaders, ID and an explicit zero max age over on CORS edits", async () => {
+    respondByCommand({
+      GetBucketCorsCommand: {
+        CORSRules: [
+          {
+            ID: "upload",
+            AllowedMethods: ["PUT"],
+            AllowedOrigins: ["*"],
+            ExposeHeaders: ["ETag"],
+            MaxAgeSeconds: 0,
+          },
+        ],
+      },
+    })
+    await updateBucketSettings("my-bucket", {
+      corsRules: [
+        {
+          allowedMethods: ["PUT"],
+          allowedOrigins: ["*"],
+          allowedHeaders: [],
+          maxAge: 0,
+        },
+        {
+          allowedMethods: ["GET"],
+          allowedOrigins: ["*"],
+          allowedHeaders: [],
+          maxAge: 0,
+        },
+      ],
+    })
+    const rules = (
+      (sentNamed("PutBucketCorsCommand")[0]?.input ?? {}) as {
+        CORSConfiguration: { CORSRules: Record<string, unknown>[] }
+      }
+    ).CORSConfiguration.CORSRules
+    expect(rules[0]).toMatchObject({
+      ID: "upload",
+      ExposeHeaders: ["ETag"],
+      MaxAgeSeconds: 0,
+    })
+    expect(rules[1]?.MaxAgeSeconds).toBeUndefined()
+  })
+
+  it("should keep lifecycle rules the form cannot edit", async () => {
+    const archive = {
+      ID: "archive",
+      Status: "Enabled",
+      Filter: { And: { Prefix: "logs/", Tags: [{ Key: "k", Value: "v" }] } },
+      Transitions: [{ Days: 30, StorageClass: "GLACIER" }],
+    }
+    const disabled = { ID: "old", Status: "Disabled", Expiration: { Days: 1 } }
+    respondByCommand({
+      GetBucketLifecycleConfigurationCommand: {
+        Rules: [
+          archive,
+          disabled,
+          {
+            ID: "expire",
+            Status: "Enabled",
+            Filter: { Prefix: "tmp/" },
+            Expiration: { Days: 7 },
+          },
+        ],
+      },
+    })
+    await updateBucketSettings("my-bucket", {
+      lifecycleRules: [{ id: "expire", prefix: "tmp/", expirationDays: 14 }],
+    })
+    const rules = (
+      (sentNamed("PutBucketLifecycleConfigurationCommand")[0]?.input ?? {}) as {
+        LifecycleConfiguration: { Rules: unknown[] }
+      }
+    ).LifecycleConfiguration.Rules
+    expect(rules).toEqual([
+      archive,
+      disabled,
+      {
+        ID: "expire",
+        Status: "Enabled",
+        Filter: { Prefix: "tmp/" },
+        Expiration: { Days: 14 },
+      },
+    ])
+
+    mockSend.mockClear()
+    await updateBucketSettings("my-bucket", { lifecycleRules: [] })
+    expect(sentNamed("DeleteBucketLifecycleCommand")).toHaveLength(0)
     expect(
-      (calls[1]?.[0] as { constructor?: { name?: string } })?.constructor?.name,
-    ).toBe("DeleteBucketEncryptionCommand")
-    expect(
-      (calls[2]?.[0] as { constructor?: { name?: string } })?.constructor?.name,
-    ).toBe("DeleteBucketCorsCommand")
-    expect(
-      (calls[3]?.[0] as { constructor?: { name?: string } })?.constructor?.name,
-    ).toBe("DeleteBucketLifecycleCommand")
+      (
+        (sentNamed("PutBucketLifecycleConfigurationCommand")[0]?.input ??
+          {}) as {
+          LifecycleConfiguration: { Rules: unknown[] }
+        }
+      ).LifecycleConfiguration.Rules,
+    ).toEqual([archive, disabled])
+  })
+
+  it("should warn instead of clobbering a preserved lifecycle rule ID", async () => {
+    respondByCommand({
+      GetBucketLifecycleConfigurationCommand: {
+        Rules: [{ ID: "old", Status: "Disabled", Expiration: { Days: 1 } }],
+      },
+    })
+    const result = await updateBucketSettings("my-bucket", {
+      lifecycleRules: [{ id: "old", prefix: "", expirationDays: 3 }],
+    })
+    expect(result.warnings[0]).toContain("Lifecycle")
+    expect(sentNamed("PutBucketLifecycleConfigurationCommand")).toHaveLength(0)
+  })
+
+  it("should not delete a section whose current state cannot be read", async () => {
+    respondByCommand({ GetBucketCorsCommand: awsError("TimeoutError", 500) })
+    const result = await updateBucketSettings("my-bucket", { corsRules: [] })
+    expect(result.warnings[0]).toContain("CORS")
+    expect(sentNamed("DeleteBucketCorsCommand")).toHaveLength(0)
   })
 
   it("should delete bucket tagging when every tag is removed", async () => {
@@ -171,11 +496,8 @@ describe("updateBucketSettings", () => {
       versioning: "Enabled",
       tags: [],
     })
-    const calls = mockSend.mock.calls as unknown[][]
     expect(result.warnings).toHaveLength(0)
-    expect(
-      (calls[1]?.[0] as { constructor?: { name?: string } })?.constructor?.name,
-    ).toBe("DeleteBucketTaggingCommand")
+    expect(sentNamed("DeleteBucketTaggingCommand")).toHaveLength(1)
   })
 
   it("should put bucket tagging when tags remain", async () => {
@@ -183,22 +505,26 @@ describe("updateBucketSettings", () => {
       versioning: "Enabled",
       tags: [{ key: "env", value: "local" }],
     })
-    const command = (mockSend.mock.calls as unknown[][])[1]?.[0] as {
-      constructor?: { name?: string }
+    const command = sentNamed("PutBucketTaggingCommand")[0] as {
       input?: { Tagging?: { TagSet?: unknown } }
     }
-    expect(command?.constructor?.name).toBe("PutBucketTaggingCommand")
     expect(command?.input?.Tagging?.TagSet).toEqual([
       { Key: "env", Value: "local" },
     ])
   })
 
   it("should return warnings when delete operations fail", async () => {
-    mockSend
-      .mockResolvedValueOnce({})
-      .mockRejectedValueOnce(new Error("Delete encryption failed"))
-      .mockRejectedValueOnce(new Error("Delete cors failed"))
-      .mockRejectedValueOnce(new Error("Delete lifecycle failed"))
+    respondByCommand({
+      GetBucketCorsCommand: { CORSRules: [{ AllowedMethods: ["GET"] }] },
+      GetBucketLifecycleConfigurationCommand: {
+        Rules: [
+          { ID: "a", Status: "Enabled", Filter: {}, Expiration: { Days: 1 } },
+        ],
+      },
+      DeleteBucketEncryptionCommand: new Error("Delete encryption failed"),
+      DeleteBucketCorsCommand: new Error("Delete cors failed"),
+      DeleteBucketLifecycleCommand: new Error("Delete lifecycle failed"),
+    })
     const result = await updateBucketSettings("my-bucket", {
       versioning: "Suspended",
       encryption: null,
@@ -231,6 +557,25 @@ describe("listObjects", () => {
     const result = await listObjects("my-bucket", "")
     expect(result.objects).toEqual([])
     expect(result.folders).toEqual([{ prefix: "empty-folder/" }])
+  })
+
+  it("should map NoSuchBucket to NotFound", async () => {
+    mockSend.mockRejectedValueOnce(awsError("NoSuchBucket"))
+    await expect(listObjects("missing", "")).rejects.toMatchObject({
+      code: "NotFound",
+    })
+  })
+})
+
+describe("getBucketVersioningEnabled", () => {
+  it("should treat suspended buckets as holding versions", async () => {
+    mockSend.mockResolvedValueOnce({ Status: "Suspended" })
+    expect(await getBucketVersioningEnabled("my-bucket")).toBe(true)
+  })
+
+  it("should return false for a missing bucket", async () => {
+    mockSend.mockRejectedValueOnce(awsError("NoSuchBucket", 404))
+    expect(await getBucketVersioningEnabled("my-bucket")).toBe(false)
   })
 })
 
@@ -277,6 +622,13 @@ describe("getObjectForDownload", () => {
     expect(result.filename).toBe("artifact")
   })
 
+  it("should map NoSuchVersion to NotFound", async () => {
+    mockSend.mockRejectedValueOnce(awsError("NoSuchVersion"))
+    await expect(
+      getObjectForDownload("my-bucket", "file.txt", "stale"),
+    ).rejects.toMatchObject({ code: "NotFound" })
+  })
+
   it("should throw ServiceError NotFound when no Body", async () => {
     mockSend.mockResolvedValueOnce({ Body: null })
     await expect(
@@ -287,16 +639,70 @@ describe("getObjectForDownload", () => {
   })
 })
 
+const bytesOf = (text: string) => new TextEncoder().encode(text)
+
 describe("getObjectPreview", () => {
   it("should return text preview for text content types", async () => {
-    mockSend.mockResolvedValueOnce({ ContentType: "text/plain" })
     mockSend.mockResolvedValueOnce({
-      Body: { transformToString: async () => "hello world" },
+      ContentType: "text/plain",
+      ContentLength: 11,
+    })
+    mockSend.mockResolvedValueOnce({
+      Body: { transformToByteArray: async () => bytesOf("hello world") },
+      ContentRange: "bytes 0-10/11",
     })
     const result = await getObjectPreview("my-bucket", "file.txt")
     expect(result.mode).toBe("text")
     expect(result.text).toBe("hello world")
     expect(result.truncated).toBe(false)
+  })
+
+  it("should return an empty preview for an empty object without a ranged GET", async () => {
+    mockSend.mockResolvedValueOnce({
+      ContentType: "text/plain",
+      ContentLength: 0,
+    })
+    const result = await getObjectPreview("my-bucket", "empty.txt")
+    expect(result).toMatchObject({ mode: "text", text: "", truncated: false })
+    expect(mockSend).toHaveBeenCalledTimes(1)
+  })
+
+  it("should decode with the declared charset", async () => {
+    mockSend.mockResolvedValueOnce({
+      ContentType: "text/plain; charset=shift_jis",
+      ContentLength: 2,
+    })
+    mockSend.mockResolvedValueOnce({
+      Body: { transformToByteArray: async () => new Uint8Array([0x82, 0xa0]) },
+    })
+    const result = await getObjectPreview("my-bucket", "sjis.txt")
+    expect(result.text).toBe("あ")
+  })
+
+  it("should mark large objects truncated without a dangling partial character", async () => {
+    mockSend.mockResolvedValueOnce({
+      ContentType: "text/plain",
+      ContentLength: 200_000,
+    })
+    mockSend.mockResolvedValueOnce({
+      Body: {
+        transformToByteArray: async () => new Uint8Array([0x61, 0xe3, 0x81]),
+      },
+    })
+    const result = await getObjectPreview("my-bucket", "big.txt")
+    expect(result.truncated).toBe(true)
+    expect(result.text).toBe("a")
+  })
+
+  it("should map a missing object to NotFound", async () => {
+    mockSend.mockResolvedValueOnce({
+      ContentType: "text/plain",
+      ContentLength: 5,
+    })
+    mockSend.mockRejectedValueOnce(awsError("NoSuchKey", 404))
+    await expect(
+      getObjectPreview("my-bucket", "gone.txt"),
+    ).rejects.toMatchObject({ code: "NotFound" })
   })
 
   it("should return image mode for image content types", async () => {
@@ -321,9 +727,12 @@ describe("getObjectPreview", () => {
   })
 
   it("should return json preview for application/json", async () => {
-    mockSend.mockResolvedValueOnce({ ContentType: "application/json" })
     mockSend.mockResolvedValueOnce({
-      Body: { transformToString: async () => '{"key": "value"}' },
+      ContentType: "application/json",
+      ContentLength: 16,
+    })
+    mockSend.mockResolvedValueOnce({
+      Body: { transformToByteArray: async () => bytesOf('{"key": "value"}') },
     })
     const result = await getObjectPreview("my-bucket", "data.json")
     expect(result.mode).toBe("text")
@@ -520,6 +929,49 @@ describe("renameFolder", () => {
   })
 })
 
+describe("renameFolder concurrency and rollback", () => {
+  it("should bound concurrent copies", async () => {
+    const keys = Array.from({ length: 40 }, (_, i) => ({ Key: `src/${i}` }))
+    let inFlight = 0
+    let peak = 0
+    respondByCommand({
+      ListObjectsV2Command: (command) =>
+        command.input.Prefix === "src/" ? { Contents: keys } : { Contents: [] },
+      CopyObjectCommand: async () => {
+        inFlight += 1
+        peak = Math.max(peak, inFlight)
+        await Promise.resolve()
+        inFlight -= 1
+        return {}
+      },
+    })
+    const result = await renameFolder("my-bucket", "src/", "dst/")
+    expect(result.copiedCount).toBe(40)
+    expect(peak).toBeLessThanOrEqual(16)
+  })
+
+  it("should report rollback failures", async () => {
+    respondByCommand({
+      ListObjectsV2Command: (command) =>
+        command.input.Prefix === "src/"
+          ? { Contents: [{ Key: "src/a" }, { Key: "src/b" }] }
+          : { Contents: [] },
+      CopyObjectCommand: (command) =>
+        command.input.Key === "dst/b"
+          ? Promise.reject(new Error("copy failed"))
+          : {},
+      DeleteObjectsCommand: {
+        Errors: [{ Key: "dst/a", Message: "rollback failed" }],
+      },
+    })
+    const result = await renameFolder("my-bucket", "src/", "dst/")
+    expect(result.errors).toEqual([
+      { target: "src/b", message: "copy failed" },
+      { target: "dst/a", message: "rollback failed" },
+    ])
+  })
+})
+
 describe("updateObjectProperties", () => {
   it("should replace content type while preserving metadata", async () => {
     mockSend
@@ -531,11 +983,16 @@ describe("updateObjectProperties", () => {
         ContentLanguage: "ja",
         Expires: new Date("2026-04-12T00:00:00.000Z"),
         Metadata: { owner: "team-a" },
+        StorageClass: "STANDARD_IA",
+        ServerSideEncryption: "aws:kms",
+        SSEKMSKeyId: "key-1",
+        BucketKeyEnabled: true,
+        WebsiteRedirectLocation: "/elsewhere",
       })
       .mockResolvedValueOnce({})
 
     await updateObjectProperties("my-bucket", "file.txt", {
-      contentType: "application/json",
+      contentType: "Multipart/Mixed; boundary=AbC",
     })
 
     expect(mockSend).toHaveBeenCalledTimes(2)
@@ -552,8 +1009,13 @@ describe("updateObjectProperties", () => {
       )?.input,
     ).toMatchObject({
       MetadataDirective: "REPLACE",
-      ContentType: "application/json",
+      ContentType: "multipart/mixed; boundary=AbC",
       Metadata: { owner: "team-a" },
+      StorageClass: "STANDARD_IA",
+      ServerSideEncryption: "aws:kms",
+      SSEKMSKeyId: "key-1",
+      BucketKeyEnabled: true,
+      WebsiteRedirectLocation: "/elsewhere",
     })
   })
 
@@ -582,6 +1044,11 @@ describe("createFolderObject", () => {
     mockSend.mockResolvedValueOnce({})
     const result = await createFolderObject("my-bucket", "reports/", "daily")
     expect(result.key).toBe("reports/daily/")
+  })
+
+  it("should nest a folder whose name starts with the parent's name", async () => {
+    const result = await createFolderObject("my-bucket", "a/", "a/b")
+    expect(result.key).toBe("a/a/b/")
   })
 
   it("should reject when folderName is empty", async () => {
@@ -719,6 +1186,21 @@ describe("deleteSelectedObjects", () => {
 
     expect(result.deletedCount).toBe(3)
     expect(result.errors).toEqual([])
+  })
+
+  it("should delete keys exactly as listed, including leading slashes and spaces", async () => {
+    respondByCommand({
+      ListObjectsV2Command: { Contents: [{ Key: "/x/a" }] },
+      DeleteObjectsCommand: {},
+    })
+    await deleteSelectedObjects("my-bucket", {
+      files: ["report.txt "],
+      folders: ["/x/"],
+    })
+    expect(sentNamed("ListObjectsV2Command")[0]?.input.Prefix).toBe("/x/")
+    expect(sentNamed("DeleteObjectsCommand")[0]?.input).toMatchObject({
+      Delete: { Objects: [{ Key: "report.txt " }, { Key: "/x/a" }] },
+    })
   })
 
   it("should reject when neither files nor folders are provided", async () => {

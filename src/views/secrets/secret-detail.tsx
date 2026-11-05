@@ -32,11 +32,13 @@ export function SecretDetail({ detail }: SecretDetailProps) {
               <span safe>{detail.name}</span>
             </h1>
             {detail.arn ? (
-              <p class="page-subtitle mono" safe>
-                {detail.arn}
-              </p>
+              <>
+                <p class="page-subtitle mono" safe>
+                  {detail.arn}
+                </p>
+                <CopyButton />
+              </>
             ) : null}
-            {detail.arn ? <CopyButton /> : null}
           </div>
           <div class="page-header__actions">
             {!detail.isBinary ? (

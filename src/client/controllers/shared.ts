@@ -200,7 +200,7 @@ export function createThemeToggleController() {
 export function bindDeleteModalTriggers(): void {
   document.addEventListener("click", (event) => {
     const target = event.target
-    if (!(target instanceof HTMLElement)) return
+    if (!(target instanceof Element)) return
 
     const trigger = target.closest<HTMLElement>("[data-floci-delete-trigger]")
     if (!trigger) return

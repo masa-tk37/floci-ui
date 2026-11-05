@@ -88,7 +88,7 @@ describe("createParameter", () => {
       Name: "/app/config",
       Type: "String",
       Value: "value",
-      Tags: [{ Key: "Environment", Value: "dev" }],
+      Tags: [{ Key: "Environment", Value: " dev " }],
     })
   })
 
@@ -167,6 +167,45 @@ describe("updateParameter", () => {
       ResourceType: "Parameter",
       ResourceId: "/app/config",
       Tags: [{ Key: "Environment", Value: "dev" }],
+    })
+  })
+})
+
+describe("getParameterDetail tag lookup", () => {
+  it("maps InvalidResourceId from ListTagsForResource to NotFound", async () => {
+    sendMock
+      .mockResolvedValueOnce({ Parameters: [{ Name: "/missing" }] })
+      .mockResolvedValueOnce({ Parameter: { Name: "/missing" } })
+      .mockRejectedValueOnce(
+        Object.assign(new Error("bad id"), { name: "InvalidResourceId" }),
+      )
+
+    await expect(getParameterDetail("/missing")).rejects.toMatchObject({
+      code: "NotFound",
+    })
+  })
+})
+
+describe("updateParameter tag failures", () => {
+  it("reports a tag sync failure instead of succeeding", async () => {
+    sendMock
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ TagList: [] })
+      .mockRejectedValueOnce(
+        Object.assign(new Error("reserved prefix"), {
+          name: "ValidationException",
+        }),
+      )
+
+    await expect(
+      updateParameter("/app/config", {
+        type: "String",
+        value: "v",
+        tags: [{ key: "aws:reserved", value: "x" }],
+      }),
+    ).rejects.toMatchObject({
+      code: "InvalidInput",
+      message: expect.stringContaining("tags were not updated"),
     })
   })
 })

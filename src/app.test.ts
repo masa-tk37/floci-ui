@@ -393,7 +393,7 @@ describe("createApp", () => {
     expect(createSecretMock).toHaveBeenCalledTimes(1)
   })
 
-  it("returns structured validation errors for invalid JSON payloads", async () => {
+  it("returns structured validation errors for payloads missing a field", async () => {
     const response = await buildTestApp().handle(
       new Request("http://localhost/secrets", {
         method: "POST",
@@ -403,12 +403,32 @@ describe("createApp", () => {
     )
 
     expect(response.status).toBe(400)
-    expect(await response.json()).toEqual({
+    const body = await response.json()
+    expect(body).toEqual({
       ok: false,
       error: {
         code: "InvalidInput",
         message: expect.any(String),
       },
+    })
+    expect(body.error.message).not.toContain("\n")
+    expect(body.error.message).toContain("/name")
+    expect(createSecretMock).not.toHaveBeenCalled()
+  })
+
+  it("returns InvalidInput for a malformed JSON body", async () => {
+    const response = await buildTestApp().handle(
+      new Request("http://localhost/secrets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{bad",
+      }),
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { code: "InvalidInput", message: "Malformed request body" },
     })
     expect(createSecretMock).not.toHaveBeenCalled()
   })
@@ -573,6 +593,16 @@ describe("page error handling", () => {
     expect(response.status).toBe(404)
     expect(response.headers.get("content-type")).toContain("text/html")
     expect(body).toContain('<aside class="sidebar c--sidebar l--stack">')
+  })
+
+  it("keeps the retry link on the same origin for paths starting with //", async () => {
+    const response = await buildTestApp().handle(
+      new Request("http://localhost//evil.example/x"),
+    )
+    const body = await response.text()
+
+    expect(body).toContain('href="/evil.example/x"')
+    expect(body).not.toContain('href="//')
   })
 
   it("still answers JSON API failures with the JSON envelope", async () => {

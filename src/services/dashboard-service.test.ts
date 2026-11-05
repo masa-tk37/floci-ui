@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test"
 
+import { ServiceError } from "../errors"
 import { loadDashboardData } from "./dashboard-service"
 
 const listTablesMock = mock(() => Promise.resolve(["users", "orders"]))
@@ -80,5 +81,31 @@ describe("loadDashboardData", () => {
     expect(result.ssm.error).toBeUndefined()
     expect(result.secrets.error).toBeUndefined()
     expect(result.cognito.error).toBeUndefined()
+  })
+
+  it("does not blame connectivity when floci answered with an error", async () => {
+    listSecretsMock.mockRejectedValueOnce(
+      new ServiceError(
+        "OperationFailed",
+        "boom",
+        undefined,
+        "InternalServiceError",
+      ),
+    )
+
+    const result = await loadDashboardData(allLoaders)
+
+    expect(result.secrets.error).not.toBe("floci に接続できませんでした。")
+    expect(result.secrets.error).toContain("InternalServiceError")
+  })
+
+  it("reports a socket-level failure as a connection error", async () => {
+    listSecretsMock.mockRejectedValueOnce(
+      new ServiceError("OperationFailed", "refused", undefined, "ECONNREFUSED"),
+    )
+
+    const result = await loadDashboardData(allLoaders)
+
+    expect(result.secrets.error).toBe("floci に接続できませんでした。")
   })
 })

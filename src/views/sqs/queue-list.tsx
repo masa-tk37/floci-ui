@@ -11,6 +11,8 @@ export interface QueueSummary {
   dlqName: string | null
 }
 
+export const queueHref = (name: string) => `/sqs/${encodeURIComponent(name)}`
+
 interface QueueListProps {
   queues: QueueSummary[]
 }
@@ -19,7 +21,7 @@ const columns: TableColumn<QueueSummary>[] = [
   {
     label: "Queue 名",
     cell: (queue) => (
-      <a href={`/sqs/${encodeURIComponent(queue.name)}`} safe>
+      <a href={queueHref(queue.name)} safe>
         {queue.name}
       </a>
     ),
@@ -29,7 +31,7 @@ const columns: TableColumn<QueueSummary>[] = [
     label: "DLQ",
     cell: (queue) =>
       queue.dlqName ? (
-        <a href={`/sqs/${encodeURIComponent(queue.dlqName)}`} safe>
+        <a href={queueHref(queue.dlqName)} safe>
           {queue.dlqName}
         </a>
       ) : (
@@ -60,7 +62,7 @@ export function QueueList({ queues }: QueueListProps) {
         actions={(queue) => (
           <>
             <a
-              href={`/sqs/${encodeURIComponent(queue.name)}/settings`}
+              href={`${queueHref(queue.name)}/settings`}
               class="btn btn--ghost btn--sm"
             >
               {IconSettings}設定
@@ -70,7 +72,7 @@ export function QueueList({ queues }: QueueListProps) {
               class="btn btn--danger-ghost btn--sm"
               data-floci-delete-trigger=""
               data-resource-name={escapeHtml(queue.name)}
-              data-delete-url={`/sqs/${encodeURIComponent(queue.name)}`}
+              data-delete-url={queueHref(queue.name)}
               data-on-success="reload"
             >
               {IconTrash}削除

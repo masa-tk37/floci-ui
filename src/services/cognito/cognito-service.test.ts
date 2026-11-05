@@ -276,7 +276,7 @@ describe("createUser", () => {
     expect(sendMock.mock.calls[0]?.[0]?.input).toMatchObject({
       UserPoolId: "pool-123",
       Username: "alice",
-      TemporaryPassword: "TempPassw0rd!",
+      TemporaryPassword: " TempPassw0rd! ",
       MessageAction: "SUPPRESS",
       UserAttributes: [{ Name: "email", Value: "alice@example.com" }],
     })
@@ -346,6 +346,95 @@ describe("setUserPassword", () => {
       Password: "NewStrongPassw0rd!",
       Permanent: true,
     })
+  })
+})
+
+describe("Cognito NotFound messages", () => {
+  const rejectWith = (name: string, message: string) =>
+    sendMock.mockRejectedValueOnce(Object.assign(new Error(message), { name }))
+
+  it("reports a missing pool, not the user, on user operations", async () => {
+    rejectWith("ResourceNotFoundException", "pool missing")
+    await expect(getUserDetail("pool-123", "alice")).rejects.toMatchObject({
+      code: "NotFound",
+      message: "User pool pool-123 not found",
+    })
+
+    rejectWith("UserNotFoundException", "user missing")
+    await expect(deleteUser("pool-123", "alice")).rejects.toMatchObject({
+      code: "NotFound",
+      message: "User alice not found",
+    })
+  })
+
+  it("does not blame the user when a group operation hits a missing group", async () => {
+    rejectWith("ResourceNotFoundException", "Group not found.")
+    await expect(
+      addUserToGroup("pool-123", "admins", "alice"),
+    ).rejects.toMatchObject({ code: "NotFound", message: "Group not found." })
+
+    rejectWith("ResourceNotFoundException", "Group not found.")
+    await expect(
+      removeUserFromGroup("pool-123", "admins", "alice"),
+    ).rejects.toMatchObject({ code: "NotFound", message: "Group not found." })
+
+    rejectWith("UserNotFoundException", "user missing")
+    await expect(
+      addUserToGroup("pool-123", "admins", "ghost"),
+    ).rejects.toMatchObject({
+      code: "NotFound",
+      message: "User ghost not found",
+    })
+  })
+
+  it("keeps the emulator message when pool and group cannot be told apart", async () => {
+    rejectWith(
+      "ResourceNotFoundException",
+      "User pool pool-123 does not exist.",
+    )
+    await expect(listUsersInGroup("pool-123", "admins")).rejects.toMatchObject({
+      message: "User pool pool-123 does not exist.",
+    })
+
+    rejectWith(
+      "ResourceNotFoundException",
+      "User pool pool-123 does not exist.",
+    )
+    await expect(deleteGroup("pool-123", "admins")).rejects.toMatchObject({
+      message: "User pool pool-123 does not exist.",
+    })
+  })
+})
+
+describe("password handling", () => {
+  it("sends passwords exactly as typed", async () => {
+    sendMock.mockResolvedValueOnce({})
+    await setUserPassword("pool-123", "alice", {
+      password: " Passw0rd! ",
+      permanent: true,
+    })
+    expect(sendMock.mock.calls[0]?.[0]?.input).toMatchObject({
+      Password: " Passw0rd! ",
+    })
+
+    sendMock.mockResolvedValueOnce({ User: { Username: "bob" } })
+    await createUser("pool-123", {
+      username: "bob",
+      temporaryPassword: "Temp0rary! ",
+    })
+    expect(sendMock.mock.calls[1]?.[0]?.input).toMatchObject({
+      TemporaryPassword: "Temp0rary! ",
+    })
+  })
+
+  it("rejects whitespace-only passwords", async () => {
+    await expect(
+      setUserPassword("pool-123", "alice", {
+        password: "   ",
+        permanent: true,
+      }),
+    ).rejects.toMatchObject({ code: "InvalidInput" })
+    expect(sendMock).not.toHaveBeenCalled()
   })
 })
 

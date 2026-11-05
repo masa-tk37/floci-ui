@@ -104,7 +104,7 @@ export function ItemEditForm({ init }: ItemEditFormProps) {
               <span x-show="!submitting">保存</span>
               <span x-show="submitting">保存中…</span>
             </button>
-            <a href={itemPath} class="btn btn--ghost">
+            <a href={tablePath} class="btn btn--ghost">
               キャンセル
             </a>
           </div>

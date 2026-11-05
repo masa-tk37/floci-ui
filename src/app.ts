@@ -1,4 +1,4 @@
-import { Elysia, ValidationError } from "elysia"
+import { Elysia, ParseError, ValidationError } from "elysia"
 import { httpStatusFor, ServiceError } from "./errors"
 import { FLOCI_ENDPOINT } from "./infrastructure/floci-clients"
 import { type CognitoRouteDeps, createCognitoRoutes } from "./routes/cognito"
@@ -29,9 +29,17 @@ export interface AppRouteDeps {
 }
 
 function pageErrorStatus(error: unknown): number {
-  if (error instanceof ValidationError) return httpStatusFor("InvalidInput")
+  if (error instanceof ValidationError || error instanceof ParseError) {
+    return httpStatusFor("InvalidInput")
+  }
   if (error instanceof ServiceError) return httpStatusFor(error.code)
   return 500
+}
+
+function validationMessage(error: ValidationError): string {
+  const first = error.valueError ?? error.all[0]
+  if (!first) return "Invalid request body"
+  return `${first.path || "body"}: ${first.message}`
 }
 
 function renderPageError(
@@ -69,7 +77,19 @@ export function createApp(deps: AppRouteDeps = {}) {
       }
 
       if (error instanceof ValidationError) {
-        return respondWithFrameworkError("InvalidInput", error.message, set)
+        return respondWithFrameworkError(
+          "InvalidInput",
+          validationMessage(error),
+          set,
+        )
+      }
+
+      if (code === "PARSE") {
+        return respondWithFrameworkError(
+          "InvalidInput",
+          "Malformed request body",
+          set,
+        )
       }
 
       if (code === "NOT_FOUND") {

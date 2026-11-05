@@ -1,3 +1,4 @@
+import { ServiceError } from "../errors"
 import { listUserPools } from "./cognito/cognito-service"
 import { listTables } from "./dynamodb/table-service"
 import { listBuckets } from "./s3/bucket-service"
@@ -6,6 +7,17 @@ import { listQueueNames } from "./sqs/queue-service"
 import { listParameters } from "./ssm/parameter-service"
 
 const CONNECTION_ERROR = "floci に接続できませんでした。"
+
+// Socket-level failures mean floci never answered; any other code came from floci itself.
+const UNREACHABLE_CODES = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENOTFOUND",
+  "EPIPE",
+  "ETIMEDOUT",
+  "TimeoutError",
+])
 
 export interface DashboardServiceStatus {
   count: number
@@ -37,7 +49,12 @@ function statusFromResult(
     return { count: result.value.length }
   }
 
-  return { count: 0, error: CONNECTION_ERROR }
+  const awsCode =
+    result.reason instanceof ServiceError ? result.reason.awsCode : undefined
+  if (awsCode === undefined || UNREACHABLE_CODES.has(awsCode)) {
+    return { count: 0, error: CONNECTION_ERROR }
+  }
+  return { count: 0, error: `一覧の取得に失敗しました (${awsCode})。` }
 }
 
 export async function loadDashboardData(

@@ -47,11 +47,13 @@ export function CognitoUserDetail({
               <span safe>{detail.username}</span>
             </h1>
             {detail.sub ? (
-              <p class="page-subtitle mono" safe>
-                {detail.sub}
-              </p>
+              <>
+                <p class="page-subtitle mono" safe>
+                  {detail.sub}
+                </p>
+                <CopyButton />
+              </>
             ) : null}
-            {detail.sub ? <CopyButton /> : null}
           </div>
           <div class="page-header__actions">
             <button
@@ -146,7 +148,7 @@ export function CognitoUserDetail({
               </button>
             )}
 
-            {detail.status !== "CONFIRMED" ? (
+            {detail.status === "UNCONFIRMED" ? (
               <button
                 type="button"
                 class="btn btn--ghost btn--sm"

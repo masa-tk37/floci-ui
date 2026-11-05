@@ -1,13 +1,13 @@
 import { Html } from "@elysiajs/html"
 
-import { Layout } from "./layout"
+import { Layout, type Service } from "./layout"
 
 interface ServiceStatus {
   count: number
   error?: string
 }
 
-type ServiceKey = "dynamodb" | "s3" | "sqs" | "ssm" | "secrets" | "cognito"
+type ServiceKey = Exclude<Service, "dashboard">
 
 interface DashboardProps {
   dynamodb: ServiceStatus
@@ -18,6 +18,15 @@ interface DashboardProps {
   cognito: ServiceStatus
   endpoint: string
 }
+
+const SERVICE_CARDS: { service: ServiceKey; title: string }[] = [
+  { service: "dynamodb", title: "DynamoDB Tables" },
+  { service: "s3", title: "S3 Buckets" },
+  { service: "sqs", title: "SQS Queues" },
+  { service: "ssm", title: "SSM Parameters" },
+  { service: "secrets", title: "Secrets Manager" },
+  { service: "cognito", title: "Cognito User Pools" },
+]
 
 function ServiceCard({
   title,
@@ -47,22 +56,10 @@ function ServiceCard({
   )
 }
 
-export function Dashboard({
-  dynamodb,
-  s3,
-  sqs,
-  ssm,
-  secrets,
-  cognito,
-  endpoint,
-}: DashboardProps) {
-  const online =
-    !dynamodb.error &&
-    !s3.error &&
-    !sqs.error &&
-    !ssm.error &&
-    !secrets.error &&
-    !cognito.error
+export function Dashboard({ endpoint, ...statuses }: DashboardProps) {
+  // One service answering proves the endpoint is reachable; a single failing
+  // card is a per-service error, shown on its own pill.
+  const online = SERVICE_CARDS.some(({ service }) => !statuses[service].error)
   const healthClass = online ? "health-dot--online" : "health-dot--offline"
   const healthLabel = online ? "オンライン" : "オフライン"
 
@@ -85,24 +82,13 @@ export function Dashboard({
         </div>
 
         <div class="service-grid l--grid">
-          <ServiceCard
-            title="DynamoDB Tables"
-            service="dynamodb"
-            status={dynamodb}
-          />
-          <ServiceCard title="S3 Buckets" service="s3" status={s3} />
-          <ServiceCard title="SQS Queues" service="sqs" status={sqs} />
-          <ServiceCard title="SSM Parameters" service="ssm" status={ssm} />
-          <ServiceCard
-            title="Secrets Manager"
-            service="secrets"
-            status={secrets}
-          />
-          <ServiceCard
-            title="Cognito User Pools"
-            service="cognito"
-            status={cognito}
-          />
+          {SERVICE_CARDS.map(({ service, title }) => (
+            <ServiceCard
+              title={title}
+              service={service}
+              status={statuses[service]}
+            />
+          ))}
         </div>
       </div>
     </Layout>

@@ -2,6 +2,7 @@ import { Html } from "@elysiajs/html"
 
 import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout } from "../layout"
+import { bucketHref } from "./bucket-list"
 
 type PreviewMode = "text" | "image" | "pdf" | "binary"
 
@@ -27,7 +28,7 @@ export function Preview({
   text,
   truncated,
 }: PreviewProps) {
-  const bucketPath = `/s3/${encodeURIComponent(bucket)}`
+  const bucketPath = bucketHref(bucket)
   const parent = parentPrefix(objectKey)
   const backHref = parent
     ? `${bucketPath}?prefix=${encodeURIComponent(parent)}`

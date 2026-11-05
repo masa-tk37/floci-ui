@@ -21,8 +21,8 @@ export interface ErrorPageProps {
 }
 
 /**
- * Socket-level failures — the only ones that actually mean the emulator is not
- * answering. An SDK exception name means floci replied and rejected the call.
+ * Socket-level failures, the only ones that mean the emulator is not answering.
+ * An SDK exception name means floci replied and rejected the call.
  */
 const UNREACHABLE_CODES = new Set([
   "ECONNREFUSED",
@@ -33,6 +33,11 @@ const UNREACHABLE_CODES = new Set([
   "ETIMEDOUT",
   "TimeoutError",
 ])
+
+/** Collapses leading `//` or `/\` so the link cannot become protocol-relative. */
+function sameOriginPath(path: string): string {
+  return path.replace(/^\/[/\\]+/, "/")
+}
 
 export function serviceFromPath(pathname: string): Service | undefined {
   const segment = pathname.split("/")[1]
@@ -95,7 +100,7 @@ export function ErrorPage({
         </dl>
 
         <div class="error-page__actions">
-          <a class="btn btn--primary" href={path}>
+          <a class="btn btn--primary" href={sameOriginPath(path)}>
             再試行
           </a>
           <a class="btn btn--ghost" href="/">

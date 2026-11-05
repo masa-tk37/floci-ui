@@ -6,8 +6,10 @@ import {
   DeleteObjectCommand,
   GetBucketVersioningCommand,
   GetObjectCommand,
+  type GetObjectCommandOutput,
   GetObjectTaggingCommand,
   ListObjectsV2Command,
+  type ListObjectsV2CommandOutput,
   ListObjectVersionsCommand,
   type ObjectVersion,
   PutObjectCommand,
@@ -35,10 +37,12 @@ import {
   copySource,
   deleteKeysInBatches,
   directChildRemainder,
+  errorMessageOf,
   folderPrefixFromKey,
   getHeadObject,
   inferredFilename,
   isImageContentType,
+  isNotFoundError,
   isPdfContentType,
   isTextContentType,
   listKeysForPrefix,
@@ -53,21 +57,80 @@ import {
 } from "./shared"
 
 const OBJECT_PAGE_SIZE = 100
+const RENAME_COPY_CONCURRENCY = 16
+
+function rethrowNotFound(error: unknown, message: string): never {
+  if (isNotFoundError(error)) {
+    throw new ServiceError("NotFound", message, error)
+  }
+  toOperationFailed(error)
+}
+
+async function settleWithLimit<T, R>(
+  items: T[],
+  limit: number,
+  run: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length)
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++
+      try {
+        results[index] = {
+          status: "fulfilled",
+          value: await run(items[index] as T),
+        }
+      } catch (reason: unknown) {
+        results[index] = { status: "rejected", reason }
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  )
+  return results
+}
+
+function charsetOf(contentType: string | undefined): string {
+  const match = /;\s*charset\s*=\s*"?([^";\s]+)"?/i.exec(contentType ?? "")
+  return match?.[1] ?? "utf-8"
+}
+
+function decodePreviewText(
+  bytes: Uint8Array,
+  charset: string,
+  truncated: boolean,
+): string {
+  let decoder: TextDecoder
+  try {
+    decoder = new TextDecoder(charset)
+  } catch {
+    decoder = new TextDecoder("utf-8")
+  }
+  // stream: true holds back a trailing multibyte sequence cut by the range limit.
+  return decoder.decode(bytes, { stream: truncated })
+}
 
 export async function listObjects(
   bucket: string,
   prefix: string,
   cursor?: string,
 ): Promise<ObjectListResult> {
-  const result = await s3.send(
-    new ListObjectsV2Command({
-      Bucket: bucket,
-      Delimiter: "/",
-      Prefix: prefix,
-      MaxKeys: OBJECT_PAGE_SIZE,
-      ContinuationToken: cursor,
-    }),
-  )
+  let result: ListObjectsV2CommandOutput
+  try {
+    result = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Delimiter: "/",
+        Prefix: prefix,
+        MaxKeys: OBJECT_PAGE_SIZE,
+        ContinuationToken: cursor,
+      }),
+    )
+  } catch (error: unknown) {
+    rethrowNotFound(error, `Bucket ${bucket} not found`)
+  }
 
   const contents = result.Contents ?? []
   const commonPrefixes = result.CommonPrefixes ?? []
@@ -110,8 +173,12 @@ export async function getBucketVersioningEnabled(
     const result = await s3.send(
       new GetBucketVersioningCommand({ Bucket: bucket }),
     )
-    return result.Status === "Enabled"
-  } catch {
+    // Suspended buckets still hold earlier versions.
+    return result.Status === "Enabled" || result.Status === "Suspended"
+  } catch (error: unknown) {
+    if (!isNotFoundError(error)) {
+      console.warn(`[S3] GetBucketVersioning failed for ${bucket}:`, error)
+    }
     return false
   }
 }
@@ -175,13 +242,18 @@ export async function getObjectForDownload(
   key: string,
   versionId?: string,
 ): Promise<DownloadResult> {
-  const result = await s3.send(
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      VersionId: versionId || undefined,
-    }),
-  )
+  let result: GetObjectCommandOutput
+  try {
+    result = await s3.send(
+      new GetObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        VersionId: versionId || undefined,
+      }),
+    )
+  } catch (error: unknown) {
+    rethrowNotFound(error, `Object ${key} not found in bucket ${bucket}`)
+  }
   if (!result.Body) {
     throw new ServiceError(
       "NotFound",
@@ -189,10 +261,11 @@ export async function getObjectForDownload(
     )
   }
 
+  const contentType = sanitizeContentType(result.ContentType)
   return {
     stream: result.Body.transformToWebStream(),
-    contentType: sanitizeContentType(result.ContentType),
-    filename: inferredFilename(key, sanitizeContentType(result.ContentType)),
+    contentType,
+    filename: inferredFilename(key, contentType),
   }
 }
 
@@ -215,13 +288,24 @@ export async function getObjectPreview(
     return { contentType, mode: "binary" }
   }
 
-  const result = await s3.send(
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Range: `bytes=0-${PREVIEW_TEXT_LIMIT - 1}`,
-    }),
-  )
+  const size = head.ContentLength ?? 0
+  // A Range request on an empty object fails with InvalidRange.
+  if (size === 0) {
+    return { contentType, mode: "text", text: "", truncated: false }
+  }
+
+  let result: GetObjectCommandOutput
+  try {
+    result = await s3.send(
+      new GetObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Range: `bytes=0-${PREVIEW_TEXT_LIMIT - 1}`,
+      }),
+    )
+  } catch (error: unknown) {
+    rethrowNotFound(error, `Object ${key} not found in bucket ${bucket}`)
+  }
   if (!result.Body) {
     throw new ServiceError(
       "NotFound",
@@ -229,12 +313,13 @@ export async function getObjectPreview(
     )
   }
 
-  const text = await result.Body.transformToString()
+  const truncated = size > PREVIEW_TEXT_LIMIT
+  const bytes = await result.Body.transformToByteArray()
   return {
     contentType,
     mode: "text",
-    text,
-    truncated: result.ContentRange !== undefined,
+    text: decodePreviewText(bytes, charsetOf(head.ContentType), truncated),
+    truncated,
   }
 }
 
@@ -404,8 +489,10 @@ export async function renameFolder(
     )
   }
 
-  const copyResults = await Promise.allSettled(
-    renamePairs.map(async (pair) => {
+  const copyResults = await settleWithLimit(
+    renamePairs,
+    RENAME_COPY_CONCURRENCY,
+    async (pair) => {
       await s3.send(
         new CopyObjectCommand({
           Bucket: bucket,
@@ -414,7 +501,7 @@ export async function renameFolder(
         }),
       )
       return pair
-    }),
+    },
   )
 
   const copyErrors = copyResults.flatMap((result, index) =>
@@ -422,10 +509,7 @@ export async function renameFolder(
       ? [
           {
             target: renamePairs[index]?.from ?? `object-${index + 1}`,
-            message:
-              result.reason instanceof Error
-                ? result.reason.message
-                : String(result.reason),
+            message: errorMessageOf(result.reason),
           },
         ]
       : [],
@@ -440,13 +524,11 @@ export async function renameFolder(
           result.status === "fulfilled",
       )
       .map((result) => result.value.to)
-    if (copiedTargets.length > 0) {
-      await deleteKeysInBatches(bucket, copiedTargets)
-    }
+    const rollback = await deleteKeysInBatches(bucket, copiedTargets)
     return {
       copiedCount: 0,
       deletedCount: 0,
-      errors: copyErrors,
+      errors: [...copyErrors, ...rollback.errors],
       prefix: normalizedToPrefix,
     }
   }
@@ -460,13 +542,22 @@ export async function renameFolder(
   }
 }
 
+/** Media type and parameter names are case-insensitive; parameter values (e.g. boundary) are not. */
+function lowercaseMediaType(contentType: string): string {
+  const separator = contentType.indexOf(";")
+  if (separator === -1) return contentType.toLowerCase()
+  return (
+    contentType.slice(0, separator).toLowerCase() + contentType.slice(separator)
+  )
+}
+
 export async function updateObjectProperties(
   bucket: string,
   key: string,
   input: UpdateObjectPropertiesInput,
 ): Promise<void> {
   const normalizedKey = normalizeObjectKey(key)
-  const requestedContentType = input.contentType.trim().toLowerCase()
+  const requestedContentType = lowercaseMediaType(input.contentType.trim())
 
   if (!requestedContentType) {
     throw new ServiceError("InvalidInput", "Content-Type is required")
@@ -488,6 +579,11 @@ export async function updateObjectProperties(
         ContentLanguage: head.ContentLanguage,
         Expires: head.Expires,
         Metadata: head.Metadata,
+        StorageClass: head.StorageClass,
+        ServerSideEncryption: head.ServerSideEncryption,
+        SSEKMSKeyId: head.SSEKMSKeyId,
+        BucketKeyEnabled: head.BucketKeyEnabled,
+        WebsiteRedirectLocation: head.WebsiteRedirectLocation,
       }),
     )
   } catch (error: unknown) {
@@ -563,10 +659,7 @@ export async function uploadObjects(
         ? [
             {
               name: files[index]?.name ?? `file-${index + 1}`,
-              message:
-                result.reason instanceof Error
-                  ? result.reason.message
-                  : String(result.reason),
+              message: errorMessageOf(result.reason),
             },
           ]
         : [],
@@ -602,10 +695,7 @@ export async function deleteSelectedObjects(
       errors.push({
         // biome-ignore lint/style/noNonNullAssertion: index is bounded by folderPrefixes.length
         target: folderPrefixes[index]!,
-        message:
-          result.reason instanceof Error
-            ? result.reason.message
-            : String(result.reason),
+        message: errorMessageOf(result.reason),
       })
     }
   }

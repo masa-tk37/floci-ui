@@ -1,5 +1,6 @@
 import html, { Html } from "@elysiajs/html"
 import { Elysia, t } from "elysia"
+import { ServiceError } from "../errors"
 import { decodeResourceName } from "../infrastructure/resource-name-codec"
 import {
   addUserToGroup,
@@ -72,6 +73,14 @@ const setPasswordSchema = t.Object({
   password: t.String({ minLength: 1 }),
   permanent: t.Boolean(),
 })
+
+// Elysia already percent-decodes path params and yields null for malformed escapes.
+function requirePathParam(value: string | null | undefined, label: string) {
+  if (typeof value !== "string" || value === "") {
+    throw new ServiceError("InvalidInput", `Invalid ${label}`)
+  }
+  return value
+}
 
 const defaultCognitoRouteDeps = {
   addUserToGroup,
@@ -160,7 +169,7 @@ export function createCognitoRoutes(
       runJsonAction(set, async () => {
         await deps.deleteGroup(
           params.poolId,
-          decodeURIComponent(params.groupName),
+          requirePathParam(params.groupName, "group name"),
         )
       }),
     )
@@ -168,7 +177,7 @@ export function createCognitoRoutes(
       runJsonAction(set, async () => ({
         users: await deps.listUsersInGroup(
           params.poolId,
-          decodeURIComponent(params.groupName),
+          requirePathParam(params.groupName, "group name"),
         ),
       })),
     )
@@ -178,7 +187,7 @@ export function createCognitoRoutes(
         runJsonAction(set, async () => {
           await deps.addUserToGroup(
             params.poolId,
-            decodeURIComponent(params.groupName),
+            requirePathParam(params.groupName, "group name"),
             body.username,
           )
         }),
@@ -190,8 +199,8 @@ export function createCognitoRoutes(
         runJsonAction(set, async () => {
           await deps.removeUserFromGroup(
             params.poolId,
-            decodeURIComponent(params.groupName),
-            decodeURIComponent(params.username),
+            requirePathParam(params.groupName, "group name"),
+            requirePathParam(params.username, "username"),
           )
         }),
     )

@@ -39,32 +39,29 @@ export function TableList({ tables }: TableListProps) {
         resourceLabel="Table"
         emptyMessage="まだテーブルがありません"
         filterText={(name) => name}
-        actions={(name) => (
-          <>
-            <a
-              href={`/dynamodb/${encodeURIComponent(name)}/query`}
-              class="btn btn--ghost btn--sm"
-            >
-              {IconSearch}Query
-            </a>
-            <a
-              href={`/dynamodb/${encodeURIComponent(name)}/edit`}
-              class="btn btn--ghost btn--sm"
-            >
-              {IconSettings}設定
-            </a>
-            <button
-              type="button"
-              class="btn btn--danger-ghost btn--sm"
-              data-floci-delete-trigger=""
-              data-resource-name={escapeHtml(name)}
-              data-delete-url={`/dynamodb/${encodeURIComponent(name)}`}
-              data-on-success="reload"
-            >
-              {IconTrash}削除
-            </button>
-          </>
-        )}
+        actions={(name) => {
+          const path = `/dynamodb/${encodeURIComponent(name)}`
+          return (
+            <>
+              <a href={`${path}/query`} class="btn btn--ghost btn--sm">
+                {IconSearch}Query
+              </a>
+              <a href={`${path}/edit`} class="btn btn--ghost btn--sm">
+                {IconSettings}設定
+              </a>
+              <button
+                type="button"
+                class="btn btn--danger-ghost btn--sm"
+                data-floci-delete-trigger=""
+                data-resource-name={escapeHtml(name)}
+                data-delete-url={path}
+                data-on-success="reload"
+              >
+                {IconTrash}削除
+              </button>
+            </>
+          )
+        }}
       />
     </Layout>
   )

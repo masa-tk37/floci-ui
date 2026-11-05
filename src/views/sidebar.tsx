@@ -1,13 +1,14 @@
 import { Html } from "@elysiajs/html"
+import type { Service } from "./layout"
 
-type Service =
-  | "dashboard"
-  | "dynamodb"
-  | "s3"
-  | "sqs"
-  | "ssm"
-  | "secrets"
-  | "cognito"
+const SERVICE_LINKS: { service: Service; label: string }[] = [
+  { service: "dynamodb", label: "DynamoDB" },
+  { service: "s3", label: "S3" },
+  { service: "sqs", label: "SQS" },
+  { service: "ssm", label: "SSM" },
+  { service: "secrets", label: "Secrets" },
+  { service: "cognito", label: "Cognito" },
+]
 
 interface SidebarProps {
   active?: Service
@@ -24,48 +25,15 @@ export function Sidebar({ active }: SidebarProps) {
         floci-ui
       </a>
       <nav class="sidebar__nav l--stack" aria-label="AWS サービス">
-        <a
-          href="/dynamodb"
-          class={`sidebar__section-header${active === "dynamodb" ? " is-active" : ""}`}
-        >
-          <span class="sidebar__dot sidebar__dot--dynamodb" />
-          <span class="sidebar__section-label">DynamoDB</span>
-        </a>
-        <a
-          href="/s3"
-          class={`sidebar__section-header${active === "s3" ? " is-active" : ""}`}
-        >
-          <span class="sidebar__dot sidebar__dot--s3" />
-          <span class="sidebar__section-label">S3</span>
-        </a>
-        <a
-          href="/sqs"
-          class={`sidebar__section-header${active === "sqs" ? " is-active" : ""}`}
-        >
-          <span class="sidebar__dot sidebar__dot--sqs" />
-          <span class="sidebar__section-label">SQS</span>
-        </a>
-        <a
-          href="/ssm"
-          class={`sidebar__section-header${active === "ssm" ? " is-active" : ""}`}
-        >
-          <span class="sidebar__dot sidebar__dot--ssm" />
-          <span class="sidebar__section-label">SSM</span>
-        </a>
-        <a
-          href="/secrets"
-          class={`sidebar__section-header${active === "secrets" ? " is-active" : ""}`}
-        >
-          <span class="sidebar__dot sidebar__dot--secrets" />
-          <span class="sidebar__section-label">Secrets</span>
-        </a>
-        <a
-          href="/cognito"
-          class={`sidebar__section-header${active === "cognito" ? " is-active" : ""}`}
-        >
-          <span class="sidebar__dot sidebar__dot--cognito" />
-          <span class="sidebar__section-label">Cognito</span>
-        </a>
+        {SERVICE_LINKS.map(({ service, label }) => (
+          <a
+            href={`/${service}`}
+            class={`sidebar__section-header${active === service ? " is-active" : ""}`}
+          >
+            <span class={`sidebar__dot sidebar__dot--${service}`} />
+            <span class="sidebar__section-label">{label}</span>
+          </a>
+        ))}
       </nav>
     </aside>
   )

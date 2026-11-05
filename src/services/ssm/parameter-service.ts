@@ -90,7 +90,11 @@ function toParameterError(error: unknown, name?: string): never {
   if (error instanceof ServiceError) throw error
 
   if (error instanceof Error) {
-    if (error.name === "ParameterNotFound") {
+    // Tag APIs report a missing parameter as InvalidResourceId.
+    if (
+      error.name === "ParameterNotFound" ||
+      error.name === "InvalidResourceId"
+    ) {
       throw new ServiceError(
         "NotFound",
         `Parameter ${name ?? ""} not found`,
@@ -117,33 +121,9 @@ function toParameterError(error: unknown, name?: string): never {
   toOperationFailed(error)
 }
 
-async function listParameterMetadata(): Promise<ParameterSummary[]> {
-  const parameters: ParameterSummary[] = []
-  let nextToken: string | undefined
-
-  do {
-    const result = await ssm.send(
-      new DescribeParametersCommand({
-        MaxResults: 50,
-        NextToken: nextToken,
-      }),
-    )
-
-    for (const parameter of result.Parameters ?? []) {
-      parameters.push(mapMetadata(parameter))
-    }
-
-    nextToken = result.NextToken
-  } while (nextToken)
-
-  parameters.sort((left, right) => left.name.localeCompare(right.name))
-
-  return parameters
-}
-
-async function getParameterMetadata(name: string): Promise<ParameterSummary> {
-  const normalizedName = requireTrimmed(name, "Parameter name")
-
+async function getParameterMetadata(
+  normalizedName: string,
+): Promise<ParameterSummary> {
   try {
     const result = await ssm.send(
       new DescribeParametersCommand({
@@ -171,9 +151,9 @@ async function getParameterMetadata(name: string): Promise<ParameterSummary> {
   }
 }
 
-async function listParameterTags(name: string): Promise<ResourceTag[]> {
-  const normalizedName = requireTrimmed(name, "Parameter name")
-
+async function listParameterTags(
+  normalizedName: string,
+): Promise<ResourceTag[]> {
   try {
     const result = await ssm.send(
       new ListTagsForResourceCommand({
@@ -186,22 +166,14 @@ async function listParameterTags(name: string): Promise<ResourceTag[]> {
       left.key.localeCompare(right.key),
     )
   } catch (error) {
-    if (error instanceof Error && error.name === "ParameterNotFound") {
-      throw new ServiceError(
-        "NotFound",
-        `Parameter ${normalizedName} not found`,
-      )
-    }
-
     toParameterError(error, normalizedName)
   }
 }
 
 async function syncParameterTags(
-  name: string,
+  normalizedName: string,
   nextTags: ResourceTag[],
 ): Promise<void> {
-  const normalizedName = requireTrimmed(name, "Parameter name")
   const currentTags = await listParameterTags(normalizedName)
   const { removeKeys, upsertTags } = diffTags(currentTags, nextTags)
 
@@ -233,7 +205,25 @@ async function syncParameterTags(
 
 export async function listParameters(): Promise<ParameterSummary[]> {
   try {
-    return await listParameterMetadata()
+    const parameters: ParameterSummary[] = []
+    let nextToken: string | undefined
+
+    do {
+      const result = await ssm.send(
+        new DescribeParametersCommand({
+          MaxResults: 50,
+          NextToken: nextToken,
+        }),
+      )
+
+      for (const parameter of result.Parameters ?? []) {
+        parameters.push(mapMetadata(parameter))
+      }
+
+      nextToken = result.NextToken
+    } while (nextToken)
+
+    return parameters.sort((left, right) => left.name.localeCompare(right.name))
   } catch (error) {
     toParameterError(error)
   }
@@ -339,7 +329,13 @@ export async function updateParameter(
   try {
     await syncParameterTags(normalizedName, tags)
   } catch (tagError) {
-    console.warn(`[SSM] Tag sync failed for ${normalizedName}:`, tagError)
+    if (!(tagError instanceof ServiceError)) throw tagError
+    throw new ServiceError(
+      tagError.code,
+      `Parameter value was saved, but tags were not updated: ${tagError.message}`,
+      tagError,
+      tagError.awsCode,
+    )
   }
 }
 

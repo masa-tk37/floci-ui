@@ -35,8 +35,20 @@ import {
 } from "./queue-service"
 import { queueNameFromUrl } from "./queue-utils"
 
+function sentInputs(): Record<string, unknown>[] {
+  return (mockSend.mock.calls as unknown[][]).map(
+    (call) => (call[0] as { input: Record<string, unknown> }).input,
+  )
+}
+
+const queueMissing = () =>
+  Object.assign(new Error("Queue does not exist"), {
+    name: "QueueDoesNotExist",
+  })
+
 beforeEach(() => {
-  mockSend.mockClear()
+  mockSend.mockReset()
+  mockSend.mockImplementation(() => Promise.resolve({}))
   mockFetch.mockResolvedValue(
     new Response(JSON.stringify(emptyMessagesResponse), {
       headers: { "Content-Type": "application/json" },
@@ -85,6 +97,37 @@ describe("listQueues", () => {
     expect(result.map((queue) => queue.name)).toEqual(["alerts", "orders"])
   })
 
+  it("requests MaxResults so NextToken pagination advances", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        QueueUrls: ["http://localhost:4566/000000000000/a"],
+        NextToken: "t1",
+      })
+      .mockResolvedValueOnce({
+        QueueUrls: ["http://localhost:4566/000000000000/b"],
+      })
+    await expect(listQueueNames()).resolves.toEqual(["a", "b"])
+    expect(sentInputs()[0]).toMatchObject({ MaxResults: 1000 })
+    expect(sentInputs()[1]).toMatchObject({ MaxResults: 1000, NextToken: "t1" })
+  })
+
+  it("drops queues deleted mid-listing and logs other attribute failures", async () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {})
+    mockSend
+      .mockResolvedValueOnce({
+        QueueUrls: [
+          "http://localhost:4566/000000000000/gone",
+          "http://localhost:4566/000000000000/slow",
+        ],
+      })
+      .mockRejectedValueOnce(queueMissing())
+      .mockRejectedValueOnce(new Error("timeout"))
+    const result = await listQueues()
+    expect(result.map((queue) => queue.name)).toEqual(["slow"])
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
+  })
+
   it("should return empty array when no queues", async () => {
     mockSend.mockResolvedValueOnce({ QueueUrls: undefined })
     const result = await listQueues()
@@ -126,15 +169,38 @@ describe("listQueueNames", () => {
 
 describe("createQueue", () => {
   it("should create a queue", async () => {
-    mockSend.mockResolvedValueOnce({
+    mockSend.mockRejectedValueOnce(queueMissing()).mockResolvedValueOnce({
       QueueUrl: "http://localhost:4566/000000000000/new-queue",
     })
     await expect(createQueue("new-queue")).resolves.toBeUndefined()
+    expect(mockSend).toHaveBeenCalledTimes(2)
+  })
+
+  it("refuses a name that already exists", async () => {
+    mockSend.mockResolvedValueOnce({
+      QueueUrl: "http://localhost:4566/000000000000/jobs",
+    })
+    await expect(createQueue("jobs")).rejects.toMatchObject({
+      code: "AlreadyExists",
+    })
     expect(mockSend).toHaveBeenCalledTimes(1)
   })
 
+  it("maps QueueNameExists to AlreadyExists", async () => {
+    mockSend
+      .mockRejectedValueOnce(queueMissing())
+      .mockRejectedValueOnce(
+        Object.assign(new Error("exists"), { name: "QueueNameExists" }),
+      )
+    await expect(createQueue("jobs")).rejects.toMatchObject({
+      code: "AlreadyExists",
+    })
+  })
+
   it("should throw ServiceError on failure", async () => {
-    mockSend.mockRejectedValueOnce(new Error("Queue creation failed"))
+    mockSend
+      .mockRejectedValueOnce(queueMissing())
+      .mockRejectedValueOnce(new Error("Queue creation failed"))
     await expect(createQueue("bad-queue")).rejects.toMatchObject({
       code: "OperationFailed",
     })
@@ -220,11 +286,29 @@ describe("getQueueSettings", () => {
     expect(result.isFifo).toBe(false)
     expect(result.tags).toEqual([{ key: "env", value: "dev" }])
   })
+
+  it("fails rather than showing no tags when ListQueueTags fails", async () => {
+    mockSend
+      .mockResolvedValueOnce({ Attributes: {} })
+      .mockRejectedValueOnce(new Error("throttled"))
+    await expect(getQueueSettings("my-queue")).rejects.toMatchObject({
+      code: "OperationFailed",
+    })
+  })
+
+  it("maps a missing queue to NotFound", async () => {
+    mockSend
+      .mockRejectedValueOnce(queueMissing())
+      .mockResolvedValueOnce({ Tags: {} })
+    await expect(getQueueSettings("gone")).rejects.toMatchObject({
+      code: "NotFound",
+    })
+  })
 })
 
 describe("updateQueueSettings", () => {
   it("should update attributes and tags", async () => {
-    // ListQueueTagsCommand (existing tags fetch) + SetQueueAttributesCommand + TagQueueCommand
+    // ListQueueTags, SetQueueAttributes, TagQueue
     mockSend
       .mockResolvedValueOnce({ Tags: {} })
       .mockResolvedValueOnce({})
@@ -245,6 +329,20 @@ describe("updateQueueSettings", () => {
       updateQueueSettings("my-queue", { VisibilityTimeout: "60" }, {}),
     ).resolves.toBeUndefined()
     expect(mockSend).toHaveBeenCalledTimes(2)
+  })
+
+  it("fails instead of skipping tag removals when ListQueueTags fails", async () => {
+    mockSend.mockRejectedValueOnce(new Error("throttled"))
+    await expect(
+      updateQueueSettings("my-queue", {}, { env: "dev" }),
+    ).rejects.toMatchObject({ code: "OperationFailed" })
+    expect(mockSend).toHaveBeenCalledTimes(1)
+  })
+
+  it("removes tags dropped from the form", async () => {
+    mockSend.mockResolvedValueOnce({ Tags: { env: "dev", team: "a" } })
+    await updateQueueSettings("my-queue", {}, { env: "dev" })
+    expect(sentInputs()[1]).toMatchObject({ TagKeys: ["team"] })
   })
 })
 
@@ -326,8 +424,26 @@ describe("getQueueMessages", () => {
     expect(result[0].receiveCount).toBeNull()
   })
 
+  it("returns empty array when the response has no messages field", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({}), {
+        headers: { "Content-Type": "application/json" },
+      }),
+    )
+    await expect(getQueueMessages("my-queue")).resolves.toEqual([])
+  })
+
+  it("passes a timeout signal and wraps fetch failures", async () => {
+    mockFetch.mockRejectedValueOnce(new TypeError("fetch failed"))
+    await expect(getQueueMessages("my-queue")).rejects.toMatchObject({
+      code: "OperationFailed",
+    })
+    const init = mockFetch.mock.calls.at(-1)?.[1] as RequestInit | undefined
+    expect(init?.signal).toBeInstanceOf(AbortSignal)
+  })
+
   it("returns empty array when no messages", async () => {
-    // mockFetch already returns empty messages by default in beforeEach
+    // beforeEach's mockFetch default returns no messages
     const result = await getQueueMessages("my-queue")
     expect(result).toEqual([])
   })
@@ -356,6 +472,15 @@ describe("getQueueAttributes", () => {
       contentBasedDeduplication: true,
       queueArn: "arn:aws:sqs:us-east-1:000000000000:my-queue",
       dlqName: null,
+    })
+  })
+})
+
+describe("getQueueAttributes (errors)", () => {
+  it("maps a missing queue to NotFound", async () => {
+    mockSend.mockRejectedValueOnce(queueMissing())
+    await expect(getQueueAttributes("gone")).rejects.toMatchObject({
+      code: "NotFound",
     })
   })
 })
@@ -394,6 +519,45 @@ describe("deleteMessageById", () => {
     const calls = mockSend.mock.calls as unknown[][]
     expect((calls[1]?.[0] as { input?: unknown })?.input).toMatchObject({
       ReceiptHandle: "rh-1",
+    })
+    expect(sentInputs()[2]).toMatchObject({
+      ReceiptHandle: "rh-2",
+      VisibilityTimeout: 0,
+    })
+  })
+
+  it("keeps receiving past the first batch and releases the hidden messages", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        Messages: [{ MessageId: "msg-1", ReceiptHandle: "rh-1" }],
+      })
+      .mockResolvedValueOnce({
+        Messages: [{ MessageId: "msg-2", ReceiptHandle: "rh-2" }],
+      })
+    await expect(
+      deleteMessageById("my-queue", "msg-2"),
+    ).resolves.toBeUndefined()
+    const inputs = sentInputs()
+    expect(inputs[0]).toMatchObject({ VisibilityTimeout: 30 })
+    expect(inputs[2]).toMatchObject({ ReceiptHandle: "rh-2" })
+    expect(inputs[3]).toMatchObject({
+      ReceiptHandle: "rh-1",
+      VisibilityTimeout: 0,
+    })
+  })
+
+  it("releases hidden messages when the target is never found", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        Messages: [{ MessageId: "msg-1", ReceiptHandle: "rh-1" }],
+      })
+      .mockResolvedValueOnce({ Messages: [] })
+    await expect(
+      deleteMessageById("my-queue", "missing-id"),
+    ).rejects.toMatchObject({ code: "NotFound" })
+    expect(sentInputs()[2]).toMatchObject({
+      ReceiptHandle: "rh-1",
+      VisibilityTimeout: 0,
     })
   })
 

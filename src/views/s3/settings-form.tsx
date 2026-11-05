@@ -3,14 +3,82 @@ import { Html } from "@elysiajs/html"
 import { ClientProps, mountComponentAttrs } from "../client"
 import { Layout } from "../layout"
 import { TagEditor } from "../tag-editor"
+import { bucketHref } from "./bucket-list"
 import type { S3SettingsInitial } from "./settings-form-state"
 
 interface S3SettingsFormProps {
   init: S3SettingsInitial
 }
 
+// The only literals the settings route schema accepts.
+const CORS_METHODS = ["GET", "PUT", "POST", "DELETE", "HEAD"] as const
+
+interface CorsValueListProps {
+  field: "allowedOrigins" | "allowedHeaders"
+  itemVar: string
+  label: string
+  hint?: string
+  placeholder: string
+  addLabel: string
+}
+
+function CorsValueList({
+  field,
+  itemVar,
+  label,
+  hint,
+  placeholder,
+  addLabel,
+}: CorsValueListProps) {
+  const indexVar = `${itemVar}i`
+  return (
+    <div class="form-row">
+      <label class="form-label">
+        {hint ? (
+          <>
+            {label} <span class="form-label__hint">{hint}</span>
+          </>
+        ) : (
+          label
+        )}
+      </label>
+      <div class="cors-tag-list">
+        <template
+          x-for={`(${itemVar}, ${indexVar}) in r.${field}`}
+          {...{ ":key": indexVar }}
+        >
+          <div class="cors-tag-item">
+            <input
+              type="text"
+              class="input input--sm"
+              {...{ "x-model": `r.${field}[${indexVar}]` }}
+              placeholder={placeholder}
+            />
+            <button
+              type="button"
+              class="btn btn--danger-ghost btn--xs"
+              {...{
+                "@click": `removeCorsValue(i, '${field}', ${indexVar})`,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </template>
+        <button
+          type="button"
+          class="btn btn--sm"
+          {...{ "@click": `addCorsValue(i, '${field}')` }}
+        >
+          {addLabel}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function S3SettingsForm({ init }: S3SettingsFormProps) {
-  const bucketPath = `/s3/${encodeURIComponent(init.bucket)}`
+  const bucketPath = bucketHref(init.bucket)
 
   return (
     <Layout
@@ -167,108 +235,33 @@ export function S3SettingsForm({ init }: S3SettingsFormProps) {
                 <div class="form-row">
                   <label class="form-label">許可メソッド</label>
                   <div class="cors-tag-list">
-                    <template
-                      x-for="(m, mi) in r.allowedMethods"
-                      {...{ ":key": "mi" }}
-                    >
-                      <div class="cors-tag-item">
+                    {CORS_METHODS.map((method) => (
+                      <label class="radio">
                         <input
-                          type="text"
-                          class="input input--sm"
-                          {...{ "x-model": "r.allowedMethods[mi]" }}
-                          placeholder="GET"
+                          type="checkbox"
+                          value={method}
+                          x-model="r.allowedMethods"
                         />
-                        <button
-                          type="button"
-                          class="btn btn--danger-ghost btn--xs"
-                          {...{
-                            "@click": `removeCorsValue(i, 'allowedMethods', mi)`,
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </template>
-                    <button
-                      type="button"
-                      class="btn btn--sm"
-                      {...{ "@click": `addCorsValue(i, 'allowedMethods')` }}
-                    >
-                      + メソッド
-                    </button>
+                        <span>{method}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
-                <div class="form-row">
-                  <label class="form-label">許可オリジン</label>
-                  <div class="cors-tag-list">
-                    <template
-                      x-for="(o, oi) in r.allowedOrigins"
-                      {...{ ":key": "oi" }}
-                    >
-                      <div class="cors-tag-item">
-                        <input
-                          type="text"
-                          class="input input--sm"
-                          {...{ "x-model": "r.allowedOrigins[oi]" }}
-                          placeholder="*"
-                        />
-                        <button
-                          type="button"
-                          class="btn btn--danger-ghost btn--xs"
-                          {...{
-                            "@click": `removeCorsValue(i, 'allowedOrigins', oi)`,
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </template>
-                    <button
-                      type="button"
-                      class="btn btn--sm"
-                      {...{ "@click": `addCorsValue(i, 'allowedOrigins')` }}
-                    >
-                      + オリジン
-                    </button>
-                  </div>
-                </div>
-                <div class="form-row">
-                  <label class="form-label">
-                    許可ヘッダー{" "}
-                    <span class="form-label__hint">（省略可）</span>
-                  </label>
-                  <div class="cors-tag-list">
-                    <template
-                      x-for="(h, hi) in r.allowedHeaders"
-                      {...{ ":key": "hi" }}
-                    >
-                      <div class="cors-tag-item">
-                        <input
-                          type="text"
-                          class="input input--sm"
-                          {...{ "x-model": "r.allowedHeaders[hi]" }}
-                          placeholder="Content-Type"
-                        />
-                        <button
-                          type="button"
-                          class="btn btn--danger-ghost btn--xs"
-                          {...{
-                            "@click": `removeCorsValue(i, 'allowedHeaders', hi)`,
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </template>
-                    <button
-                      type="button"
-                      class="btn btn--sm"
-                      {...{ "@click": `addCorsValue(i, 'allowedHeaders')` }}
-                    >
-                      + ヘッダー
-                    </button>
-                  </div>
-                </div>
+                <CorsValueList
+                  field="allowedOrigins"
+                  itemVar="o"
+                  label="許可オリジン"
+                  placeholder="*"
+                  addLabel="+ オリジン"
+                />
+                <CorsValueList
+                  field="allowedHeaders"
+                  itemVar="h"
+                  label="許可ヘッダー"
+                  hint="（省略可）"
+                  placeholder="Content-Type"
+                  addLabel="+ ヘッダー"
+                />
                 <div class="form-row s3-settings-page__form-row--compact">
                   <label class="form-label">最大エージ（秒）</label>
                   <input

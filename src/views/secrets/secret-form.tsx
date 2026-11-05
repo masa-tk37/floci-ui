@@ -15,16 +15,28 @@ export function SecretForm({ init }: SecretFormProps) {
     init.mode === "edit"
       ? `/secrets/${encodeResourceName(init.name)}`
       : "/secrets"
+  const copy =
+    init.mode === "create"
+      ? {
+          title: "Secret を作成",
+          heading: "Secrets Manager に登録",
+          subtitle: "新しい Secret を設定します。",
+        }
+      : init.isBinary
+        ? {
+            title: `Binary Secret · ${init.name}`,
+            heading: "Binary Secret",
+            subtitle: "Binary secret は UI から更新できません。",
+          }
+        : {
+            title: `編集 · ${init.name}`,
+            heading: "Secret を編集",
+            subtitle: "Secret の設定を更新します。",
+          }
 
   return (
     <Layout
-      title={
-        init.mode === "create"
-          ? "Secret を作成"
-          : init.isBinary
-            ? `Binary Secret · ${init.name}`
-            : `編集 · ${init.name}`
-      }
+      title={copy.title}
       active="secrets"
       contentMode="form"
       crumbs={
@@ -45,20 +57,8 @@ export function SecretForm({ init }: SecretFormProps) {
     >
       <div class="secrets-form-page">
         <section class="page-header">
-          <h1 class="page-title">
-            {init.mode === "create"
-              ? "Secrets Manager に登録"
-              : init.isBinary
-                ? "Binary Secret"
-                : "Secret を編集"}
-          </h1>
-          <p class="page-subtitle">
-            {init.mode === "create"
-              ? "新しい Secret を設定します。"
-              : init.isBinary
-                ? "Binary secret は UI から更新できません。"
-                : "Secret の設定を更新します。"}
-          </p>
+          <h1 class="page-title">{copy.heading}</h1>
+          <p class="page-subtitle">{copy.subtitle}</p>
         </section>
 
         <div {...mountComponentAttrs("secret-form")}>

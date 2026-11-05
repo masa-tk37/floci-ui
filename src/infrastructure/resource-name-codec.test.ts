@@ -24,6 +24,14 @@ describe("decodeResourceName", () => {
     }
   })
 
+  it("rejects malformed or non-canonical identifiers", () => {
+    for (const encoded of ["YQ!!", "YR", "YQ=="]) {
+      expect(() => decodeResourceName(encoded)).toThrow(
+        expect.objectContaining({ code: "InvalidInput" }),
+      )
+    }
+  })
+
   it("throws InvalidInput for an empty encoded value", () => {
     expect(() => decodeResourceName("")).toThrow(ServiceError)
     expect(() => decodeResourceName("")).toThrow(
