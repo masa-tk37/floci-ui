@@ -312,8 +312,8 @@ export function createSqsQueueDetailController(
       this.open = true
     },
 
-    close() {
-      if (this.sending || this.batchSending) return
+    close(force = false) {
+      if (!force && (this.sending || this.batchSending)) return
       this.open = false
       this.error = ""
       this.batchError = ""
@@ -427,8 +427,8 @@ export function createSqsQueueDetailController(
       this.purgeOpen = true
     },
 
-    closePurge() {
-      if (this.purging) return
+    closePurge(force = false) {
+      if (!force && this.purging) return
       this.purgeOpen = false
       this.purgeError = ""
     },
@@ -478,12 +478,9 @@ export function createSqsQueueDetailController(
       return formatJsonValue(this.selectedMsg?.body ?? "")
     },
 
-    async copyBody() {
-      try {
-        await navigator.clipboard.writeText(this.selectedMsg?.body ?? "")
-      } catch {
-        dispatchToast({ kind: "error", message: "コピーできませんでした" })
-      }
+    closeMessage(force = false) {
+      if (!force && this.deleting) return
+      this.selectedMsg = null
     },
 
     selectMsg(msg: PeekedMessage) {

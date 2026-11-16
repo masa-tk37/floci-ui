@@ -40,11 +40,19 @@ describe("Layout", () => {
     expect(html).toContain("c--appShell l--flex is--container")
   })
 
-  it("renders an accessible delete dialog", () => {
+  it("renders the delete confirmation as a native dialog", () => {
     const html = render(<Layout title="Test">content</Layout>)
 
-    expect(html).toContain('role="dialog"')
-    expect(html).toContain('aria-modal="true"')
+    expect(html).toContain("<dialog")
     expect(html).toContain('aria-labelledby="delete-modal-title"')
+    expect(html).not.toContain('role="dialog"')
+    expect(html).not.toContain("aria-modal")
+  })
+
+  it("declares both color schemes so the page follows the system without JS", () => {
+    const html = render(<Layout title="Test">content</Layout>)
+
+    expect(html).toContain('<meta name="color-scheme" content="light dark"')
+    expect(html).not.toContain("data-theme")
   })
 })

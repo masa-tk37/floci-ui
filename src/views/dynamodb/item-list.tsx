@@ -1,8 +1,10 @@
 import { Html } from "@elysiajs/html"
 import { escapeHtml } from "@kitajs/html"
 import { mountComponentAttrs } from "../client"
+import { CopyButton } from "../copy-button"
 import { IconEdit, IconSearch, IconSettings, IconTrash } from "../icons"
 import { Layout } from "../layout"
+import { Modal } from "../modal"
 import { ResourceRail } from "../resource-rail"
 
 interface ItemListProps {
@@ -258,30 +260,25 @@ export function ItemList({
             ) : null}
           </nav>
         </div>
-        <template x-if="selectedCell">
-          <div
-            class="modal-overlay"
-            {...{
-              "@click.self": "closeCell()",
-              "@keydown.escape.window": "closeCell()",
-            }}
-          >
-            <div class="modal modal--wide">
+        <Modal
+          open="selectedCell !== null"
+          close="closeCell"
+          labelledBy="ddb-cell-modal-title"
+          wide
+        >
+          <template x-if="selectedCell">
+            <div>
               <div class="modal__header-row">
-                <h2 class="modal__title">
+                <h2 id="ddb-cell-modal-title" class="modal__title">
                   フィールド: <span x-text="selectedCell.fieldName" />
                 </h2>
-                <button
-                  type="button"
-                  class="btn btn--ghost btn--sm"
-                  {...{ "@click": "copyCell()" }}
-                >
-                  コピー
-                </button>
+                <CopyButton target="ddb-cell-value" label="フィールドの値をコピー" />
               </div>
               <pre
+                id="ddb-cell-value"
                 class="ddb-item-list__json-preview"
                 x-text="selectedCell.formatted"
+                {...{ ":data-copy-value": "selectedCell.raw" }}
               />
               <div class="modal__actions">
                 <button
@@ -293,8 +290,8 @@ export function ItemList({
                 </button>
               </div>
             </div>
-          </div>
-        </template>
+          </template>
+        </Modal>
       </div>
     </Layout>
   )

@@ -993,3 +993,42 @@ input[type="checkbox"] {
     margin-top: 0;
   }
 }
+
+.copy {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--s10);
+}
+
+.copy__button {
+  min-inline-size: 24px;
+  min-block-size: 24px;
+}
+
+.copy__icon {
+  display: inline-flex;
+}
+
+.copy__button:not([data-copied]) .copy__icon--done,
+.copy__button[data-copied] .copy__icon--idle {
+  display: none;
+}
+
+/* Hidden with opacity, not display, so the status stays in the accessibility tree and is announced. */
+.copy__status {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.copy__status:not(:empty) {
+  opacity: 1;
+}
+
+.copy__button[data-failed] + .copy__status {
+  color: var(--color-danger);
+}

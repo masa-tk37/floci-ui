@@ -33,10 +33,10 @@ export function SecretDetail({ detail }: SecretDetailProps) {
             </h1>
             {detail.arn ? (
               <>
-                <p class="page-subtitle mono" safe>
+                <p id="secret-arn" class="page-subtitle mono" safe>
                   {detail.arn}
                 </p>
-                <CopyButton />
+                <CopyButton target="secret-arn" label="ARN をコピー" />
               </>
             ) : null}
           </div>

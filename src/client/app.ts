@@ -3,6 +3,7 @@ import {
   createCognitoPoolDetailController,
   createCognitoUserDetailController,
 } from "./controllers/cognito"
+import { bindCopyCommands } from "./controllers/copy-button"
 import {
   createDynamoCreateTableController,
   createDynamoItemEditController,
@@ -74,4 +75,5 @@ window.Alpine = Alpine
 window.mount = mount
 
 bindDeleteModalTriggers()
+bindCopyCommands()
 Alpine.start()

@@ -48,10 +48,10 @@ export function CognitoUserDetail({
             </h1>
             {detail.sub ? (
               <>
-                <p class="page-subtitle mono" safe>
+                <p id="cognito-user-sub" class="page-subtitle mono" safe>
                   {detail.sub}
                 </p>
-                <CopyButton />
+                <CopyButton target="cognito-user-sub" label="sub をコピー" />
               </>
             ) : null}
           </div>

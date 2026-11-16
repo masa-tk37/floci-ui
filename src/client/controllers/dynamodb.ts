@@ -414,12 +414,5 @@ export function createDynamoItemListController() {
     closeCell() {
       this.selectedCell = null
     },
-
-    async copyCell() {
-      if (!this.selectedCell) return
-      try {
-        await navigator.clipboard.writeText(this.selectedCell.raw)
-      } catch {}
-    },
   }
 }

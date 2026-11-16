@@ -13,6 +13,7 @@ import { CopyButton } from "../copy-button"
 import { formatDate, PLACEHOLDER } from "../format"
 import { IconPlus, IconSearch, IconTrash } from "../icons"
 import { Layout } from "../layout"
+import { Modal } from "../modal"
 import { CognitoStatusBadge, EnabledBadge } from "./status-badge"
 
 // The URL parser collapses "." and ".." path segments (even percent-encoded),
@@ -83,52 +84,46 @@ function CreateModal({
     ...requiredFields.map((field) => `!${controller}.${field}.trim()`),
   ].join(" || ")
 
+  const titleId = `cognito-${controller}-modal-title`
+
   return (
-    <div
-      x-show={`${controller}.open`}
-      class="modal-overlay"
-      x-cloak
-      {...{ "@click": `${controller}.close()` }}
+    <Modal
+      open={`${controller}.open`}
+      close={`${controller}.close`}
+      labelledBy={titleId}
+      wide={wide}
     >
-      <div
-        class={wide ? "modal modal--wide" : "modal"}
-        {...{
-          "@click.stop": "",
-          "@keydown.escape.window": `${controller}.close()`,
-        }}
-      >
-        <h2 class="modal__title" safe>
-          {title}
-        </h2>
-        {children}
-        <div class="error-inline" x-show={`${controller}.error`} x-cloak>
-          <span x-text={`${controller}.error`} />
-        </div>
-        <div class="modal__actions">
-          <button
-            type="button"
-            class="btn btn--primary"
-            {...{
-              "@click": `${controller}.submit({ ${payload} })`,
-              ":disabled": disabled,
-            }}
-          >
-            <span x-show={`!${controller}.submitting`}>追加</span>
-            <span x-show={`${controller}.submitting`}>追加中…</span>
-          </button>
-          <button
-            type="button"
-            class="btn btn--ghost"
-            {...{
-              "@click": `${controller}.close()`,
-              ":disabled": `${controller}.submitting`,
-            }}
-          >
-            キャンセル
-          </button>
-        </div>
+      <h2 id={titleId} class="modal__title" safe>
+        {title}
+      </h2>
+      {children}
+      <div class="error-inline" x-show={`${controller}.error`} x-cloak>
+        <span x-text={`${controller}.error`} />
       </div>
-    </div>
+      <div class="modal__actions">
+        <button
+          type="button"
+          class="btn btn--primary"
+          {...{
+            "@click": `${controller}.submit({ ${payload} })`,
+            ":disabled": disabled,
+          }}
+        >
+          <span x-show={`!${controller}.submitting`}>追加</span>
+          <span x-show={`${controller}.submitting`}>追加中…</span>
+        </button>
+        <button
+          type="button"
+          class="btn btn--ghost"
+          {...{
+            "@click": `${controller}.close()`,
+            ":disabled": `${controller}.submitting`,
+          }}
+        >
+          キャンセル
+        </button>
+      </div>
+    </Modal>
   )
 }
 
@@ -159,10 +154,13 @@ export function UserPoolDetail({
             <h1 class="page-title">
               <span safe>{pool.name}</span>
             </h1>
-            <p class="page-subtitle mono" safe>
+            <p id="cognito-pool-id" class="page-subtitle mono" safe>
               {pool.id}
             </p>
-            <CopyButton />
+            <CopyButton
+              target="cognito-pool-id"
+              label="User Pool ID をコピー"
+            />
           </div>
           <div class="page-header__actions">
             <button
@@ -401,111 +399,102 @@ export function UserPoolDetail({
           </CreateModal>
         </section>
 
-        <div
-          x-show="groupMembers.isOpen"
-          class="modal-overlay"
-          x-cloak
-          {...{ "@click": "groupMembers.close()" }}
+        <Modal
+          open="groupMembers.isOpen"
+          close="groupMembers.close"
+          labelledBy="cognito-group-members-modal-title"
+          wide
         >
-          <div
-            class="modal modal--wide"
-            {...{
-              "@click.stop": "",
-              "@keydown.escape.window":
-                "groupMembers.isOpen && groupMembers.close()",
-            }}
-          >
-            <h2 class="modal__title">
-              Group メンバー: <span x-text="groupMembers.groupName" />
-            </h2>
-            <div class="form-row">
-              <label class="form-label" for="cognito-group-member-username">
-                Username を追加
-              </label>
-              <div class="input-with-btn">
-                <input
-                  id="cognito-group-member-username"
-                  type="text"
-                  class="input"
-                  x-model="groupMembers.newUsername"
-                  placeholder="alice"
-                  {...{ "@keydown.enter": "groupMembers.addMember()" }}
-                />
-                <button
-                  type="button"
-                  class="btn btn--primary btn--sm"
-                  {...{
-                    "@click": "groupMembers.addMember()",
-                    ":disabled":
-                      "groupMembers.adding || !groupMembers.newUsername.trim()",
-                  }}
-                >
-                  <span x-show="!groupMembers.adding">追加</span>
-                  <span x-show="groupMembers.adding">追加中…</span>
-                </button>
-              </div>
-            </div>
-            <div class="error-inline" x-show="groupMembers.error" x-cloak>
-              <span x-text="groupMembers.error" />
-            </div>
-            <div class="cognito-panel__body">
-              <template x-if="groupMembers.loading">
-                <p class="empty-state empty-state--plain">読み込み中…</p>
-              </template>
-              <template x-if="!groupMembers.loading && groupMembers.users.length === 0">
-                <p class="empty-state empty-state--plain">メンバーがいません</p>
-              </template>
-              <template x-if="!groupMembers.loading && groupMembers.users.length > 0">
-                <div class="data-table-wrap">
-                  <table class="data-table">
-                    <thead>
-                      <tr>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Status</th>
-                        <th class="data-table__actions">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template
-                        x-for="user in groupMembers.users"
-                        {...{ ":key": "user.username" }}
-                      >
-                        <tr>
-                          <td x-text="user.username" />
-                          <td x-text="user.email || '—'" />
-                          <td x-text="user.status" />
-                          <td class="data-table__actions">
-                            <button
-                              type="button"
-                              class="btn btn--danger-ghost btn--sm"
-                              {...{
-                                "@click":
-                                  "groupMembers.removeMember(user.username)",
-                                ":disabled": "groupMembers.removing",
-                              }}
-                            >
-                              {IconTrash}削除
-                            </button>
-                          </td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                </div>
-              </template>
-            </div>
-            <div class="modal__actions">
+          <h2 id="cognito-group-members-modal-title" class="modal__title">
+            Group メンバー: <span x-text="groupMembers.groupName" />
+          </h2>
+          <div class="form-row">
+            <label class="form-label" for="cognito-group-member-username">
+              Username を追加
+            </label>
+            <div class="input-with-btn">
+              <input
+                id="cognito-group-member-username"
+                type="text"
+                class="input"
+                x-model="groupMembers.newUsername"
+                placeholder="alice"
+                {...{ "@keydown.enter": "groupMembers.addMember()" }}
+              />
               <button
                 type="button"
-                class="btn btn--ghost"
-                {...{ "@click": "groupMembers.close()" }}
+                class="btn btn--primary btn--sm"
+                {...{
+                  "@click": "groupMembers.addMember()",
+                  ":disabled":
+                    "groupMembers.adding || !groupMembers.newUsername.trim()",
+                }}
               >
-                閉じる
+                <span x-show="!groupMembers.adding">追加</span>
+                <span x-show="groupMembers.adding">追加中…</span>
               </button>
             </div>
           </div>
-        </div>
+          <div class="error-inline" x-show="groupMembers.error" x-cloak>
+            <span x-text="groupMembers.error" />
+          </div>
+          <div class="cognito-panel__body">
+            <template x-if="groupMembers.loading">
+              <p class="empty-state empty-state--plain">読み込み中…</p>
+            </template>
+            <template x-if="!groupMembers.loading && groupMembers.users.length === 0">
+              <p class="empty-state empty-state--plain">メンバーがいません</p>
+            </template>
+            <template x-if="!groupMembers.loading && groupMembers.users.length > 0">
+              <div class="data-table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Username</th>
+                      <th>Email</th>
+                      <th>Status</th>
+                      <th class="data-table__actions">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template
+                      x-for="user in groupMembers.users"
+                      {...{ ":key": "user.username" }}
+                    >
+                      <tr>
+                        <td x-text="user.username" />
+                        <td x-text="user.email || '—'" />
+                        <td x-text="user.status" />
+                        <td class="data-table__actions">
+                          <button
+                            type="button"
+                            class="btn btn--danger-ghost btn--sm"
+                            {...{
+                              "@click":
+                                "groupMembers.removeMember(user.username)",
+                              ":disabled": "groupMembers.removing",
+                            }}
+                          >
+                            {IconTrash}削除
+                          </button>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+          </div>
+          <div class="modal__actions">
+            <button
+              type="button"
+              class="btn btn--ghost"
+              {...{ "@click": "groupMembers.close()" }}
+            >
+              閉じる
+            </button>
+          </div>
+        </Modal>
 
         <section class="panel">
           <div class="panel__header">

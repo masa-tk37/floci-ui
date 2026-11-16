@@ -33,10 +33,10 @@ export function ParameterDetail({ detail }: ParameterDetailProps) {
             </h1>
             {detail.arn ? (
               <>
-                <p class="page-subtitle mono" safe>
+                <p id="ssm-parameter-arn" class="page-subtitle mono" safe>
                   {detail.arn}
                 </p>
-                <CopyButton />
+                <CopyButton target="ssm-parameter-arn" label="ARN をコピー" />
               </>
             ) : null}
           </div>

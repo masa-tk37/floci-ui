@@ -323,9 +323,6 @@ export function createS3ObjectListController(
       this.folderName = ""
       this.folderError = ""
       this.isFolderModalOpen = true
-      setTimeout(() => {
-        ;(this as unknown as AlpineMagic).$refs.folderNameInput?.focus()
-      }, 0)
     },
     closeFolderModal(force = false) {
       if (!force && this.folderSubmitting) return

@@ -50,8 +50,8 @@ export function createDeleteModalController() {
       this.isOpen = true
     },
 
-    cancel() {
-      if (this.loading) return
+    cancel(force = false) {
+      if (!force && this.loading) return
       this.isOpen = false
     },
 
@@ -165,33 +165,54 @@ export function createRevealToggleController(
   }
 }
 
+type ColorScheme = "light" | "dark"
+
+const THEME_KEY = "theme"
+
+export function nextStoredScheme(
+  rendered: ColorScheme,
+  systemIsDark: boolean,
+): ColorScheme | null {
+  const target: ColorScheme = rendered === "dark" ? "light" : "dark"
+  const system: ColorScheme = systemIsDark ? "dark" : "light"
+  return target === system ? null : target
+}
+
+function colorSchemeMeta(): HTMLMetaElement | null {
+  return document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]')
+}
+
+function asColorScheme(value: string | null | undefined): ColorScheme | null {
+  return value === "light" || value === "dark" ? value : null
+}
+
+function applyColorScheme(stored: string | null): void {
+  const meta = colorSchemeMeta()
+  if (meta) meta.content = asColorScheme(stored) ?? "light dark"
+}
+
 export function createThemeToggleController() {
   return {
-    isDark: false,
-
     init() {
-      this.isDark =
-        document.documentElement.getAttribute("data-theme") === "dark"
-      window
-        .matchMedia("(prefers-color-scheme: dark)")
-        .addEventListener("change", (event) => {
-          try {
-            if (localStorage.getItem("theme")) return
-          } catch {}
-          this.isDark = event.matches
-          document.documentElement.setAttribute(
-            "data-theme",
-            event.matches ? "dark" : "light",
-          )
-        })
+      window.addEventListener("storage", (event) => {
+        if (event.key === THEME_KEY || event.key === null) {
+          applyColorScheme(event.newValue)
+        }
+      })
     },
 
     toggle() {
-      this.isDark = !this.isDark
-      const next = this.isDark ? "dark" : "light"
-      document.documentElement.setAttribute("data-theme", next)
+      const systemIsDark = window.matchMedia(
+        "(prefers-color-scheme: dark)",
+      ).matches
+      const rendered =
+        asColorScheme(colorSchemeMeta()?.content) ??
+        (systemIsDark ? "dark" : "light")
+      const next = nextStoredScheme(rendered, systemIsDark)
+      applyColorScheme(next)
       try {
-        localStorage.setItem("theme", next)
+        if (next) localStorage.setItem(THEME_KEY, next)
+        else localStorage.removeItem(THEME_KEY)
       } catch {}
     },
   }

@@ -186,8 +186,12 @@ export function ObjectList({
               </div>
             ) : null}
 
-            <Modal show="isFolderModalOpen" close="closeFolderModal()">
-              <h2 class="modal__title">フォルダ作成</h2>
+            <Modal
+              open="isFolderModalOpen"
+              close="closeFolderModal"
+              labelledBy="s3-folder-modal-title"
+            >
+              <h2 id="s3-folder-modal-title" class="modal__title">フォルダ作成</h2>
               <p class="modal__body">
                 現在の保存先:
                 <span
@@ -207,7 +211,7 @@ export function ObjectList({
                   class="input"
                   placeholder="reports"
                   x-model="folderName"
-                  x-ref="folderNameInput"
+                  autofocus
                 />
               </div>
               <div class="error-inline" x-show="folderError" x-cloak>
@@ -238,8 +242,13 @@ export function ObjectList({
               </div>
             </Modal>
 
-            <Modal show="isUploadModalOpen" close="closeUploadModal()" wide>
-              <h2 class="modal__title">ファイルアップロード</h2>
+            <Modal
+              open="isUploadModalOpen"
+              close="closeUploadModal"
+              labelledBy="s3-upload-modal-title"
+              wide
+            >
+              <h2 id="s3-upload-modal-title" class="modal__title">ファイルアップロード</h2>
               <div class="form-row">
                 <label class="form-label" for="s3-upload-prefix">
                   保存先 prefix
@@ -303,8 +312,13 @@ export function ObjectList({
               </div>
             </Modal>
 
-            <Modal show="isRenameModalOpen" close="closeRenameModal()" wide>
-              <h2 class="modal__title">
+            <Modal
+              open="isRenameModalOpen"
+              close="closeRenameModal"
+              labelledBy="s3-rename-modal-title"
+              wide
+            >
+              <h2 id="s3-rename-modal-title" class="modal__title">
                 <span x-text="renameTitle">名前変更</span>
               </h2>
               <p class="modal__body" x-text="renameDescription" />
@@ -360,8 +374,13 @@ export function ObjectList({
               </div>
             </Modal>
 
-            <Modal show="isPropertyModalOpen" close="closePropertyModal()" wide>
-              <h2 class="modal__title">プロパティ編集</h2>
+            <Modal
+              open="isPropertyModalOpen"
+              close="closePropertyModal"
+              labelledBy="s3-property-modal-title"
+              wide
+            >
+              <h2 id="s3-property-modal-title" class="modal__title">プロパティ編集</h2>
               <div class="s3-object-list-page__property-summary">
                 <span class="s3-object-list-page__property-summary-label">
                   対象オブジェクト

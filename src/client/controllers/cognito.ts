@@ -28,8 +28,8 @@ function createModalFormController(
     submitting: false,
     error: null as string | null,
 
-    close() {
-      if (this.submitting) return
+    close(force = false) {
+      if (!force && this.submitting) return
       this.open = false
       this.error = null
       for (const [key, value] of Object.entries(fields)) {

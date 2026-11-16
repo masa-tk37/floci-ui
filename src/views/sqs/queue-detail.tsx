@@ -97,10 +97,13 @@ export function QueueDetail({
                 </h1>
                 {attributes.queueArn ? (
                   <>
-                    <p class="page-subtitle" safe>
+                    <p id="sqs-queue-arn" class="page-subtitle" safe>
                       {attributes.queueArn}
                     </p>
-                    <CopyButton />
+                    <CopyButton
+                      target="sqs-queue-arn"
+                      label="キュー ARN をコピー"
+                    />
                   </>
                 ) : null}
               </div>
@@ -231,9 +234,16 @@ export function QueueDetail({
                     </tbody>
                   </table>
                 </div>
-                <Modal show="open" close="close()" wide>
+                <Modal
+                  open="open"
+                  close="close"
+                  labelledBy="sqs-send-modal-title"
+                  wide
+                >
                   <div class="modal__header-row">
-                    <h2 class="modal__title">メッセージを送信</h2>
+                    <h2 id="sqs-send-modal-title" class="modal__title">
+                      メッセージを送信
+                    </h2>
                     <div class="modal__tab-toggle">
                       <button
                         type="button"
@@ -372,21 +382,22 @@ export function QueueDetail({
                 </Modal>
               </section>
 
-              <template x-if="selectedMsg">
-                <div
-                  class="modal-overlay"
-                  {...{ "@click.self": "selectedMsg = null" }}
-                >
-                  <div class="modal modal--wide">
+              <Modal
+                open="selectedMsg !== null"
+                close="closeMessage"
+                labelledBy="sqs-message-modal-title"
+                wide
+              >
+                <template x-if="selectedMsg">
+                  <div>
                     <div class="modal__header-row">
-                      <h2 class="modal__title">メッセージ詳細</h2>
-                      <button
-                        type="button"
-                        class="btn btn--ghost btn--sm"
-                        {...{ "@click": "copyBody()" }}
-                      >
-                        コピー
-                      </button>
+                      <h2 id="sqs-message-modal-title" class="modal__title">
+                        メッセージ詳細
+                      </h2>
+                      <CopyButton
+                        target="sqs-message-body"
+                        label="メッセージ本文をコピー"
+                      />
                     </div>
                     <p class="sqs-queue-detail-page__message-id">
                       ID: <span x-text="selectedMsg.id" />
@@ -398,9 +409,11 @@ export function QueueDetail({
                       <p class="error-text" x-text="bodyError" />
                     </template>
                     <pre
+                      id="sqs-message-body"
                       x-show="!bodyLoading && !bodyError"
                       x-text="formattedBody"
                       class="sqs-queue-detail-page__message-body"
+                      {...{ ":data-copy-value": "selectedMsg.body" }}
                     />
                     <div class="error-inline" x-show="deleteError" x-cloak>
                       <strong>エラー:</strong> <span x-text="deleteError" />
@@ -420,57 +433,54 @@ export function QueueDetail({
                       <button
                         type="button"
                         class="btn btn--ghost"
-                        {...{ "@click": "selectedMsg = null" }}
+                        {...{
+                          "@click": "closeMessage()",
+                          ":disabled": "deleting",
+                        }}
                       >
                         閉じる
                       </button>
                     </div>
                   </div>
-                </div>
-              </template>
+                </template>
+              </Modal>
 
-              <div
-                x-show="purgeOpen"
-                class="modal-overlay"
-                x-cloak
-                {...{ "@click.self": "closePurge()" }}
+              <Modal
+                open="purgeOpen"
+                close="closePurge"
+                labelledBy="sqs-purge-modal-title"
               >
-                <div
-                  class="modal"
-                  {...{
-                    "@click.stop": "",
-                    "@keydown.escape.window": "closePurge()",
-                  }}
-                >
-                  <h2 class="modal__title">キューをパージ</h2>
-                  <p class="sqs-queue-detail-page__purge-desc">
-                    キュー内の全メッセージを削除します。この操作は取り消せません。
-                  </p>
-                  <div class="error-inline" x-show="purgeError" x-cloak>
-                    <strong>エラー:</strong> <span x-text="purgeError" />
-                  </div>
-                  <div class="modal__actions">
-                    <button
-                      type="button"
-                      class="btn btn--danger"
-                      {...{
-                        "@click": "confirmPurge()",
-                        ":disabled": "purging",
-                      }}
-                    >
-                      <span x-show="!purging">パージ</span>
-                      <span x-show="purging">パージ中…</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn--ghost"
-                      {...{ "@click": "closePurge()", ":disabled": "purging" }}
-                    >
-                      キャンセル
-                    </button>
-                  </div>
+                <h2 id="sqs-purge-modal-title" class="modal__title">
+                  キューをパージ
+                </h2>
+                <p class="sqs-queue-detail-page__purge-desc">
+                  キュー内の全メッセージを削除します。この操作は取り消せません。
+                </p>
+                <div class="error-inline" x-show="purgeError" x-cloak>
+                  <strong>エラー:</strong> <span x-text="purgeError" />
                 </div>
-              </div>
+                <div class="modal__actions">
+                  <button
+                    type="button"
+                    class="btn btn--danger"
+                    {...{
+                      "@click": "confirmPurge()",
+                      ":disabled": "purging",
+                    }}
+                  >
+                    <span x-show="!purging">パージ</span>
+                    <span x-show="purging">パージ中…</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn--ghost"
+                    autofocus
+                    {...{ "@click": "closePurge()", ":disabled": "purging" }}
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </Modal>
             </div>
           </div>
         </div>

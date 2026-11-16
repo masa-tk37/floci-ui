@@ -2,22 +2,12 @@
   font-family: var(--font-mono);
 }
 
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: var(--s20);
-  background: rgb(7 13 18 / 56%);
-  backdrop-filter: blur(3px);
-}
-
 .modal {
+  color: var(--color-text);
   background: var(--color-surface-raised);
   max-width: 440px;
   width: 90%;
+  max-height: calc(100dvh - 2 * var(--s20));
   box-shadow: var(--shadow-lift);
   padding: var(--s30);
   border: 1px solid var(--divider);
@@ -55,6 +45,17 @@
 
 .modal--wide {
   max-width: 640px;
+}
+
+.modal:modal {
+  overscroll-behavior: contain;
+}
+
+.modal::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgb(7 13 18 / 56%);
+  backdrop-filter: blur(3px);
 }
 
 [x-cloak] {

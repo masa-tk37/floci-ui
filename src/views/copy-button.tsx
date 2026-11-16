@@ -1,21 +1,30 @@
 import { Html } from "@elysiajs/html"
 import { IconCheck, IconCopy } from "./icons"
 
-export function CopyButton() {
+interface CopyButtonProps {
+  /** id of the element whose text (or `data-copy-value`) is copied. */
+  target: string
+  label: string
+}
+
+export function CopyButton({ target, label }: CopyButtonProps) {
   return (
-    <button
-      type="button"
-      class="btn btn--ghost btn--sm"
-      x-data="{ copied: false }"
-      {...{
-        "@click":
-          "navigator.clipboard.writeText($el.previousElementSibling.textContent); copied = true; setTimeout(() => copied = false, 1500)",
-      }}
-    >
-      <span x-show="!copied">{IconCopy}</span>
-      <span x-show="copied" x-cloak>
-        {IconCheck}
-      </span>
-    </button>
+    <span class="copy">
+      <button
+        type="button"
+        class="btn btn--ghost btn--sm copy__button"
+        aria-label={label}
+        {...{ command: "--copy", commandfor: target }}
+      >
+        <span class="copy__icon copy__icon--idle" aria-hidden="true">
+          {IconCopy}
+        </span>
+        <span class="copy__icon copy__icon--done" aria-hidden="true">
+          {IconCheck}
+        </span>
+      </button>
+      {/* A button's children are presentational, so the live region sits beside it. */}
+      <span class="copy__status" role="status" />
+    </span>
   )
 }

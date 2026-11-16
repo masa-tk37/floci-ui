@@ -4,17 +4,26 @@
    and alias onto them. Declare a value once, here. */
 
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
 
-  --base: #f4f6f8;
-  --base-2: #ffffff;
-  --text: #17212b;
-  --text-2: #5b6874;
-  --divider: #d9e0e5;
-  --link: #176b5a;
-  --brand: #176b5a;
-  --accent: #d8ebe6;
-  --neutral: #6c7883;
+  /* The <meta name="color-scheme"> override is only a presentational hint that
+     author CSS beats, so map it back onto the property. */
+  &:has(> head > meta[name="color-scheme"][content="dark"]) {
+    color-scheme: dark;
+  }
+  &:has(> head > meta[name="color-scheme"][content="light"]) {
+    color-scheme: light;
+  }
+
+  --base: light-dark(#f4f6f8, #10161b);
+  --base-2: light-dark(#ffffff, #182027);
+  --text: light-dark(#17212b, #edf2f5);
+  --text-2: light-dark(#5b6874, #a9b4bc);
+  --divider: light-dark(#d9e0e5, #35414a);
+  --link: light-dark(#176b5a, #83cbbb);
+  --brand: light-dark(#176b5a, #83cbbb);
+  --accent: light-dark(#d8ebe6, #203d37);
+  --neutral: light-dark(#6c7883, #a4afb7);
   --ff--base:
     "M PLUS 1", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -60,71 +69,71 @@
 
   --color-bg: var(--base);
   --color-surface: var(--base-2);
-  --color-surface-raised: #ffffff;
-  --color-surface-sunken: #eef2f4;
-  --color-warm-sand: #eef2f4;
+  --color-surface-raised: light-dark(#ffffff, #202a32);
+  --color-surface-sunken: light-dark(#eef2f4, #121a20);
+  --color-warm-sand: light-dark(#eef2f4, #202a32);
 
   --color-text: var(--text);
   --color-text-muted: var(--text-2);
-  --color-text-dim: #7b8792;
+  --color-text-dim: light-dark(#7b8792, #85929c);
   --color-text-on-accent: #ffffff;
 
-  --color-border: #e7ecef;
+  --color-border: light-dark(#e7ecef, #2a353d);
   --color-border-strong: var(--divider);
-  --color-ring: #b8c4cc;
+  --color-ring: light-dark(#b8c4cc, #4b5963);
 
-  --color-accent: #216f60;
-  --color-accent-hover: #185b4e;
+  --color-accent: light-dark(#216f60, #79beae);
+  --color-accent-hover: light-dark(#185b4e, #91cebf);
   --color-accent-soft: var(--accent);
-  --color-accent-ink: #154d42;
-  --color-ink-on-accent: #ffffff;
+  --color-accent-ink: light-dark(#154d42, #a4dbce);
+  --color-ink-on-accent: light-dark(#ffffff, #0d2923);
   --color-accent-text: var(--link);
-  --color-accent-text-strong: #105347;
+  --color-accent-text-strong: light-dark(#105347, #a3ddcf);
 
   --color-primary-soft: var(--accent);
-  --color-primary-ink: #154d42;
+  --color-primary-ink: light-dark(#154d42, #a4dbce);
 
   --color-theme: var(--link);
-  --color-theme-hover: #105347;
+  --color-theme-hover: light-dark(#105347, #a3ddcf);
   --color-theme-soft: var(--accent);
-  --color-theme-ink: #154d42;
-  --color-service: #6ea899;
+  --color-theme-ink: light-dark(#154d42, #a4dbce);
+  --color-service: light-dark(#6ea899, #79beae);
 
-  --color-focus: #197562;
+  --color-focus: light-dark(#197562, #83cbbb);
 
   /* Service identity — macaron-6 (dot / badge / card accent only).
      base = dot/border, soft = badge bg, ink = badge text (AA on soft). */
-  --color-dynamodb: #ffb877;
-  --color-dynamodb-soft: #ffe9d3;
-  --color-dynamodb-ink: #8a4a16;
-  --color-s3: #9ed0a4;
-  --color-s3-soft: #e1f1e3;
-  --color-s3-ink: #2c6135;
-  --color-sqs: #bfa8e8;
-  --color-sqs-soft: #ece4f8;
-  --color-sqs-ink: #543a85;
+  --color-dynamodb: light-dark(#ffb877, #ffba7e);
+  --color-dynamodb-soft: light-dark(#ffe9d3, #3a2914);
+  --color-dynamodb-ink: light-dark(#8a4a16, #f6c486);
+  --color-s3: light-dark(#9ed0a4, #a6d8ac);
+  --color-s3-soft: light-dark(#e1f1e3, #1c3320);
+  --color-s3-ink: light-dark(#2c6135, #b3dcb6);
+  --color-sqs: light-dark(#bfa8e8, #c8b4f0);
+  --color-sqs-soft: light-dark(#ece4f8, #2a2440);
+  --color-sqs-ink: light-dark(#543a85, #d4c4f2);
   --color-ssm: #f0d785;
-  --color-ssm-soft: #faf0cf;
-  --color-ssm-ink: #6b550f;
-  --color-secrets: #f2a0bf;
-  --color-secrets-soft: #fce0eb;
-  --color-secrets-ink: #8a3257;
-  --color-cognito: #8fc8e6;
-  --color-cognito-soft: #ddeef8;
-  --color-cognito-ink: #1f5778;
+  --color-ssm-soft: light-dark(#faf0cf, #332c14);
+  --color-ssm-ink: light-dark(#6b550f, #ecd28a);
+  --color-secrets: light-dark(#f2a0bf, #f5abc7);
+  --color-secrets-soft: light-dark(#fce0eb, #391f2b);
+  --color-secrets-ink: light-dark(#8a3257, #f3acc6);
+  --color-cognito: light-dark(#8fc8e6, #9bd0ee);
+  --color-cognito-soft: light-dark(#ddeef8, #16293a);
+  --color-cognito-ink: light-dark(#1f5778, #aed8ef);
 
-  --color-danger: #c2342f; /* filled bg / text; #fff = 5.3:1 */
-  --color-danger-hover: #a82a26;
-  --color-danger-bg: #fbe8e8;
-  --color-danger-border: #ecbcbc;
-  --color-danger-ink: #8f211d;
-  --color-success: #3a9e64;
-  --color-success-soft: #e1f3e8;
-  --color-success-ink: #1f6b41;
-  --color-warning: #b8860b;
-  --color-warning-soft: #fbf3d1;
-  --color-warning-border: #ead79a;
-  --color-warning-ink: #7a5f14;
+  --color-danger: light-dark(#c2342f, #d8584f); /* filled bg / text; #fff = 5.3:1 */
+  --color-danger-hover: light-dark(#a82a26, #e16b63);
+  --color-danger-bg: light-dark(#fbe8e8, #3a1f1e);
+  --color-danger-border: light-dark(#ecbcbc, #5e3331);
+  --color-danger-ink: light-dark(#8f211d, #f3aca8);
+  --color-success: light-dark(#3a9e64, #54b87c);
+  --color-success-soft: light-dark(#e1f3e8, #18301f);
+  --color-success-ink: light-dark(#1f6b41, #a6dcbb);
+  --color-warning: light-dark(#b8860b, #d3a017);
+  --color-warning-soft: light-dark(#fbf3d1, #352a0e);
+  --color-warning-border: light-dark(#ead79a, #5a4a1f);
+  --color-warning-ink: light-dark(#7a5f14, #ecd083);
 
   --radius-sm: var(--bdrs--10);
   --radius-md: var(--bdrs--10);
@@ -134,96 +143,12 @@
   --radius-pill: var(--bdrs--99);
 
   --shadow-ring: 0 0 0 1px var(--color-border-strong);
-  --shadow-xs: 0 1px 2px rgb(23 33 43 / 5%);
-  --shadow-sm: 0 2px 8px rgb(23 33 43 / 6%);
-  --shadow-md: 0 10px 28px rgb(23 33 43 / 14%);
-  --shadow-lg: 0 18px 48px rgb(23 33 43 / 20%);
+  --shadow-xs: 0 1px 2px light-dark(rgb(23 33 43 / 5%), rgb(0 0 0 / 24%));
+  --shadow-sm: 0 2px 8px light-dark(rgb(23 33 43 / 6%), rgb(0 0 0 / 28%));
+  --shadow-md: 0 10px 28px light-dark(rgb(23 33 43 / 14%), rgb(0 0 0 / 42%));
+  --shadow-lg: 0 18px 48px light-dark(rgb(23 33 43 / 20%), rgb(0 0 0 / 52%));
   --shadow-whisper: none;
   --shadow-lift: var(--shadow-md);
-}
-
-/* Kept at :root[data-theme] rather than [data-theme] so it outranks the :root
-   aliases above, which would otherwise tie on specificity and fall to source order. */
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
-  --base: #10161b;
-  --base-2: #182027;
-  --text: #edf2f5;
-  --text-2: #a9b4bc;
-  --divider: #35414a;
-  --link: #83cbbb;
-  --brand: #83cbbb;
-  --accent: #203d37;
-  --neutral: #a4afb7;
-
-  --color-surface-raised: #202a32;
-  --color-surface-sunken: #121a20;
-  --color-warm-sand: #202a32;
-  --color-text-dim: #85929c;
-  /* --color-text-on-accent stays #ffffff (inherited from :root) in both
-     themes — the danger fill it sits on is dark in light and dark mode. */
-
-  --color-border: #2a353d;
-  --color-border-strong: var(--divider);
-  --color-ring: #4b5963;
-
-  --color-accent: #79beae;
-  --color-accent-hover: #91cebf;
-  --color-accent-soft: var(--accent);
-  --color-accent-ink: #a4dbce;
-  --color-ink-on-accent: #0d2923;
-  --color-accent-text: var(--link);
-  --color-accent-text-strong: #a3ddcf;
-
-  --color-primary-soft: var(--accent);
-  --color-primary-ink: #a4dbce;
-
-  --color-theme: var(--link);
-  --color-theme-hover: #a3ddcf;
-  --color-theme-soft: var(--accent);
-  --color-theme-ink: #a4dbce;
-  --color-service: #79beae;
-
-  --color-focus: #83cbbb;
-
-  --color-dynamodb: #ffba7e;
-  --color-dynamodb-soft: #3a2914;
-  --color-dynamodb-ink: #f6c486;
-  --color-s3: #a6d8ac;
-  --color-s3-soft: #1c3320;
-  --color-s3-ink: #b3dcb6;
-  --color-sqs: #c8b4f0;
-  --color-sqs-soft: #2a2440;
-  --color-sqs-ink: #d4c4f2;
-  --color-ssm: #f0d785;
-  --color-ssm-soft: #332c14;
-  --color-ssm-ink: #ecd28a;
-  --color-secrets: #f5abc7;
-  --color-secrets-soft: #391f2b;
-  --color-secrets-ink: #f3acc6;
-  --color-cognito: #9bd0ee;
-  --color-cognito-soft: #16293a;
-  --color-cognito-ink: #aed8ef;
-
-  --color-danger: #d8584f;
-  --color-danger-hover: #e16b63;
-  --color-danger-bg: #3a1f1e;
-  --color-danger-border: #5e3331;
-  --color-danger-ink: #f3aca8;
-  --color-success: #54b87c;
-  --color-success-soft: #18301f;
-  --color-success-ink: #a6dcbb;
-  --color-warning: #d3a017;
-  --color-warning-soft: #352a0e;
-  --color-warning-border: #5a4a1f;
-  --color-warning-ink: #ecd083;
-
-  --shadow-xs: 0 1px 2px rgb(0 0 0 / 24%);
-  --shadow-sm: 0 2px 8px rgb(0 0 0 / 28%);
-  --shadow-md: 0 10px 28px rgb(0 0 0 / 42%);
-  --shadow-lg: 0 18px 48px rgb(0 0 0 / 52%);
 }
 
 /* Applied via data-service on <body> and on each dashboard card, so the sidebar,

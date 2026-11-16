@@ -199,6 +199,31 @@ body {
   display: block;
 }
 
+.theme-toggle__option--dark {
+  display: none;
+}
+
+/* Same scheme resolution as the color-scheme mapping in tokens.css; display: none also drops the inactive label from the accessibility tree. */
+@media (prefers-color-scheme: dark) {
+  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) {
+    .theme-toggle__option--light {
+      display: none;
+    }
+    .theme-toggle__option--dark {
+      display: block;
+    }
+  }
+}
+
+:root:has(> head > meta[name="color-scheme"][content="dark"]) {
+  .theme-toggle__option--light {
+    display: none;
+  }
+  .theme-toggle__option--dark {
+    display: block;
+  }
+}
+
 .breadcrumb__link {
   color: var(--color-text-muted);
   min-width: 0;
